@@ -158,7 +158,7 @@ class Domserver:
             try:
                 db = sqlite3.connect(dbfile)
             except sqlite3.Error:
-                raise domserverError("Cannot connect to database (%s)" % dbfile)
+                raise DomserverError("Cannot connect to database (%s)" % dbfile)
             else:
                 db.close()
                 
@@ -185,11 +185,12 @@ class Domserver:
         try:
             logfile = self.config[file_key]
         except KeyError:
-            raise domserverError("No log file specified")
+            raise DomserverError("No log file specified")
         if not os.access(logfile, os.F_OK):
-            raise domserverError("Log file not found (%s)" % logfile)
-        if not os.access(logfile, os.W_OK):
-            raise domserverError("Log file cannot be written (%s)" % logfile)
+            try:
+                open(logfile, 'w').close()
+            except IOError:
+                raise DomserverError("Log file cannot be written (%s)" % logfile)
         
         try:
             loglevel = int(self.config[level_key])

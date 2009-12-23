@@ -16,6 +16,7 @@
 __all__ = [
     'Amule',
     'Bittorrent',
+    'FileManager',
     'SystemActions'
 ]
 

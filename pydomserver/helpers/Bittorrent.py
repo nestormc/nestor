@@ -1,17 +1,17 @@
-# This file is part of avhes.
+# This file is part of domserver.
 #
-# avhes is free software: you can redistribute it and/or modify
+# domserver is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
 #
-# avhes is distributed in the hope that it will be useful,
+# domserver is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
 #
 # You should have received a copy of the GNU General Public License
-# along with avhes.  If not, see <http://www.gnu.org/licenses/>.
+# along with domserver.  If not, see <http://www.gnu.org/licenses/>.
 
 import libtorrent as lt
 import os
@@ -80,8 +80,8 @@ class DictTorrent:
             
         
 class BitTorrent:
-    def __init__(self, avhes, logger):
-        self.avhes = avhes
+    def __init__(self, domserver, logger):
+        self.domserver = domserver
         self.log = logger
         self.s = None
         
@@ -91,8 +91,8 @@ class BitTorrent:
     def start(self):
         self.s = lt.session()
         self.s.listen_on(
-            self.avhes.config['bt.port'],
-            self.avhes.config['bt.port']
+            self.domserver.config['bt.port'],
+            self.domserver.config['bt.port']
         )
         
     def stop(self, save_callback=None):
@@ -133,8 +133,8 @@ class BitTorrent:
             
 class BTObjectProvider(ObjectProvider):
 
-    def __init__(self, avhes, bt):
-        ObjectProvider.__init__(self, avhes, 'bt')
+    def __init__(self, domserver, bt):
+        ObjectProvider.__init__(self, domserver, 'bt')
         self.bt = bt
         
     def get_oids(self):
@@ -222,8 +222,8 @@ class BTObjectProvider(ObjectProvider):
                     
 class BTObjectProcessor(ObjectProcessor):
     
-    def __init__(self, avhes, name, objs):
-        ObjectProcessor.__init__(self, avhes, name)
+    def __init__(self, domserver, name, objs):
+        ObjectProcessor.__init__(self, domserver, name)
         self.objs = objs
         
     def get_action_names(self, obj=None):
@@ -305,8 +305,8 @@ class BTDropCatcher(ProcessEvent):
         
 class BTWatcherThread(Thread):
     
-    def __init__(self, avhes, logger, objs, bt):
-        Thread.__init__(self, avhes, logger)
+    def __init__(self, domserver, logger, objs, bt):
+        Thread.__init__(self, domserver, logger)
         self.bt = bt
         self.objs = objs
         self.running = False
@@ -325,7 +325,7 @@ class BTWatcherThread(Thread):
             os.unlink(torrent)
             return
             
-        rundir = self.avhes.config['bt.run_dir']
+        rundir = self.domserver.config['bt.run_dir']
         rtorrent = os.path.join(rundir, "%s.torrent" % hash)
         destdir = os.path.join(rundir, "%s" % hash)
         
@@ -356,7 +356,7 @@ class BTWatcherThread(Thread):
         self.bt.start()
         
         # Restart previously running torrents
-        rundir = self.avhes.config["bt.run_dir"]
+        rundir = self.domserver.config["bt.run_dir"]
         for r, d, files in os.walk(rundir):
             for f in files:
                 if f.endswith(".torrent"):
@@ -368,7 +368,7 @@ class BTWatcherThread(Thread):
             d[0:len(d)] = []
             
         # Add existing torrents in DROP directory
-        dropdir = self.avhes.config["bt.drop_dir"]
+        dropdir = self.domserver.config["bt.drop_dir"]
         for r, d, files in os.walk(dropdir):
             for f in files:
                 self.add_torrent_file(dropdir, f)
@@ -378,7 +378,7 @@ class BTWatcherThread(Thread):
         self.ntf = ThreadedNotifier(self.wm, BTDropCatcher(self))
         self.ntf.start()
         self.watch = self.wm.add_watch(
-            self.avhes.config['bt.drop_dir'],
+            self.domserver.config['bt.drop_dir'],
             EventsCodes.OP_FLAGS['IN_CREATE'],
             rec = False
         )
@@ -416,13 +416,13 @@ class BTWatcherThread(Thread):
                 self.bt.del_torrent(hash)
                 
                 # Remove .torrent file
-                rundir = self.avhes.config['bt.run_dir']
+                rundir = self.domserver.config['bt.run_dir']
                 tfile = os.path.join(rundir, "%s.torrent" % hash)
                 os.unlink(tfile)
                 
                 # Move to lobby
                 dldir = os.path.join(rundir, hash)
-                lobby = self.avhes.config['media.lobby_dir']
+                lobby = self.domserver.config['media.lobby_dir']
                 for r, dirs, files in os.walk(dldir):
                     for f in dirs + files:
                         orig = os.path.join(dldir, f)
@@ -446,13 +446,13 @@ class BTWatcherThread(Thread):
                 self.bt.del_torrent(hash)
                 while hash in self.bt.keys():
                     time.sleep(0.2)
-                rundir = self.avhes.config['bt.run_dir']
+                rundir = self.domserver.config['bt.run_dir']
                 os.unlink(os.path.join(rundir, "%s.torrent" % hash))
                 shutil.rmtree(os.path.join(rundir, hash))
                 self.objs.remove_object(hash)
                 self.verbose("Torrent '%s' canceled" % hash)
         
-    def avhes_run(self):
+    def domserver_run(self):
         self.initialize()
         
         self.running = True
@@ -473,23 +473,23 @@ class BTWatcherThread(Thread):
 
 class BitTorrentHelper:
 
-    def __init__(self, avhes):
+    def __init__(self, domserver):
         self.reset()
-        self.avhes = avhes
-        self.avhes.info("Initializing bittorrent helper")
-        self.logger = avhes.get_logger('bt.log_file', 'bt.log_level')
-        self.bt = BitTorrent(self.avhes, self.logger)
+        self.domserver = domserver
+        self.domserver.info("Initializing bittorrent helper")
+        self.logger = domserver.get_logger('bt.log_file', 'bt.log_level')
+        self.bt = BitTorrent(self.domserver, self.logger)
         
-        self.objs = BTObjectProvider(self.avhes, self.bt)
-        self.proc = BTObjectProcessor(self.avhes, 'bt', self.objs)
-        avhes.register_object_interface(
+        self.objs = BTObjectProvider(self.domserver, self.bt)
+        self.proc = BTObjectProcessor(self.domserver, 'bt', self.objs)
+        domserver.register_object_interface(
             name='bt',
             provider=self.objs,
             processor=self.proc
         )
     
-        self.config_changed(self.avhes.config['bt.enabled'])
-        self.avhes.config.register_callback('bt.enabled', self.config_changed)
+        self.config_changed(self.domserver.config['bt.enabled'])
+        self.domserver.config.register_callback('bt.enabled', self.config_changed)
             
     def __del__(self):
         self.disable()
@@ -505,11 +505,11 @@ class BitTorrentHelper:
         self._tid = None
         
     def enable(self):
-        self._thread = BTWatcherThread(self.avhes,self.logger,self.objs,self.bt)
-        self._tid = self.avhes.add_thread(self._thread, True)
+        self._thread = BTWatcherThread(self.domserver,self.logger,self.objs,self.bt)
+        self._tid = self.domserver.add_thread(self._thread, True)
     
     def disable(self):
         if self._tid is not None:
-            self.avhes.remove_thread(self._tid)
+            self.domserver.remove_thread(self._tid)
         self.reset()
         

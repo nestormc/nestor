@@ -61,7 +61,7 @@ def parse_options():
         option_error(str(err))
         
     ret = {}
-    ret['kwargs'] = {}
+    ret['kwargs'] = {'daemonize':True}
     for o, a in opts:
         if o in ("-h", "--help"):
             usage()
@@ -89,7 +89,7 @@ def parse_options():
 def print_config(**kwargs):
     kwargs['daemonize'] = False
     kwargs['dry_run'] = True
-    domserver = domserver(**kwargs)
+    domserver = Domserver(**kwargs)
     found_keys = domserver.config.keys()
     print "Configured options:"
     for k in sorted(found_keys):
@@ -98,7 +98,7 @@ def print_config(**kwargs):
     print "Default options:"
     for k in sorted(DOMSERVER_CONFIG_DEFAULTS.keys()):
         if k not in found_keys:
-            print "  %s = %s" % (k, domserver_CONFIG_DEFAULTS[k])
+            print "  %s = %s" % (k, DOMSERVER_CONFIG_DEFAULTS[k])
             
             
 def set_config(config, **kwargs):
@@ -116,14 +116,14 @@ def set_config(config, **kwargs):
     
     if domserverRunning(os.path.basename(sys.argv[0])):
         for k in setconf.keys():
-            ret = remoteSetConfig(Domserver, k, setconf[k])
+            ret = remoteSetConfig(domserver, k, setconf[k])
             if ret:
                 print "Setting %s to %s" % (k, setconf[k])
             else:
                 print "Could not set %s to %s !" % (k, setconf[k])
     else:
         for k in setconf.keys():
-            Domserver.config[k] = setconf[k]
+            domserver.config[k] = setconf[k]
             print "Setting %s to %s" % (k, setconf[k])
             
             

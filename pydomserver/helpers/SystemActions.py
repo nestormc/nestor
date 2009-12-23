@@ -1,17 +1,17 @@
-# This file is part of avhes.
+# This file is part of domserver.
 #
-# avhes is free software: you can redistribute it and/or modify
+# domserver is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
 #
-# avhes is distributed in the hope that it will be useful,
+# domserver is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
 #
 # You should have received a copy of the GNU General Public License
-# along with avhes.  If not, see <http://www.gnu.org/licenses/>.
+# along with domserver.  If not, see <http://www.gnu.org/licenses/>.
 
 import os
 import shutil
@@ -27,13 +27,13 @@ from ..SocketInterfaceCodes import SIC
             
 class FileOpThread(Thread):
     
-    def __init__(self, avhes, tag):
-        Thread.__init__(self, avhes)
+    def __init__(self, domserver, tag):
+        Thread.__init__(self, domserver)
         self.tag = tag
         self.apid = -1
         
     def create_action_progress(self):
-        db = self.avhes.get_main_db()
+        db = self.domserver.get_main_db()
         curs = db.cursor()
         curs.execute("""INSERT INTO action_progress
                         (status, progress, msg)
@@ -46,7 +46,7 @@ class FileOpThread(Thread):
         
     def set_action_progress(self, status, progress, msg = ''):
         if self.apid != -1:
-            db = self.avhes.get_main_db()
+            db = self.domserver.get_main_db()
             curs = db.cursor()
             curs.execute("""SELECT COUNT(*)
                             FROM action_progress
@@ -62,7 +62,7 @@ class FileOpThread(Thread):
             db.close()
             return count
         
-    def avhes_run(self):
+    def domserver_run(self):
         try:
             action = self.tag.get_subtag(SIC.TAG_ACTION_FILE_OP).value
             source = self.tag.get_subtag(SIC.TAG_ACTION_FILE_FROM).value
@@ -202,11 +202,11 @@ class FileOpThread(Thread):
     
 class SystemActionsHelper:
 
-    def __init__(self, avhes):
-        self.avhes = avhes
-        self.avhes.info("Initializing system actions helper")
-        self.logger = avhes
-        avhes.register_packet_handler(SIC.OP_ACTIONS, self.handle_sipacket)
+    def __init__(self, domserver):
+        self.domserver = domserver
+        self.domserver.info("Initializing system actions helper")
+        self.logger = domserver
+        domserver.register_packet_handler(SIC.OP_ACTIONS, self.handle_sipacket)
         
     def handle_sipacket(self, client, packet):
         tag = packet.get_tag(SIC.TAG_ACTION_TYPE)
@@ -222,9 +222,9 @@ class SystemActionsHelper:
             client.answer_success()
             return True
         elif tag.value == 'file':
-            thread = FileOpThread(self.avhes, tag)
+            thread = FileOpThread(self.domserver, tag)
             apid = thread.create_action_progress()
-            self.avhes.add_thread(thread)
+            self.domserver.add_thread(thread)
             client.answer_processing(apid)
             return True
         elif tag.value == 'sysinfo':
@@ -242,14 +242,14 @@ class SystemActionsHelper:
         
         existing = True
         try:
-            oldval = self.avhes.config[key]
+            oldval = self.domserver.config[key]
         except KeyError:
             oldval = None
             existing = False
         
         if not existing or oldval != val:
-            self.avhes.verbose("Setting %s to %s" % (key, val))
-            self.avhes.config[key] = val
+            self.domserver.verbose("Setting %s to %s" % (key, val))
+            self.domserver.config[key] = val
                 
     def get_sysinfo(self):
         packet = SIPacket(opcode = SIC.OP_SUCCESS)

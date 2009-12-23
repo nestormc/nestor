@@ -1,17 +1,17 @@
-# This file is part of avhes.
+# This file is part of domserver.
 #
-# avhes is free software: you can redistribute it and/or modify
+# domserver is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
 #
-# avhes is distributed in the hope that it will be useful,
+# domserver is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
 #
 # You should have received a copy of the GNU General Public License
-# along with avhes.  If not, see <http://www.gnu.org/licenses/>.
+# along with domserver.  If not, see <http://www.gnu.org/licenses/>.
 
 import hashlib
 import os
@@ -30,8 +30,8 @@ WATCHER_INITIAL_WAIT = 2
                
 class AmuleRunWatcherThread(RunWatcherThread):
 
-    def __init__(self, avhes, logger, command, **kwargs):
-        RunWatcherThread.__init__(self, avhes, logger, command, **kwargs)
+    def __init__(self, domserver, logger, command, **kwargs):
+        RunWatcherThread.__init__(self, domserver, logger, command, **kwargs)
         self.ec_connected = False
         self.ec_client = AmuleClient()
         self.last_search = ''
@@ -40,9 +40,9 @@ class AmuleRunWatcherThread(RunWatcherThread):
         try:
             self.ec_client.connect(
                 'localhost',
-                int(self.avhes.config['amule.ec_port']),
-                self.avhes.config['amule.ec_password'],
-                'avhes',
+                int(self.domserver.config['amule.ec_port']),
+                self.domserver.config['amule.ec_password'],
+                'domserver',
                 'TODOversion'
             )
         except ECConnectionError:
@@ -80,15 +80,15 @@ class AmuleObjectProvider(ObjectProvider):
     results = {}
     results_last_update = 0
 
-    def __init__(self, avhes, helper):
-        ObjectProvider.__init__(self, avhes, 'amule')
+    def __init__(self, domserver, helper):
+        ObjectProvider.__init__(self, domserver, 'amule')
         self.helper = helper
         
     def _amclient(self):
         return self.helper.get_amule_client()
         
     def _update_downloads(self):
-        interval = self.avhes.config['amule.update_interval']
+        interval = self.domserver.config['amule.update_interval']
         if self.downloads_last_update + interval > time.time():
             return
         client = self._amclient()
@@ -102,7 +102,7 @@ class AmuleObjectProvider(ObjectProvider):
                 seeds_xfer = queue[hash]['src_xfer']
                 speed = queue[hash]['speed']
                 
-                # AVHES dl statuses:
+                # domserver dl statuses:
                 #   0   stop
                 #   1   init
                 #   2   pause
@@ -133,7 +133,7 @@ class AmuleObjectProvider(ObjectProvider):
         self.downloads_last_update = time.time()
         
     def _update_results(self):
-        interval = self.avhes.config['amule.update_interval']
+        interval = self.domserver.config['amule.update_interval']
         if self.results_last_update + interval > time.time():
             return
         client = self._amclient()
@@ -249,23 +249,23 @@ class AmuleObjectProvider(ObjectProvider):
     
 class AmuleHelper:
 
-    def __init__(self, avhes):
+    def __init__(self, domserver):
         self._reset()
-        self.avhes = avhes
-        self.avhes.info("Initializing amule helper")
-        self.logger = avhes.get_logger('amule.log_file', 'amule.log_level')
+        self.domserver = domserver
+        self.domserver.info("Initializing amule helper")
+        self.logger = domserver.get_logger('amule.log_file', 'amule.log_level')
         
-        self.objs = AmuleObjectProvider(avhes, self)
-        avhes.register_object_interface(
+        self.objs = AmuleObjectProvider(domserver, self)
+        domserver.register_object_interface(
             name='amule',
             provider=self.objs
         )
         
         self.update_amule_config()
-        self.config_changed(avhes.config['amule.enabled'])
+        self.config_changed(domserver.config['amule.enabled'])
         
-        avhes.config.register_callback('amule.enabled', self.config_changed)
-        avhes.register_packet_handler(SIC.OP_AMULE, self.handle_sipacket)
+        domserver.config.register_callback('amule.enabled', self.config_changed)
+        domserver.register_packet_handler(SIC.OP_AMULE, self.handle_sipacket)
         
     def _reset(self):
         self._rw_thread = None
@@ -279,39 +279,39 @@ class AmuleHelper:
         
     def enable(self):
         self._rw_thread = AmuleRunWatcherThread(
-            self.avhes,
+            self.domserver,
             self.logger,
             '/usr/share/amule/amuled_home_wrapper.sh',
             pidof = 'amuled',
             kill = True,
             user = 'amule'
         )
-        self._rw_tid = self.avhes.add_thread(self._rw_thread, True)
+        self._rw_tid = self.domserver.add_thread(self._rw_thread, True)
     
     def disable(self):
         if self._rw_tid is not None:
-            self.avhes.remove_thread(self._rw_tid)
+            self.domserver.remove_thread(self._rw_tid)
         self._reset()
         
     def update_amule_config(self):
-        acfile = os.path.join(self.avhes.config["amule.amule_dir"],
+        acfile = os.path.join(self.domserver.config["amule.amule_dir"],
                                 "amule.conf")
-        ec_password = self.avhes.config["amule.ec_password"]
+        ec_password = self.domserver.config["amule.ec_password"]
         settings = {
             "[eMule]": {
-                "Port": self.avhes.config["amule.tcp_port"],
-                "UDPPort": self.avhes.config["amule.udp_port"],
-                "MaxUpload": self.avhes.config["amule.max_upload"],
-                "MaxDownload": self.avhes.config["amule.max_download"]
+                "Port": self.domserver.config["amule.tcp_port"],
+                "UDPPort": self.domserver.config["amule.udp_port"],
+                "MaxUpload": self.domserver.config["amule.max_upload"],
+                "MaxDownload": self.domserver.config["amule.max_download"]
             },
             "[ExternalConnect]": {
                 "AcceptExternalConnections": 1,
-                "ECPort": self.avhes.config["amule.ec_port"],
+                "ECPort": self.domserver.config["amule.ec_port"],
                 "ECPassword": hashlib.md5(ec_password).hexdigest()
             },
             "[UserEvents/DownloadCompleted]": {
                 "CoreEnabled": 1,
-                "CoreCommand": 'mv "%%FILE" "%s"' % self.avhes.config["media.lobby_dir"]
+                "CoreCommand": 'mv "%%FILE" "%s"' % self.domserver.config["media.lobby_dir"]
             }
         }
 
