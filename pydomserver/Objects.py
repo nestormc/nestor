@@ -397,6 +397,18 @@ class ObjectProcessor:
     def execute_action(self, actwrapper):
         raise ImplementationError("execute_action not overriden")
         
+    def _describe_action(self, actwrapper):
+        if actwrapper.name not in self.get_action_names(actwrapper.obj):
+            raise ObjectError("invalid-action-spec")
+            
+        return self.describe_action(actwrapper)
+        
+    def _execute_action(self, actwrapper):
+        if actwrapper.name not in self.get_action_names(actwrapper.obj):
+            raise ObjectError("invalid-action-spec")
+            
+        return self.execute_action(actwrapper)
+        
         
 
 class ObjectAccessor:
@@ -422,22 +434,22 @@ class ObjectAccessor:
         try:
             owner, oid = objref.split(':', 1)
         except ValueError:
-            raise ObjectError("Invalid object reference '%s'" % objref)
+            raise ObjectError("invalid-oid:%s" % objref)
         try:
             source = self.providers[owner]
         except KeyError:
-            raise ObjectError("'%s' provides no objects" % owner)
+            raise ObjectError("invalid-provider:%s" % owner)
         return ObjectWrapper(owner, oid, source)
         
     def act(self, actref, objref=None):
         try:
             owner, aid = actref.split(':', 1)
         except ValueError:
-            raise ObjectError("Invalid action reference '%s'" % actref)
+            raise ObjectError("invalid-action:%s" % actref)
         try:
             source = self.processors[owner]
         except KeyError:
-            raise ObjectError("'%s' cannot process actions" % owner)
+            raise ObjectError("invalid-processor:%s" % owner)
         return ActionWrapper(self, owner, aid, objref)
         
     def __getitem__(self, key):
@@ -454,9 +466,8 @@ class ObjectAccessor:
         owner = tag.value
         
         if owner not in self.providers.keys():
-            msg = "Invalid object owner '%s'" % owner
-            self.domserver.verbose(msg)
-            raise ObjectError(msg)
+            self.domserver.verbose("Invalid object provider '%s'" % owner)
+            raise ObjectError("invalid-provider:%s" % owner)
                     
         exprtag = tag.get_subtag(SIC.TAG_OBJ_EXPRESSION)
         expr = OExpression.from_sitag(exprtag)
@@ -478,13 +489,15 @@ class ObjectAccessor:
                 found = tn
                 break;
         if tag is None:
-            return False
+            client.answer_failure("no-query")
+            return
     
         if found == SIC.TAG_OBJ_MATCHQUERY:
             try:
                 objs = self.match_searchtag(tag)
-            except ObjectError:
-                return False
+            except ObjectError, e:
+                client.answer_failure(e)
+                return
                 
             try:
                 detail_level = tag.get_subtag(SIC.TAG_OBJ_DETAIL_LEVEL).value
@@ -497,13 +510,14 @@ class ObjectAccessor:
                 tag.subtags.extend(o.to_sitags(detail_level))
                 resp.tags.append(tag)
             client.answer(resp)
-            return True
+            return
             
         elif found == SIC.TAG_OBJ_REFERENCE:
             try:
                 o = self.obj(tag.value)
-            except ObjectError:
-                return False
+            except ObjectError, e:
+                client.answer_failure(e)
+                return
                 
             try:
                 detail_level = tag.get_subtag(SIC.TAG_OBJ_DETAIL_LEVEL).value
@@ -515,7 +529,7 @@ class ObjectAccessor:
             tag.subtags.extend(o.to_sitags(detail_level))
             resp.tags.append(tag)
             client.answer(resp)
-            return True
+            return
             
         elif found == SIC.TAG_ACTION_QUERY:
             try:
@@ -523,58 +537,64 @@ class ObjectAccessor:
                 o = self.obj(objref)
             except AttributeError:
                 o = None
-            except ObjectError:
-                return False
+            except ObjectError, e:
+                client.answer_failure(e)
+                return
                 
             try:
                 proc = self.processors[tag.value]
             except KeyError:
                 self.domserver.verbose("Invalid object processor '%s'" % tag.value)
-                return False
+                client.answer_failure("invalid-processor:%s" % tag.value)
+                return
                 
             names = proc.get_action_names(o)
             acts = [ActionWrapper(self, proc.name, n, o) for n in names]
             for a in acts:
-                proc.describe_action(a)
+                proc._describe_action(a)
             
             resp = SIPacket(opcode=SIC.OP_OBJECTS)
             resp.tags.extend([a.to_sitag() for a in acts])
             client.answer(resp)
-            return True
+            return
                 
         elif found == SIC.TAG_ACTION_EXECUTE:
             try:
                 actiontag = tag.get_subtag(SIC.TAG_ACTION_ID)
                 action = actiontag.value
             except AttributeError:
-                return False
+                self.answer_failure("no-action-id")
+                return
             
             try:
                 objref = tag.get_subtag(SIC.TAG_OBJ_REFERENCE).value
                 o = self.obj(objref)
             except AttributeError:
                 o = None
-            except ObjectError:
-                return False
+            except ObjectError, e:
+                self.answer_failure(e)
+                return
                 
             try:
                 proc = self.processors[tag.value]
             except KeyError:
                 self.domserver.verbose("Invalid object processor '%s'" % tag.value)
-                return False
+                client.answer_failure("invalid-processor:%s" % tag.value)
+                return
                 
             act = ActionWrapper(self, proc.name, action, o)
-            proc.describe_action(act)
+            proc._describe_action(act)
             try:
                 ret = act.execute(actiontag)
-            except ObjectError:
-                return False
+            except ObjectError, e:
+                client.answer_failure(e)
+                return
                 
             if ret is not None:
                 client.answer_progress(ret)
             else:
                 client.answer_success()
-            return True
+            return
             
             
 class ObjectWrapper:
@@ -589,7 +609,7 @@ class ObjectWrapper:
         self.provider = provider
         
         if not self.provider.valid_oid(oid):
-            raise ObjectError("Object '%s:%s' is unknown" % (owner, oid))
+            raise ObjectError("invalid-oid:%s:%s" % (owner, oid))
                 
     def to_sitags(self, detail_level):
         return self.provider.to_sitags(self.oid, detail_level)
@@ -630,7 +650,7 @@ class ActionWrapper:
         try:
             self.processor = accessor.processors[owner]
         except KeyError:
-            raise ObjectError("'%s' cannot process actions" % owner)
+            raise ObjectError("invalid-processor:%s" % owner)
         
     def add_param(self, name, flags=0, default=None):
         self.params[name] = {
@@ -667,13 +687,13 @@ class ActionWrapper:
             if t.name == SIC.TAG_ACTION_PARAM:
                 st = t.get_subtag(SIC.TAG_ACTION_PARAM_VALUE)
                 if st is None:
-                    raise ObjectError("Param '%s' has no value" % t.value)
+                    raise ObjectError("missing-param-value:%s" % t.value)
                 vals[t.value] = st.value
         for name in self.params.keys():
             if vals.has_key(name):
                 self.params[name]["value"] = vals[name]
             elif self.params[name]['flags'] & SIC.APFLAG_OPTION_OPTIONAL == 0:
-                raise ObjectError("Mandatory param '%s' missing" % name)
-        return self.processor.execute_action(self)
+                raise ObjectError("missing-param:%s" % name)
+        return self.processor._execute_action(self)
         
 

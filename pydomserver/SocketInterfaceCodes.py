@@ -16,7 +16,7 @@
 
 class _SICodes:
     # Protocol version
-    VERSION                      = 0x0009
+    VERSION                      = 0x000A
 
     # Packet flags
     FLAGS_BLANK                  = 0x0000
@@ -41,7 +41,6 @@ class _SICodes:
 
     # Tag names
     TAG_ACTION_TYPE              = 0x0001
-    TAG_BITTORNADO_TYPE          = 0x0002
     TAG_AMULE_TYPE               = 0x0003
     TAG_ACTION_CONFIG_KEY        = 0x0100
     TAG_ACTION_CONFIG_VAL        = 0x0101
@@ -74,6 +73,7 @@ class _SICodes:
     TAG_AMULE_STATUS_KEY         = 0x0321
     TAG_AMULE_STATUS_VAL         = 0x0322
     
+    TAG_FAILURE_REASON           = 0x00FF
     
     TAG_OBJ_REFERENCE            = 0x0700
     TAG_OBJ_MATCHQUERY           = 0x0701

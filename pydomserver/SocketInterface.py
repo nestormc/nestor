@@ -326,13 +326,16 @@ class SIClientThread(Thread):
         self._rfile.close()
         self._wfile.close()
         self._sock.close()
+        self.answered = True
         
     def answer_success(self):
         packet = SIPacket(opcode = SIC.OP_SUCCESS)
         self.answer(packet)
         
-    def answer_failure(self):
+    def answer_failure(self, reason=None):
         packet = SIPacket(opcode = SIC.OP_FAILURE)
+        if reason is not None:
+            packet.tags.append(SIStringTag(reason, SIC.TAG_FAILURE_REASON))
         self.answer(packet)
         
     def answer_processing(self, apid):
@@ -345,16 +348,17 @@ class SIClientThread(Thread):
             handler = self._handlers[packet.opcode]
         except KeyError:
             self.debug("No handler found for opcode %02x" % packet.opcode)
-            self.answer_failure()
+            self.answer_failure("invalid-opcode:%02x" % packet.opcode)
             return
             
+        self.answered = False
         if handler['args'] is None:
-            answered = handler['func'](self, packet)
+            handler['func'](self, packet)
         else:
-            answered = handler['func'](self, packet, handler['args'])
+             handler['func'](self, packet, handler['args'])
             
-        if not answered:
-            self.answer_failure()
+        if not self.answered:
+            self.answer_failure("unknown")
         
     def domserver_run(self):
         raise_exc = True
@@ -362,8 +366,8 @@ class SIClientThread(Thread):
             try:
                 packet = self.read_packet()
             except SIVersionMismatch:
-            	self.verbose("SocketIface: client %s has wrong protocol version" %
-            				 repr(self.address))
+            	self.verbose("Client %s has wrong protocol version" %
+                    repr(self.address))
             	raise_exc = False
             	raise
             except struct.error:

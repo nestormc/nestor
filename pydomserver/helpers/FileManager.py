@@ -65,7 +65,7 @@ class StorageDeviceWatcher(Thread):
             
         self.verbose("New storage device: %s ('%s', %s, %.2fGB)" %
             (device_file, label, fstype, float(size) / 1024**3))
-        self.objs.add_device(device_file, labe, fstype, size, mounted,
+        self.objs.add_device(device_file, label, fstype, size, mounted,
             mount_point)
             
     def domserver_run(self):
@@ -80,7 +80,7 @@ class StorageDeviceWatcher(Thread):
 class FileObjectProvider(ObjectProvider):
     """Filesystem object provider
     
-    Provides files and folder as file:/path/to/item as well as external storage
+    Provides files and folders as file:/path/to/item as well as external storage
     devices as file:#/dev/xxx"""  
 
     _fprops = ['size', 'path', 'basename', 'dirname', 'owner', 'group', 'perms', 'mtime']
@@ -224,9 +224,6 @@ class FileObjectProcessor(ObjectProcessor):
     def describe_action(self, act):
         name = act.name
         obj = act.obj
-        
-        if name not in self.get_action_names(obj):
-            raise ObjectError("Invalid action specification")
             
         if name == 'rename':
             act.add_param('new-name', SIC.APFLAG_TYPE_STRING)
@@ -234,9 +231,6 @@ class FileObjectProcessor(ObjectProcessor):
     def execute_action(self, act):
         name = act.name
         obj = act.obj
-        
-        if name not in self.get_action_names(obj):
-            raise ObjectError("Invalid action specification")
             
         if name == 'delete':
             os.unlink(obj['path'])

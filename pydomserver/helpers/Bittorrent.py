@@ -261,9 +261,6 @@ class BTObjectProcessor(ObjectProcessor):
     def describe_action(self, act):
         name = act.name
         obj = act.obj
-        
-        if name not in self.get_action_names(obj):
-            raise ObjectError("Invalid action specification")
             
         noparam = ['torrent-cancel', 'torrent-resume', 'torrent-pause', 
             'torrent-unseed', 'torrent-seed', 'torrent-clear']
@@ -276,9 +273,6 @@ class BTObjectProcessor(ObjectProcessor):
     def execute_action(self, act):
         name = act.name
         obj = act.obj
-        
-        if name not in self.get_action_names(obj):
-            raise ObjectError("Invalid action specification")
             
         if name == 'seed':
             obj["seed"] = 1
