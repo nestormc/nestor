@@ -84,16 +84,15 @@ class BitTorrent:
         self.domserver = domserver
         self.log = logger
         self.s = None
+        self.options = {}
         
     def is_active(self):
         return not self.s is None
         
-    def start(self):
+    def start(self, port):
         self.s = lt.session()
-        self.s.listen_on(
-            self.domserver.config['bt.port'],
-            self.domserver.config['bt.port']
-        )
+        for k in self.options.keys():
+            self.set_option(k, self.options[k])
         
     def stop(self, save_callback=None):
         if self.is_active():
@@ -102,6 +101,17 @@ class BitTorrent:
                 save_callback(self)
             del(self.s)
             self.s = None
+            
+    def set_option(self, key, value):
+        if self.is_active():
+            if key == 'max_upload':
+                self.s.set_upload_rate_limit(value)
+            elif key == 'max_download':
+                self.s.set_download_rate_limit(value)
+            elif key == 'port':
+                self.s.listen_on(value, value)
+        else:
+            self.options[key] = value
         
     def add_torrent(self, torrent, destdir):
         if self.is_active():
@@ -227,10 +237,8 @@ class BTObjectProcessor(ObjectProcessor):
         self.objs = objs
         
     def get_action_names(self, obj=None):
-        if obj is None:
-            return []
-        elif obj.is_a("download") and obj.is_a("torrent"):
-            names = []
+        names = []
+        if obj is not None and obj.is_a("download") and obj.is_a("torrent"):
             status = obj.get_value("status")
             try:
                 seed = obj.get_value("seed")
@@ -248,13 +256,14 @@ class BTObjectProcessor(ObjectProcessor):
                 names.append('torrent-unseed' if seed else 'torrent-seed')
             if status == 6:
                 names.append('torrent-clear')
+        return names
                 
     def describe_action(self, act):
         name = act.name
         obj = act.obj
         
         if name not in self.get_action_names(obj):
-            raise ObjectError("Invalid action call")
+            raise ObjectError("Invalid action specification")
             
         noparam = ['torrent-cancel', 'torrent-resume', 'torrent-pause', 
             'torrent-unseed', 'torrent-seed', 'torrent-clear']
@@ -269,7 +278,7 @@ class BTObjectProcessor(ObjectProcessor):
         obj = act.obj
         
         if name not in self.get_action_names(obj):
-            raise ObjectError("Invalid action call")
+            raise ObjectError("Invalid action specification")
             
         if name == 'seed':
             obj["seed"] = 1
@@ -295,8 +304,6 @@ class BTDropCatcher(ProcessEvent):
         self.thread = thread
 
     def process_IN_CREATE(self, event):
-        if event.name.startswith('.'):
-            return
         time.sleep(1)
         while fileIsOpen(os.path.join(event.path, event.name)):
             time.sleep(1)
@@ -313,6 +320,13 @@ class BTWatcherThread(Thread):
         
     def add_torrent_file(self, path, name):
         torrent = os.path.join(path, name)
+        
+        if name.startswith("."):
+            try:
+                os.unlink(torrent)
+            except:
+                pass
+            return
         
         try:
             info = lt.torrent_info(lt.bdecode(open(torrent, 'rb').read()))
@@ -353,7 +367,7 @@ class BTWatcherThread(Thread):
         
     def initialize(self):
         self.verbose("Starting BitTorrent watcher thread")
-        self.bt.start()
+        self.bt.start(self.domserver.config['bt.port'])
         
         # Restart previously running torrents
         rundir = self.domserver.config["bt.run_dir"]
@@ -488,28 +502,41 @@ class BitTorrentHelper:
             processor=self.proc
         )
     
-        self.config_changed(self.domserver.config['bt.enabled'])
-        self.domserver.config.register_callback('bt.enabled', self.config_changed)
+        self.confkeys = ['enabled', 'max_upload', 'max_download']
+        for ck in self.confkeys:
+            self.config_changed(ck, self.domserver.config['bt.%s' % ck])
+            self.domserver.config.register_callback(
+                'bt.%s' % ck,
+                lambda v:self.config_changed(ck, v)
+            )
             
     def __del__(self):
         self.disable()
         
-    def config_changed(self, value):
-        if int(value):
-            self.enable()
-        else:
-            self.disable()
+    def config_changed(self, key, value):
+        if key == 'enabled':
+            if int(value):
+                self.enable()
+            else:
+                self.disable()
+        elif key in ['max_upload', 'max_download']:
+            self.bt.set_option(key, int(value) * 1024)
                 
     def reset(self):
         self._thread = None
         self._tid = None
         
     def enable(self):
-        self._thread = BTWatcherThread(self.domserver,self.logger,self.objs,self.bt)
+        self._thread = BTWatcherThread(self.domserver, self.logger, self.objs,
+            self.bt)
         self._tid = self.domserver.add_thread(self._thread, True)
     
     def disable(self):
         if self._tid is not None:
             self.domserver.remove_thread(self._tid)
         self.reset()
+        
+    def restart(self):
+        self.disable()
+        self.enable()
         
