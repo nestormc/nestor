@@ -145,6 +145,7 @@ def kill_domserver(kill = False):
 def run_domserver():
     opt = parse_options()
     kwargs = opt['kwargs']
+    # kwargs['daemonize'] = False
     
     if opt.has_key('action'):
         if opt['action'] == 'printopts':
@@ -169,7 +170,7 @@ def run_domserver():
        
     #domserver.add_helper(AmuleHelper)
     domserver.add_helper(BitTorrentHelper)
-    #domserver.add_helper(FileManagerHelper)
+    domserver.add_helper(FileManagerHelper)
     domserver.add_helper(SystemActionsHelper)
     
     domserver.info("Starting domserver...")
