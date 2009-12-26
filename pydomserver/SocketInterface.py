@@ -278,14 +278,14 @@ class SIServerThread(Thread):
                     self._handlers
                 )
                 self.domserver.add_thread(clithread)
+        self._sock.close()
+        self._reset()
             
     def domserver_run(self):
         self._listen(self.host, self.port, self.max_conn)
 
     def stop(self):
-        self.listening = False    
-        self._sock.close()
-        self._reset()
+        self.listening = False  
         
     def register_packet_handler(self, opcode, handler, args=None):
         """Register a packet handler for packets with given opcode.  'handler'
