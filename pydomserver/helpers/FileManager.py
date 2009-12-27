@@ -97,36 +97,42 @@ class FileObjectProvider(ObjectProvider):
         del self.devices[dev]
     
     def get_oids(self):
-        devoids = ["file:#%s" % dev for dev in self.devices.keys()]
-        return devoids
+        return []
         
     def matching_oids(self, expr, types):
-        # Only handle expressions with one criterion on dirname
-        if (expr.oper != '' or
-            expr.crit_a is None or
-            expr.crit_a.prop != 'dirname' or
-            expr.crit_a.oper != '==' or
-            not os.path.exists(expr.crit_a.val)):
-            return []
-            
-        dirname = expr.crit_a.val
-            
-        if types is None or len(types) == 0:
-            match_dirs = True
-            match_files = True
-        else:
-            match_dirs = 'folder' in types
-            match_files = 'file' in types
+        ret = []
+        
+        if not types or 'device' in types:
+            ret.extend(["#%s" % d for d in self.devices.keys()])
+    
+        if not types or 'file' in types or 'folder' in types:
+            # Only handle expressions with one criterion on dirname
+            if not (expr.oper != '' or
+                expr.crit_a is None or
+                expr.crit_a.prop != 'dirname' or
+                expr.crit_a.oper != '==' or
+                not os.path.exists(expr.crit_a.val)):
+                
+                dirname = expr.crit_a.val
                     
-        objs = []
-        for r, d, f in os.walk(dirname):
-            if match_dirs:
-                objs.extend(d)
-            if match_files:
-                objs.extend(f)
-            d[0:len(d)] = []
+                if types is None or len(types) == 0:
+                    match_dirs = True
+                    match_files = True
+                else:
+                    match_dirs = 'folder' in types
+                    match_files = 'file' in types
+                            
+                objs = []
+                for r, d, f in os.walk(dirname):
+                    if match_dirs:
+                        objs.extend(d)
+                    if match_files:
+                        objs.extend(f)
+                    d[0:len(d)] = []
+                
+                ret.extend([os.path.join(dirname, o) for o in objs])
             
-        return [os.path.join(dirname, o) for o in objs]
+        return list(set(ret))
         
     def valid_oid(self, path):
         if path.startswith('#'):
@@ -153,7 +159,7 @@ class FileObjectProvider(ObjectProvider):
         if path.startswith('#'):
             if prop not in self._dprops:
                 raise KeyError("No property '%s' for object '%s'" % (prop, path))
-            dev = self.devices(path[1:])
+            dev = self.devices[path[1:]]
             if prop == 'path':
                 if dev['mounted']:
                     return dev['mntpoint']
@@ -218,7 +224,7 @@ class FileObjectProcessor(ObjectProcessor):
             path = obj['path']
             dirname = os.path.dirname(path)
             if os.access(dirname, os.W_OK) and dirname != path:
-                names.append('delete', 'rename')
+                names.extend(['delete', 'rename'])
         return names
         
     def describe_action(self, act):
