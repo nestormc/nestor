@@ -146,6 +146,19 @@ class BTObjectProvider(ObjectProvider):
     def __init__(self, domserver, bt):
         ObjectProvider.__init__(self, domserver, 'bt')
         self.bt = bt
+                
+    def save_on_stop(self, bt):
+        for hash in bt.keys():
+            tdata = {
+                "name": bt[hash]["name"],
+                "size": bt[hash]["size"],
+                "seeds": 0,
+                "progress": bt[hash]["progress"],
+                "speed": 0,
+                "status": 0,
+                "files": bt[hash]["files"]
+            }
+            self.save_object(hash, tdata)
         
     def get_oids(self):
         return list(set(self.bt.keys()) | set(self.list_objects()))
@@ -184,19 +197,6 @@ class BTObjectProvider(ObjectProvider):
         if prop not in ('seed', 'cancel', 'date_started', 'hash'):
             raise KeyError("Property '%s' is readonly" % prop)
         self.save_object_property(hash, prop, val)
-                
-    def save_on_stop(self, bt):
-        for hash in bt.keys():
-            tdata = {
-                "name": bt[hash]["name"],
-                "size": bt[hash]["size"],
-                "seeds": 0,
-                "progress": bt[hash]["progress"],
-                "speed": 0,
-                "status": 0,
-                "files": bt[hash]["files"]
-            }
-            self.save_object(hash, tdata)
         
     def describe_props(self, hash, detail_level):
         desc = {}
@@ -238,14 +238,14 @@ class BTObjectProcessor(ObjectProcessor):
         
     def get_action_names(self, obj=None):
         names = []
-        if obj is not None and obj.is_a("download") and obj.is_a("torrent"):
-            status = obj.get_value("status")
+        if obj and obj.is_a("download") and obj.is_a("torrent"):
+            status = obj["status"]
             try:
-                seed = obj.get_value("seed")
+                seed = obj["seed"]
             except KeyError:
                 seed = 0
             try:
-                cancel = obj.get_value("cancel")
+                cancel = obj["cancel"]
             except KeyError:
                 cancel = 0
                 
@@ -501,11 +501,14 @@ class BitTorrentHelper:
             self.config_changed(ck, self.domserver.config['bt.%s' % ck])
             self.domserver.config.register_callback(
                 'bt.%s' % ck,
-                lambda v:self.config_changed(ck, v)
+                self._make_config_changed(ck)
             )
             
     def __del__(self):
         self.disable()
+        
+    def _make_config_changed(self, key):
+        return lambda v:self.config_changed(key, v)
         
     def config_changed(self, key, value):
         if key == 'enabled':
