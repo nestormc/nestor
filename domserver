@@ -112,6 +112,12 @@ def set_config(config, **kwargs):
             key, val = c.split('=', 1)
         except ValueError:
             option_error("Malformed config option '%s'" % c)
+        if key == 'version':
+            print "Warning: changing the DB version number can seriously mess up things !"
+            print "If you're sure, use the 'i_really_want_to_change_the_version_number' parameter."
+            return
+        if key == 'i_really_want_to_change_the_version_number':
+            key = 'version'
         setconf[key] = val
     
     if domserverRunning(os.path.basename(sys.argv[0])):
@@ -168,7 +174,7 @@ def run_domserver():
     domserver = Domserver(**kwargs)
     domserver.info("****************************************")
        
-    #domserver.add_helper(AmuleHelper)
+    domserver.add_helper(AmuleHelper)
     domserver.add_helper(BitTorrentHelper)
     domserver.add_helper(FileManagerHelper)
     domserver.add_helper(SystemActionsHelper)
