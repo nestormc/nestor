@@ -434,7 +434,7 @@ class ObjectAccessor:
         try:
             owner, oid = objref.split(':', 1)
         except ValueError:
-            raise ObjectError("invalid-oid:%s" % objref)
+            raise ObjectError("malformed-oid:%s" % objref)
         try:
             source = self.providers[owner]
         except KeyError:
@@ -445,7 +445,7 @@ class ObjectAccessor:
         try:
             owner, aid = actref.split(':', 1)
         except ValueError:
-            raise ObjectError("invalid-action:%s" % actref)
+            raise ObjectError("malformed-action:%s" % actref)
         try:
             source = self.processors[owner]
         except KeyError:
@@ -485,7 +485,7 @@ class ObjectAccessor:
         found = None
         for tn in tagnames:
             tag = packet.get_tag(tn)
-            if tag is not None:
+            if tag:
                 found = tn
                 break;
         if tag is None:
@@ -493,23 +493,29 @@ class ObjectAccessor:
             return
     
         if found == SIC.TAG_OBJ_MATCHQUERY:
+            self.domserver.debug("dbg:: matchquery")
+        
             try:
                 objs = self.match_searchtag(tag)
             except ObjectError, e:
                 client.answer_failure(e)
                 return
+            self.domserver.debug("dbg:: got %d matches" % len(objs))
                 
             try:
                 detail_level = tag.get_subtag(SIC.TAG_OBJ_DETAIL_LEVEL).value
             except AttributeError:
                 detail_level = 0
                 
+            self.domserver.debug("dbg:: building sipacket")
             resp = SIPacket(opcode=SIC.OP_OBJECTS)
             for o in objs:
                 tag = SIStringTag("%s:%s" % (o.owner, o.oid), SIC.TAG_OBJ_REFERENCE)
                 tag.subtags.extend(o.to_sitags(detail_level))
                 resp.tags.append(tag)
+            self.domserver.debug("dbg:: done, sending packet")
             client.answer(resp)
+            self.domserver.debug("dbg:: all done")
             return
             
         elif found == SIC.TAG_OBJ_REFERENCE:
@@ -544,7 +550,7 @@ class ObjectAccessor:
             try:
                 proc = self.processors[tag.value]
             except KeyError:
-                self.domserver.verbose("Invalid object processor '%s'" % tag.value)
+                self.domserver.debug("Invalid object processor '%s'" % tag.value)
                 client.answer_failure("invalid-processor:%s" % tag.value)
                 return
                 
@@ -641,11 +647,11 @@ class ObjectWrapper:
         
 class ActionWrapper:
     
-    def __init__(self, accessor, owner, name, objref=None):
+    def __init__(self, accessor, owner, name, obj=None):
         self.accessor = accessor
         self.owner = owner
         self.name = name
-        self.obj = accessor.obj(objref) if objref else None
+        self.obj = obj
         self.params = {}
         try:
             self.processor = accessor.processors[owner]
@@ -657,6 +663,9 @@ class ActionWrapper:
             'flags': flags,
             'value': default
         }
+        
+    def __getitem__(self, key):
+        return self.params[key]['value']
                 
     def to_sitag(self):
         actiontag = SIStringTag(self.name, SIC.TAG_ACTION_ID)
