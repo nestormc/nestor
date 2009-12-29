@@ -16,7 +16,7 @@
 
 class _SICodes:
     # Protocol version
-    VERSION                      = 0x000A
+    VERSION                      = 0x000B
 
     # Packet flags
     FLAGS_BLANK                  = 0x0000
@@ -31,9 +31,6 @@ class _SICodes:
     # Packet opcodes
     OP_NOOP                      = 0x00
     OP_ACTIONS                   = 0x01
-    OP_AMULE                     = 0x03
-    OP_AMULE_SEARCH_RESULTS      = 0x30
-    OP_AMULE_DOWNLOAD_QUEUE      = 0x31
     OP_OBJECTS                   = 0x70
     OP_SUCCESS                   = 0x80
     OP_PROCESSING                = 0x81
@@ -41,7 +38,6 @@ class _SICodes:
 
     # Tag names
     TAG_ACTION_TYPE              = 0x0001
-    TAG_AMULE_TYPE               = 0x0003
     TAG_ACTION_CONFIG_KEY        = 0x0100
     TAG_ACTION_CONFIG_VAL        = 0x0101
     TAG_ACTION_FILE_OP           = 0x0110
@@ -54,24 +50,6 @@ class _SICodes:
     TAG_ACTION_DISK_MOUNTPOINT   = 0x0141
     TAG_ACTION_DISK_TOTAL        = 0x0142
     TAG_ACTION_DISK_FREE         = 0x0143
-    TAG_AMULE_HASH               = 0x0301
-    TAG_AMULE_NAME               = 0x0302
-    TAG_AMULE_SIZE               = 0x0303
-    TAG_AMULE_SIZE_DONE          = 0x0304
-    TAG_AMULE_SEEDS              = 0x0305
-    TAG_AMULE_SEEDS_XFER         = 0x0306
-    TAG_AMULE_SPEED              = 0x0307
-    TAG_AMULE_STATUS             = 0x0308
-    TAG_AMULE_ED2K_LINK          = 0x0309
-    TAG_AMULE_QUERY              = 0x0310
-    TAG_AMULE_STYPE              = 0x0311
-    TAG_AMULE_FILETYPE           = 0x0312
-    TAG_AMULE_MINSIZE            = 0x0313
-    TAG_AMULE_MAXSIZE            = 0x0314
-    TAG_AMULE_AVAIL              = 0x0315
-    TAG_AMULE_EXT                = 0x0316
-    TAG_AMULE_STATUS_KEY         = 0x0321
-    TAG_AMULE_STATUS_VAL         = 0x0322
     
     TAG_FAILURE_REASON           = 0x00FF
     
