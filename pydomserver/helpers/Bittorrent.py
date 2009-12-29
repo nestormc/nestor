@@ -274,17 +274,17 @@ class BTObjectProcessor(ObjectProcessor):
         name = act.name
         obj = act.obj
             
-        if name == 'seed':
+        if name == 'torrent-seed':
             obj["seed"] = 1
-        elif name == 'unseed':
+        elif name == 'torrent-unseed':
             obj["seed"] = 0
-        elif name == 'cancel':
+        elif name == 'torrent-cancel':
             obj["cancel"] = 1
-        elif name == 'clear':
+        elif name == 'torrent-clear':
             self.objs.remove_object(obj['hash'])
-        elif action == 'pause':
+        elif name == 'torrent-pause':
             self.objs.bt[obj['hash']].pause()
-        elif action == 'resume':
+        elif name == 'torrent-resume':
             self.objs.bt[obj['hash']].resume()
             
         return None
