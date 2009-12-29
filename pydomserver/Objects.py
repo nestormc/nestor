@@ -471,7 +471,17 @@ class ObjectAccessor:
                     
         exprtag = tag.get_subtag(SIC.TAG_OBJ_EXPRESSION)
         expr = OExpression.from_sitag(exprtag)
-        return self.match(owner, expr)
+        
+        try:
+            types = tag.get_subtag(SIC.TAG_OBJ_TYPE).value
+        except AttributeError:
+            types = ''
+        if types == '':
+            types = None
+        else:
+            types = types.split(',')
+        
+        return self.match(owner, expr, types)
             
     def handle_sipacket(self, client, packet):
         tagnames = [
@@ -493,29 +503,26 @@ class ObjectAccessor:
             return
     
         if found == SIC.TAG_OBJ_MATCHQUERY:
-            self.domserver.debug("dbg:: matchquery")
-        
             try:
                 objs = self.match_searchtag(tag)
             except ObjectError, e:
                 client.answer_failure(e)
                 return
-            self.domserver.debug("dbg:: got %d matches" % len(objs))
                 
             try:
                 detail_level = tag.get_subtag(SIC.TAG_OBJ_DETAIL_LEVEL).value
             except AttributeError:
                 detail_level = 0
                 
-            self.domserver.debug("dbg:: building sipacket")
             resp = SIPacket(opcode=SIC.OP_OBJECTS)
             for o in objs:
                 tag = SIStringTag("%s:%s" % (o.owner, o.oid), SIC.TAG_OBJ_REFERENCE)
                 tag.subtags.extend(o.to_sitags(detail_level))
+                typetag = SIStringTag(','.join(o.get_types()), SIC.TAG_OBJ_TYPE)
+                tag.subtags.append(typetag)
                 resp.tags.append(tag)
-            self.domserver.debug("dbg:: done, sending packet")
+            resp.set_flag(SIC.FLAGS_USE_ZLIB)
             client.answer(resp)
-            self.domserver.debug("dbg:: all done")
             return
             
         elif found == SIC.TAG_OBJ_REFERENCE:
@@ -533,7 +540,10 @@ class ObjectAccessor:
             resp = SIPacket(opcode=SIC.OP_OBJECTS)
             tag = SIStringTag("%s:%s" % (o.owner, o.oid), SIC.TAG_OBJ_REFERENCE)
             tag.subtags.extend(o.to_sitags(detail_level))
+            typetag = SIStringTag(','.join(o.get_types()), SIC.TAG_OBJ_TYPE)
+            tag.subtags.append(typetag)
             resp.tags.append(tag)
+            resp.set_flag(SIC.FLAGS_USE_ZLIB)
             client.answer(resp)
             return
             
@@ -561,6 +571,7 @@ class ObjectAccessor:
             
             resp = SIPacket(opcode=SIC.OP_OBJECTS)
             resp.tags.extend([a.to_sitag() for a in acts])
+            resp.set_flag(SIC.FLAGS_USE_ZLIB)
             client.answer(resp)
             return
                 
@@ -631,6 +642,9 @@ class ObjectWrapper:
                 if self.is_a(t):
                     return True
             return False
+            
+    def get_types(self):
+        return self.provider.get_types(self.oid)
         
     def get_value(self, prop):
         return self.provider.get_value(self.oid, prop)

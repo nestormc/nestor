@@ -16,7 +16,7 @@
 
 class _SICodes:
     # Protocol version
-    VERSION                      = 0x000B
+    VERSION                      = 0x000C
 
     # Packet flags
     FLAGS_BLANK                  = 0x0000
@@ -63,12 +63,13 @@ class _SICodes:
     TAG_OBJ_PROPERTY             = 0x0707
     TAG_OBJ_VALUE                = 0x0708
     TAG_OBJ_ARRAY                = 0x0709
-    TAG_ACTION_QUERY             = 0x070A
-    TAG_ACTION_EXECUTE           = 0x070B
-    TAG_ACTION_ID                = 0x070C
-    TAG_ACTION_PARAM             = 0x070D
-    TAG_ACTION_PARAM_FLAGS       = 0x070E
-    TAG_ACTION_PARAM_VALUE       = 0x070F
+    TAG_OBJ_TYPE                 = 0x070A
+    TAG_ACTION_QUERY             = 0x0710
+    TAG_ACTION_EXECUTE           = 0x0711
+    TAG_ACTION_ID                = 0x0712
+    TAG_ACTION_PARAM             = 0x0713
+    TAG_ACTION_PARAM_FLAGS       = 0x0714
+    TAG_ACTION_PARAM_VALUE       = 0x0715
     
     # Action parameter flags
     APFLAG_MASK_TYPE             = 0x000000FF
