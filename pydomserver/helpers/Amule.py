@@ -19,13 +19,11 @@ import StringIO
 import time
 from amule import AmuleClient, ECConnectionError
 
-from ..RunWatcherThread import RunWatcherThread
+from ..Errors import ObjectError
 from ..Objects import ObjectProvider, ObjectProcessor
+from ..RunWatcherThread import RunWatcherThread
 from ..SocketInterface import SIPacket, SIStringTag, SIUInt32Tag, SIUInt8Tag
 from ..SocketInterfaceCodes import SIC
-
-
-WATCHER_INITIAL_WAIT = 2
 
 
 class DictDownload:
@@ -62,7 +60,7 @@ class DictDownload:
             status = self.am.downloads[self.hash]['status']
             size = self.am.downloads[self.hash]['size']
             done = self.am.downloads[self.hash]['size_done']
-            seeds_xfer = self.am.downloads[self.hash]['src_xfer']
+            seeds_xfer = self.am.downloads[self.hash]['src_count_xfer']
             if stopped:
                 return 0
             elif status == 7:
@@ -94,7 +92,6 @@ class DictResult:
         
     def download(self):
         try:
-            # TODO manage last_added
             return self.am.client.download_search_results([self.hash])
         except ValueError:
             return False
@@ -148,6 +145,7 @@ class Amule:
         if self.connected:
             self.objs.save_on_stop()
             self.client.disconnect()
+            self.connected = False
             
     def __getitem__(self, key):
         kind, hash = key.split("/", 1)
@@ -249,7 +247,7 @@ class AmuleObjectProvider(ObjectProvider):
         }
         
         if kind == 'download':
-            for k in ('speed', 'seeds', 'status', 'date_started'):
+            for k in ('speed', 'seeds', 'status'):
                 desc[k] = {'type':'uint32'}
             desc['progress'] = {
                 'type':'string',
@@ -281,7 +279,7 @@ class AmuleObjectProcessor(ObjectProcessor):
             if obj['downloading'] < 1:
                 names.append('result-download')
         if not obj:
-            names.append('amule-search')
+            names.extend(['amule-search', 'amule-download-ed2k'])
         return names
         
     def describe_action(self, act):
@@ -296,6 +294,8 @@ class AmuleObjectProcessor(ObjectProcessor):
             act.add_param('max-size', SIC.APFLAG_TYPE_NUMBER | SIC.APFLAG_OPTION_OPTIONAL)
             act.add_param('avail', SIC.APFLAG_TYPE_NUMBER | SIC.APFLAG_OPTION_OPTIONAL)
             act.add_param('file-ext', SIC.APFLAG_TYPE_STRING | SIC.APFLAG_OPTION_OPTIONAL)
+        if name == 'amule-download-ed2k':
+            act.add_param('ed2k-link', SIC.APFLAG_TYPE_STRING)
         
     def execute_action(self, act):
         name = act.name
@@ -305,20 +305,24 @@ class AmuleObjectProcessor(ObjectProcessor):
             pf = self.objs.am["download/%s" % obj['hash']]
             if name == 'partfile-cancel':
                 pf.cancel()
+                self.objs.remove_object("download/%s" % obj['hash'])
             elif name == 'partfile-pause':
                 pf.pause()
             elif name == 'partfile-resume':
                 pf.resume()
             elif name == 'partfile-clear':
-                # TODO
-                pass
+                self.objs.remove_object("download/%s" % obj['hash'])
         elif name == 'result-download':
             rs = self.objs.am["result/%s" % obj['hash']]
             rs.download()
         elif name == 'amule-search':
             ac = self.objs.am.client
             ac.search_start(act['query'], act['search-type'], act['min-size'],
-                act['max-size'], act['file-type'], act['avail'], act['file-ext'])
+                act['max-size'], act['file-type'], act['avail'],
+                act['file-ext'])
+        elif name == 'amule-download-ed2k':
+            ac = self.objs.am.client
+            am.download_ed2klinks([act['ed2k-link']])
         
         
 class AmuleRunWatcherThread(RunWatcherThread):
@@ -328,8 +332,9 @@ class AmuleRunWatcherThread(RunWatcherThread):
         self.am = am
         
     def on_start(self):
-        self.verbose("RunWatcher: waiting %d seconds before connecting..." % WATCHER_INITIAL_WAIT)
-        time.sleep(WATCHER_INITIAL_WAIT)
+        delay = self.domserver.config['amule.ec_delay']
+        self.verbose("RunWatcher: waiting %d seconds before connecting..." % delay)
+        time.sleep(delay)
         self.am.connect()
             
     def on_kill(self):
@@ -366,7 +371,6 @@ class AmuleHelper:
         self.config_changed(domserver.config['amule.enabled'])
         
         domserver.config.register_callback('amule.enabled', self.config_changed)
-        domserver.register_packet_handler(SIC.OP_AMULE, self.handle_sipacket)
         
     def _reset(self):
         self._rw_thread = None
@@ -437,176 +441,4 @@ class AmuleHelper:
         acfp = open(acfile, "w")
         acfp.write("\n".join(newconfig))
         acfp.close()
-        
-    def get_amule_client(self):
-        if self._rw_thread is None or not self._rw_thread.ec_connected:
-            return False
-        else:
-            return self._rw_thread.ec_client
-        
-    def handle_sipacket(self, siclient, packet):
-        tag = packet.get_tag(SIC.TAG_AMULE_TYPE)
-        
-        if tag is None:
-            return False
-            
-        if tag.value in ('download', 'pause', 'resume', 'cancel'):
-            return self.partfile_command(siclient, tag)
-        elif tag.value == 'download_ed2k':
-            return self.download_ed2k(siclient, tag)
-        elif tag.value == 'search':
-            return self.search_start(siclient, tag)
-        elif tag.value == 'last_search':
-            return self.answer_last_search(siclient)
-        elif tag.value == 'search_results':
-            return self.answer_search_results(siclient)
-        elif tag.value == 'download_queue':
-            return self.answer_download_queue(siclient)
-        elif tag.value == 'status':
-            return self.answer_status(siclient)
-                
-        return False
-        
-    def partfile_command(self, client, tag):
-        try:
-            hash = tag.get_subtag(SIC.TAG_AMULE_HASH).value
-        except AttributeError:
-            return False
-            
-        self.logger.verbose("Received %s command for hash %s" % (tag.value, hash))
-        amclient = self._rw_thread.ec_client
-            
-        ret = False
-        if tag.value == 'pause':
-            try:
-                ret = amclient.partfile_pause([hash])
-            except ValueError:
-                ret = False
-        elif tag.value == 'resume':
-            try:
-                ret = amclient.partfile_resume([hash])
-            except ValueError:
-                ret = False
-        elif tag.value == 'cancel':
-            try:
-                ret = amclient.partfile_delete([hash])
-            except ValueError:
-                ret = False
-        elif tag.value == 'download':
-            try:
-                ret = amclient.download_search_results([hash])
-            except ValueError:
-                ret = False
-                
-        if not ret:
-            self.verbose("Command failed")
-        else:
-            client.answer_success()
-            
-        return ret
-        
-    def download_ed2k(self, client, tag):
-        try:
-            link = tag.get_subtag(SIC.TAG_AMULE_ED2K_LINK).value
-        except AttributeError:
-            return False
-            
-        amclient = self._rw_thread.ec_client
-        ret = amclient.download_ed2klinks([link])
-        if ret:
-            self.logger.verbose("Downloading ED2K %s" % link)
-            client.answer_success()
-        else:
-            self.logger.verbose("Failed to download ED2K %s" % link)
-        return ret
-        
-    def search_start(self, client, tag):
-        try:
-            query = tag.get_subtag(SIC.TAG_AMULE_QUERY).value
-            stype = tag.get_subtag(SIC.TAG_AMULE_STYPE).value
-            ftype = tag.get_subtag(SIC.TAG_AMULE_FILETYPE).value
-        except AttributeError:
-            return False
-            
-        try:
-            minsize = tag.get_subtag(SIC.TAG_AMULE_MINSIZE).value
-        except AttributeError:
-            minsize = None
-        try:
-            maxsize = tag.get_subtag(SIC.TAG_AMULE_MAXSIZE).value
-        except AttributeError:
-            maxsize = None
-        try:
-            avail = tag.get_subtag(SIC.TAG_AMULE_AVAIL).value
-        except AttributeError:
-            avail = None
-        try:
-            ext = tag.get_subtag(SIC.TAG_AMULE_EXT).value
-        except AttributeError:
-            ext = None
-        
-        self.rwt.last_search = query
-        self.verbose("Starting search query for '%s'" % query)
-        amclient = self._rw_thread.ec_client
-        amclient.search_start(query, stype, minsize, maxsize, ftype, avail, ext)
-        client.answer_success()
-        return True
-        
-    def answer_last_search(self, client):
-        if self._rw_thread.last_search == '':
-            return False
-        else:
-            resp = SIPacket(opcode = SIC.OP_SUCCESS)
-            resp.tags.append(SIStringTag(self._rw_thread.last_search, SIC.TAG_AMULE_QUERY))
-            client.answer(resp)
-            return True
-        
-    def answer_search_results(self, client):
-        amclient = self._rw_thread.ec_client
-        results = amclient.get_search_results()
-        resp = SIPacket(opcode = SIC.OP_AMULE_SEARCH_RESULTS)
-        resp.set_flag(SIC.FLAGS_USE_ZLIB)
-        for h in results.keys():
-            tag = SIStringTag(h, SIC.TAG_AMULE_HASH)
-            tag.subtags.extend([
-                SIStringTag(results[h]['name'], SIC.TAG_AMULE_NAME),
-                SIUInt32Tag(int(results[h]['size'] / 1024), SIC.TAG_AMULE_SIZE),
-                SIUInt32Tag(results[h]['src_count'], SIC.TAG_AMULE_SEEDS),
-            ])
-            resp.tags.append(tag)
-        client.answer(resp)
-        return True
-        
-    def answer_download_queue(self, client):
-        amclient = self._rw_thread.ec_client
-        queue = amclient.get_download_list()
-        resp = SIPacket(opcode = SIC.OP_AMULE_DOWNLOAD_QUEUE)
-        resp.set_flag(SIC.FLAGS_USE_ZLIB)
-        for h in queue.keys():
-            tag = SIStringTag(h, SIC.TAG_AMULE_HASH)
-            tag.subtags.extend([
-                SIStringTag(queue[h]['name'], SIC.TAG_AMULE_NAME),
-                SIUInt32Tag(int(queue[h]['size'] / 1024), SIC.TAG_AMULE_SIZE),
-                SIUInt32Tag(int(queue[h]['size_done'] / 1024), SIC.TAG_AMULE_SIZE_DONE),
-                SIUInt32Tag(queue[h]['src_count'], SIC.TAG_AMULE_SEEDS),
-                SIUInt32Tag(queue[h]['src_count_xfer'], SIC.TAG_AMULE_SEEDS_XFER),
-                SIUInt32Tag(queue[h]['speed'], SIC.TAG_AMULE_SPEED),
-                SIUInt8Tag(queue[h]['status'], SIC.TAG_AMULE_STATUS)
-            ])
-            resp.tags.append(tag)
-        client.answer(resp)
-        return True
-        
-    def answer_status(self, client):
-        amclient = self._rw_thread.ec_client
-        status = amclient.get_server_status()
-        resp = SIPacket(opcode = SIC.OP_SUCCESS)
-        for k in status.keys():
-            tag = SIStringTag(k, SIC.TAG_AMULE_STATUS_KEY)
-            tag.subtags.append(SIStringTag(status[k], SIC.TAG_AMULE_STATUS_VAL))
-            resp.tags.append(tag)
-        client.answer(resp)
-        return True
-        
-        
         

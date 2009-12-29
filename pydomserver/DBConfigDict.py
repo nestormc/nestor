@@ -29,6 +29,7 @@ DOMSERVER_CONFIG_DEFAULTS = {
     'amule.max_download':       600,
     'amule.ec_port':            21100,
     'amule.ec_password':        'emule',
+    'amule.ec_delay':           2,
     'amule.update_interval':    1,
     
     'bt.enabled':               0,
