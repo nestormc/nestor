@@ -73,6 +73,11 @@ def remoteSetConfig(domserver, key, value):
     wfile.flush()
     resp = SIPacket(buffer=rfile)
     
+    disc = SIPacket(opcode=SIC.OP_DISCONNECT)
+    wfile.write(disc.get_raw_packet())
+    wfile.flush()    
+    ack = SIPacket(buffer=rfile)
+    
     wfile.close()
     rfile.close()
     _socket.close()

@@ -316,6 +316,7 @@ class SIClientThread(Thread):
         self._rfile = sock.makefile("rb")
         self._wfile = sock.makefile("wb")
         self._handlers = handlers
+        self.disconnected = False
         
     def read_packet(self):
         return SIPacket(buffer = self._rfile)
@@ -323,9 +324,6 @@ class SIClientThread(Thread):
     def answer(self, packet):
         self._wfile.write(packet.get_raw_packet())
         self._wfile.flush()
-        self._rfile.close()
-        self._wfile.close()
-        self._sock.close()
         self.answered = True
         
     def answer_success(self):
@@ -344,6 +342,12 @@ class SIClientThread(Thread):
         self.answer(packet)
         
     def handle_packet(self, packet):
+        if packet.opcode == SIC.OP_DISCONNECT:
+            ack = SIPacket(opcode=SIC.OP_DISCONNECT_ACK)
+            self.answer(ack)
+            self.disconnected = True
+            return
+    
         try:
             handler = self._handlers[packet.opcode]
         except KeyError:
@@ -355,7 +359,7 @@ class SIClientThread(Thread):
         if handler['args'] is None:
             handler['func'](self, packet)
         else:
-             handler['func'](self, packet, handler['args'])
+            handler['func'](self, packet, handler['args'])
             
         if not self.answered:
             self.answer_failure("unknown")
@@ -363,22 +367,30 @@ class SIClientThread(Thread):
     def domserver_run(self):
         raise_exc = True
         try:
-            try:
-                packet = self.read_packet()
-            except SIVersionMismatch:
-            	self.verbose("Client %s has wrong protocol version" %
-                    repr(self.address))
-            	raise_exc = False
-            	raise
-            except struct.error:
-                raise_exc = False
-                raise
-            else:
-                self.handle_packet(packet)
+            while not self.disconnected:
+                try:
+                    packet = self.read_packet()
+                except SIVersionMismatch:
+                	self.verbose("Client %s has wrong protocol version" %
+                        repr(self.address))
+                	raise_exc = False
+                	raise
+                except struct.error:
+                    raise_exc = False
+                    raise
+                else:
+                    self.handle_packet(packet)
+            self._rfile.close()
+            self._wfile.close()
+            self._sock.close()
+            self.debug("Client %s closed connection" % repr(self.address))
         except:
             self._rfile.close()
             self._wfile.close()
             self._sock.close()
             if raise_exc:
                 raise
+            else:
+        	    self.verbose("Warning: client %s closed connection unexpectedly"
+        	        % repr(self.address))
 

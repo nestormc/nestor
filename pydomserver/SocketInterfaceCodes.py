@@ -16,7 +16,7 @@
 
 class _SICodes:
     # Protocol version
-    VERSION                      = 0x000C
+    VERSION                      = 0x000D
 
     # Packet flags
     FLAGS_BLANK                  = 0x0000
@@ -31,6 +31,8 @@ class _SICodes:
     # Packet opcodes
     OP_NOOP                      = 0x00
     OP_ACTIONS                   = 0x01
+    OP_DISCONNECT                = 0x40
+    OP_DISCONNECT_ACK            = 0x41
     OP_OBJECTS                   = 0x70
     OP_SUCCESS                   = 0x80
     OP_PROCESSING                = 0x81
