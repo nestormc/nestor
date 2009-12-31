@@ -92,9 +92,14 @@ class DictResult:
         
     def download(self):
         try:
-            return self.am.client.download_search_results([self.hash])
+            ret = self.am.client.download_search_results([self.hash])
         except ValueError:
             return False
+            
+        if ret:
+            self.am.objs.save_object("download/%s" % self.hash,
+                {"date_started": time.time()})
+        return ret
         
     def __getitem__(self, key):
         self.am._update()
