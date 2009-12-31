@@ -14,10 +14,11 @@
 # along with domserver.  If not, see <http://www.gnu.org/licenses/>.
 
 DOMSERVER_CONFIG_DEFAULTS = {
-    'domserver.ipc_host':           'localhost',
-    'domserver.ipc_port':           21900,
-    'domserver.log_file':           '/var/log/domserver/domserver.log',
-    'domserver.log_level':          3,
+    'domserver.ipc_host':       'localhost',
+    'domserver.ipc_port':       21900,
+    'domserver.log_file':       '/var/log/domserver/domserver.log',
+    'domserver.log_level':      3,
+    'domserver.use_psyco':      0,
     
     'amule.enabled':            0,
     'amule.log_file':           '/var/log/domserver/domserver.log',
@@ -53,13 +54,16 @@ class DBConfigDict:
     def __init__(self, db):
         self.db = db
         self.callbacks = {}
+        self._apply_defaults()
+        
+    def _apply_defaults(self):
+        for key in DOMSERVER_CONFIG_DEFAULTS.keys():
+            if not self.has_key(key):
+                self[key] = DOMSERVER_CONFIG_DEFAULTS[key]
         
     def __getitem__(self, key):
         if not self.has_key(key):
-            if DOMSERVER_CONFIG_DEFAULTS.has_key(key):
-                return DOMSERVER_CONFIG_DEFAULTS[key]
-            else:
-                raise KeyError("Config key '%s' not found" % key)
+            raise KeyError("Config key '%s' not found" % key)
                 
         db = self.db()
         query = "SELECT value FROM config WHERE key = ?"
