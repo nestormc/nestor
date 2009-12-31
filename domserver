@@ -170,6 +170,7 @@ def run_domserver():
     if domserverRunning(os.path.basename(sys.argv[0])):
         print "domserver is already running !"
         sys.exit(2)
+        
     
     domserver = Domserver(**kwargs)
     domserver.info("****************************************")
@@ -178,6 +179,15 @@ def run_domserver():
     domserver.add_helper(BitTorrentHelper)
     domserver.add_helper(FileManagerHelper)
     domserver.add_helper(SystemActionsHelper)
+    
+    if int(domserver.config['domserver.use_psyco']):
+        try:
+            import psyco
+            domserver.verbose("Enabling psyco...")
+            psyco.full()
+        except ImportError:
+            domserver.info("Warning: psyco is enabled in config but not available")
+        
     
     domserver.info("Starting domserver...")
     domserver.run()
