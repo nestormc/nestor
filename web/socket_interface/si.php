@@ -268,7 +268,7 @@ class SIPacket
         $this->flags = $unpack["flags"];
         $msg_len = $unpack["len"];
         if ($version != SIC('VERSION'))
-        	die(sprintf("Protocol version mismatch (%d != %d)", version, SIC('VERSION')));
+            die(sprintf("Protocol version mismatch (%d != %d)", version, SIC('VERSION')));
         $use_zlib = $this->get_flag(SIC('FLAGS_USE_ZLIB'));
 
         if ($use_zlib)

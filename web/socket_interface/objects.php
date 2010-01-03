@@ -101,16 +101,18 @@ function _or($a, $b)
     return new __Expression('or', $a, $b);
 }
 
-class ObjectAccess
+class ObjectDescriptor
 {
-    private $si = FALSE;
+    public $objref = "";
+    public $props = array();
+    public $types = array();
     
-    function __construct($si)
+    function __construct($objref = '')
     {
-        $this->si = $si;
+        $this->objref = $objref;
     }
-
-    private function parse_obj_properties($subtags)
+    
+    private function parse_properties($subtags)
     {
         $props = array();
         if (is_array($subtags))
@@ -125,17 +127,48 @@ class ObjectAccess
                     }
                     elseif ($sst = $st->get_subtag(SIC('TAG_OBJ_ARRAY')))
                     {
-                        $props[$st->value] = $this->parse_obj_properties($sst->subtags);
+                        $props[$st->value] = $this->parse_properties($sst->subtags);
                     }
-                }
-                
-                if ($st->name == SIC('TAG_OBJ_TYPE'))
-                {
-                    $props['__types__'] = str_replace(',', ', ', $st->value);
                 }
             }
         }
         return $props;
+    }
+    
+    private function parse_types($subtags)
+    {
+        $types = array();
+        if (is_array($subtags))
+        {
+            foreach ($subtags as $st)
+            {
+                if ($st->name == SIC('TAG_OBJ_TYPE'))
+                {
+                    $types = array_merge($types, split(',', $st->value));
+                }
+            }
+        }
+        return $types;    
+    }
+    
+    function from_sitag($tag)
+    {
+        if ($tag->name == SIC('TAG_OBJ_REFERENCE'))
+        {
+            $this->objref = $tag->value;
+            $this->props = $this->parse_properties($tag->subtags);
+            $this->types = $this->parse_types($tag->subtags);
+        }
+    }
+}
+
+class ObjectAccess
+{
+    private $si = FALSE;
+    
+    function __construct($si)
+    {
+        $this->si = $si;
     }
 
     private function get_failure($packet)
@@ -162,7 +195,11 @@ class ObjectAccess
         if ($resp && $resp->opcode == SIC('OP_OBJECTS'))
         {
             $tag = $resp->get_tag(SIC('TAG_OBJ_REFERENCE'));
-            $ret = $this->parse_obj_properties($tag->subtags);
+            if ($tag)
+            {
+                $ret = new ObjectDescriptor();
+                $ret->from_sitag($tag);
+            }
         }
         if ($r = $this->get_failure($resp)) die("QUERY FAILED: &lt;$r&gt;");
         return $ret;
@@ -184,7 +221,9 @@ class ObjectAccess
             {
                 if ($t->name == SIC('TAG_OBJ_REFERENCE'))
                 {
-                    $ret[$t->value] = $this->parse_obj_properties($t->subtags);
+                    $o = new ObjectDescriptor();
+                    $o->from_sitag($t);
+                    $ret[] = $o;
                 }
             }
         }
