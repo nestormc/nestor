@@ -95,7 +95,7 @@ class MusicLibrary:
     def get_album_metadata(self, album_id):
         db = self.domserver.get_media_db()
         query = """SELECT al.title, al.year, al.genre, ar.name
-            FROM media_albums al JOIN media_artists ar ON al.artist_id = ar.id
+            FROM music_albums al JOIN music_artists ar ON al.artist_id = ar.id
             WHERE al.id = ?"""
         rset = db.execute(query, (album_id,)).fetchone()
         db.close()
@@ -104,6 +104,15 @@ class MusicLibrary:
             'year': rset[1],
             'genre': rset[2],
             'artist': rset[3]
+        }
+        
+    def get_artist_metadata(self, artist_id):
+        db = self.domserver.get_media_db()
+        query = "SELECT name FROM music_artists WHERE id = ?"
+        rset = db.execute(query, (artist_id,)).fetchone()
+        db.close
+        return {
+            'name': rset[0]
         }
         
     def write_metadata(self, meta, track_id=None):
@@ -325,16 +334,19 @@ class MusicLibrary:
                 'title': 'tr.title',
                 'num': 'tr.tracknum',
                 'fmt': 'tr.format',
-                'len': 'tr.length'
+                'len': 'tr.length',
+                'keywords': "ar.name || ' ' || al.title || ' ' || tr.title"
             },
             1: {
                 'artist': 'ar.name',
                 'title': 'al.title',
                 'year': 'al.year',
-                'genre': 'al.genre'
+                'genre': 'al.genre',
+                'keywords': "ar.name || ' ' || al.title"
             },
             2: {
-                'name': 'ar.name'
+                'name': 'ar.name',
+                'keywords': 'ar.name'
             }
         }
         
@@ -343,9 +355,10 @@ class MusicLibrary:
                  JOIN music_albums al ON tr.album_id = al.id
                  JOIN music_artists ar ON al.artist_id = ar.id
                  WHERE %s
-                 ORDER BY ar.sortname, al.year, al.title, tr.num, tr.title""",
+                 ORDER BY ar.sortname, al.year, al.title, tr.tracknum,
+                          tr.title""",
             1: """SELECT al.id FROM music_albums al
-                JOIN music_artists ar NO al.artist_id = ar.id
+                JOIN music_artists ar ON al.artist_id = ar.id
                 WHERE %s
                 ORDER BY ar.sortname, al.year, al.title""",
             2: """SELECT ar.id FROM music_artists ar
