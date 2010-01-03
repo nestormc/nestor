@@ -87,7 +87,7 @@ class BitTorrent:
         self.options = {}
         
     def is_active(self):
-        return not self.s is None
+        return self.s
         
     def start(self, port):
         self.s = lt.session()
@@ -161,29 +161,38 @@ class BTObjectProvider(ObjectProvider):
             self.save_object(hash, tdata)
         
     def get_oids(self):
-        return list(set(self.bt.keys()) | set(self.list_objects()))
+        oids = ['']
+        oids.extend(self.bt.keys())
+        oids.extend([h for h in self.list_objects() if h not in oids])
+        return oids
         
-    def valid_oid(self, hash):
-        return hash in self.get_oids()
+    def valid_oid(self, oid):
+        return oid in self.get_oids()
         
-    def get_types(self, hash):
-        return ['download', 'torrent']
+    def get_types(self, oid):
+        if oid == '':
+            return ['bt-app']
+        else:
+            return ['download', 'torrent']
         
-    def get_value(self, hash, prop):
+    def get_value(self, oid, prop):
+        if oid == '':
+            raise KeyError("No property '%s' for '%s'"% (prop, oid))
+    
         obj_exists = False
-        if hash in self.bt.keys():
+        if oid in self.bt.keys():
             obj_exists = True
             try:
-                return self.bt[hash][prop]
+                return self.bt[oid][prop]
             except KeyError:
                 pass
         
         try:
             try:
-                return self.load_object_property(hash, prop)
+                return self.load_object_property(oid, prop)
             except ObjectError:
                 if obj_exists:
-                    raise KeyError("No property '%s' for '%s'" % (prop, hash))
+                    raise KeyError("No property '%s' for '%s'" % (prop, oid))
                 else:
                     raise
         except KeyError:
@@ -193,12 +202,15 @@ class BTObjectProvider(ObjectProvider):
             else:
                 raise
                 
-    def set_value(self, hash, prop, val):
-        if prop not in ('seed', 'cancel', 'date_started', 'hash'):
-            raise KeyError("Property '%s' is readonly" % prop)
-        self.save_object_property(hash, prop, val)
+    def set_value(self, oid, prop, val):
+        if prop not in ('seed', 'cancel', 'date_started', 'hash') or oid == '':
+            raise KeyError("Invalid or readonly property '%s'" % prop)
+        self.save_object_property(oid, prop, val)
         
-    def describe_props(self, hash, detail_level):
+    def describe_props(self, oid, detail_level):
+        if oid == '':
+            return {}
+            
         desc = {}
         for k in ('name','hash'):
             desc[k] = {'type':'string'}
@@ -238,6 +250,10 @@ class BTObjectProcessor(ObjectProcessor):
         
     def get_action_names(self, obj=None):
         names = []
+        
+        if obj and obj.is_a("bt-app"):
+            names.append('bt-clear-finished')
+            
         if obj and obj.is_a("download") and obj.is_a("torrent"):
             status = obj["status"]
             try:
@@ -256,6 +272,7 @@ class BTObjectProcessor(ObjectProcessor):
                 names.append('torrent-unseed' if seed else 'torrent-seed')
             if status == 6:
                 names.append('torrent-clear')
+                
         return names
                 
     def describe_action(self, act):
@@ -263,7 +280,8 @@ class BTObjectProcessor(ObjectProcessor):
         obj = act.obj
             
         noparam = ['torrent-cancel', 'torrent-resume', 'torrent-pause', 
-            'torrent-unseed', 'torrent-seed', 'torrent-clear']
+            'torrent-unseed', 'torrent-seed', 'torrent-clear',
+            'bt-clear-finished']
         if name in noparam:
             return
         else:
@@ -286,6 +304,11 @@ class BTObjectProcessor(ObjectProcessor):
             self.objs.bt[obj['hash']].pause()
         elif name == 'torrent-resume':
             self.objs.bt[obj['hash']].resume()
+        elif name == 'bt-clear-finished':
+            hashes = self.objs.list_objects()
+            for h in hashes:
+                if self.objs.load_object_property(h, 'status') == 6:
+                    self.objs.remove_object(h)
             
         return None
         

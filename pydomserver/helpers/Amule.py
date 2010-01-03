@@ -22,7 +22,6 @@ from amule import AmuleClient, ECConnectionError
 from ..Errors import ObjectError
 from ..Objects import ObjectProvider, ObjectProcessor
 from ..RunWatcherThread import RunWatcherThread
-from ..SocketInterface import SIPacket, SIStringTag, SIUInt32Tag, SIUInt8Tag
 from ..SocketInterfaceCodes import SIC
 
 
@@ -202,12 +201,18 @@ class AmuleObjectProvider(ObjectProvider):
                 self.save_object(oid, tdata)
         
     def get_oids(self):
-        return list(set(self.am.keys()) | set(self.list_objects()))
+        oids = ['']
+        oids.extend(self.am.keys())
+        oids.extend([h for h in self.list_objects() if h not in oids])
+        return oids
         
     def valid_oid(self, hash):
         return hash in self.get_oids()
             
     def get_types(self, oid):
+        if oid == '':
+            return ['amule-app']
+    
         try:
             kind, hash = oid.split('/', 1)
         except ValueError:
@@ -219,6 +224,9 @@ class AmuleObjectProvider(ObjectProvider):
             return ['result', 'amule-result']
             
     def get_value(self, oid, prop):
+        if oid == '':
+            raise KeyError("No property '%s' for '%s'" % (prop, oid))
+            
         obj_exists = False
         if oid in self.am.keys():
             obj_exists = True
@@ -237,10 +245,13 @@ class AmuleObjectProvider(ObjectProvider):
             
     def set_value(self, oid, prop, val):
         if prop not in ('date_started', 'hash') or not oid.startswith('download/'):
-            raise KeyError("Property '%s' is readonly" % prop)
+            raise KeyError("Invalid or readonly property '%s'" % prop)
         self.save_object_property(oid, prop, val)
         
     def describe_props(self, oid, detail_level):
+        if oid == '':
+            return {}
+            
         kind, hash = oid.split('/', 1)
         
         desc = {}
@@ -272,7 +283,8 @@ class AmuleObjectProcessor(ObjectProcessor):
         
     def get_action_names(self, obj=None):
         names = []
-        if obj and obj.is_a("amule-partfile"):
+        
+        if obj.is_a("amule-partfile"):
             status = obj["status"]
             if status < 4:
                 names.append('partfile-cancel')
@@ -280,11 +292,14 @@ class AmuleObjectProcessor(ObjectProcessor):
                 names.append('partfile-pause' if status != 2 else 'partfile-resume')
             if status == 6:
                 names.append('partfile-clear')
-        if obj and obj.is_a('amule-result'):
+                
+        if obj.is_a('amule-result'):
             if obj['downloading'] < 1:
                 names.append('result-download')
-        if not obj:
+                
+        if obj.is_a('amule-app'):
             names.extend(['amule-search', 'amule-download-ed2k'])
+            
         return names
         
     def describe_action(self, act):
