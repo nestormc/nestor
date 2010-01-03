@@ -37,12 +37,15 @@ class OCriterion:
             
         if self.oper in ('==','!=','>','>=','<','<='):
             return eval('%s %s %s' % (repr(val), self.oper, repr(self.val)))
-        elif self.oper == '<~':
-            return val.startswith(self.val)
-        elif self.oper == '~>':
-            return val.endswith(self.val)
-        elif self.oper == '~':
-            return val.find(self.val) != -1
+        elif self.oper in ('<~', '~', '~>'):
+            sval = self.val.lower()
+            val = val.lower()    
+            if self.oper == '<~':
+                return val.startswith(sval)
+            elif self.oper == '~>':
+                return val.endswith(sval)
+            elif self.oper == '~':
+                return val.find(sval) != -1
             
     def get_matching(self, objset):
         newset = objset.copy()
@@ -72,7 +75,7 @@ class OCriterion:
             '<~': ['%s LIKE ?', lambda x:"%%%s" % x],
             '~>': ['%s LIKE ?', lambda x:"%s%%" % x],
             '~':  ['%s LIKE ?', lambda x:"%%%s%%" % x]
-        }
+        }[self.oper]
         
         return oper_map[0] % prop_map[self.prop], [oper_map[1](self.val)]
         
@@ -121,7 +124,8 @@ class OExpression:
         
         Note: field names can also contain single-field SELECT statements.
         """
-        
+        if self.crit_a is None:
+            return "(1=?)", [1]
         if self.oper == 'and':
             where_a, data_a = self.crit_a.to_sqlwhere(prop_map)
             where_b, data_b = self.crit_b.to_sqlwhere(prop_map)
