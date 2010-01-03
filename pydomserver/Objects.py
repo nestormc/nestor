@@ -50,6 +50,31 @@ class OCriterion:
             if not self.is_true(obj):
                 newset.discard(obj)
         return newset
+    
+    def to_sqlwhere(self, prop_map):
+        """Translate criterion into SQL WHERE condition
+        
+        prop_map is a dict that maps object property names to SQL fields names.
+        Return a tuple containing:
+        - the WHERE expression with '?' placeholders for values
+        - a list of values in the right order according to the WHERE expr.
+        
+        Note: field names can also contain single-field SELECT statements.
+        """
+        
+        oper_map = {
+            '==': ['%s = ?', lambda x:x],
+            '!=': ['%s != ?', lambda x:x],
+            '>':  ['%s > ?', lambda x:x],
+            '>=': ['%s >= ?', lambda x:x],
+            '<':  ['%s < ?', lambda x:x],
+            '<=': ['%s <= ?', lambda x:x],
+            '<~': ['%s LIKE ?', lambda x:"%%%s" % x],
+            '~>': ['%s LIKE ?', lambda x:"%s%%" % x],
+            '~':  ['%s LIKE ?', lambda x:"%%%s%%" % x]
+        }
+        
+        return oper_map[0] % prop_map[self.prop], [oper_map[1](self.val)]
         
     def to_sitag(self):
         tag = SIStringTag(self.oper, SIC.TAG_OBJ_CRITERION)
@@ -85,6 +110,29 @@ class OExpression:
             return set_a | self.crit_b.get_matching(set_b)
         elif self.oper == '':
             return set_a
+            
+    def to_sqlwhere(self, prop_map):
+        """Translate expression into a SQL WHERE condition
+        
+        prop_map is a dict that maps object property names to SQL fields names.
+        Return a tuple containing:
+        - the WHERE expression with '?' placeholders for values
+        - a list of values in the right order according to the WHERE expr.
+        
+        Note: field names can also contain single-field SELECT statements.
+        """
+        
+        if self.oper == 'and':
+            where_a, data_a = self.crit_a.to_sqlwhere(prop_map)
+            where_b, data_b = self.crit_b.to_sqlwhere(prop_map)
+            return "(%s AND %s)" % (where_a, where_b), data_a + data_b
+        elif self.oper == 'or':
+            where_a, data_a = self.crit_a.to_sqlwhere(prop_map)
+            where_b, data_b = self.crit_b.to_sqlwhere(prop_map)
+            return "(%s OR %s)" % (where_a, where_b), data_a + data_b
+        elif self.oper == '':
+            where, data = self.crit_a.to_sqlwhere(prop_map)
+            return "(%s)" % where, data
             
     def to_sitag(self):
         tag = SIStringTag(self.oper, SIC.TAG_OBJ_EXPRESSION)
@@ -549,10 +597,11 @@ class ObjectAccessor:
             
         elif found == SIC.TAG_ACTION_QUERY:
             try:
-                objref = tag.get_subtag(SIC.TAG_OBJ_REFERENCE).value
-                o = self.obj(objref)
-            except AttributeError:
-                o = None
+                try:
+                    objref = tag.get_subtag(SIC.TAG_OBJ_REFERENCE).value
+                    o = self.obj(objref)
+                except AttributeError:
+                    raise ObjectError("missing-objref")
             except ObjectError, e:
                 client.answer_failure(e)
                 return
@@ -584,12 +633,13 @@ class ObjectAccessor:
                 return
             
             try:
-                objref = tag.get_subtag(SIC.TAG_OBJ_REFERENCE).value
-                o = self.obj(objref)
-            except AttributeError:
-                o = None
+                try:
+                    objref = tag.get_subtag(SIC.TAG_OBJ_REFERENCE).value
+                    o = self.obj(objref)
+                except AttributeError:
+                    raise ObjectError("missing-objref")
             except ObjectError, e:
-                self.answer_failure(e)
+                client.answer_failure(e)
                 return
                 
             try:
