@@ -18,7 +18,7 @@ import sqlite3
 
 from .Errors import DBError
 
-DATABASES = ['domserver', 'objects']
+DATABASES = ['domserver', 'objects', 'media']
 UPDATE_SCRIPTS = { 
     1: {
         'domserver': """
@@ -59,7 +59,7 @@ UPDATE_SCRIPTS = {
             """
     },
     2: {
-        'domserver': """
+        'objects': """
             DROP TABLE IF EXISTS notifications;
             CREATE TABLE notifications (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -68,6 +68,42 @@ UPDATE_SCRIPTS = {
                 type TEXT NOT NULL,
                 level INTEGER NOT NULL,
                 objref TEXT NOT NULL
+            );
+        """
+    },
+    3: {
+        'media': """
+            DROP TABLE IF EXISTS music_artists;
+            CREATE TABLE music_artists (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                sortname TEXT NOT NULL,
+                
+                CONSTRAINT uk_mar_name UNIQUE (name)
+            );
+            
+            DROP TABLE IF EXISTS music_albums;
+            CREATE TABLE music_albums (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                artist_id INTEGER NOT NULL,
+                title TEXT NOT NULL,
+                year INTEGER,
+                genre TEXT,
+                
+                CONSTRAINT fk_mal_artist_id FOREIGN KEY (artist_id) REFERENCES music_artists(id)
+                CONSTRAINT uk_mal_title UNIQUE (title)
+            );
+            
+            DROP TABLE IF EXISTS music_tracks;
+            CREATE TABLE music_tracks (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                album_id INTEGER NOT NULL,
+                tracknum INTEGER,
+                title TEXT NOT NULL,
+                format TEXT NOT NULL,
+                length REAL,
+                
+                CONSTRAINT fk_mtk_album_id FOREIGN KEY (album_id) REFERENCES music_albums(id)
             );
         """
     }

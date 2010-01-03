@@ -153,8 +153,9 @@ class Domserver:
         
         main_db = kwargs.get('main_db', '/var/lib/domserver/domserver.db')
         obj_db = kwargs.get('obj_db', '/var/lib/domserver/objects.db')
+        media_db = kwargs.get('media_db', '/var/lib/domserver/media.db')
         
-        for dbfile in [main_db, obj_db]:
+        for dbfile in [main_db, obj_db, media_db]:
             try:
                 db = sqlite3.connect(dbfile)
             except sqlite3.Error:
@@ -164,6 +165,7 @@ class Domserver:
                 
         self._db = main_db
         self._obj_db = obj_db
+        self._media_db = media_db
         
     def get_db(self, dbfile):
         return sqlite3.connect(dbfile)
@@ -173,6 +175,9 @@ class Domserver:
         
     def get_obj_db(self):
         return self.get_db(self._obj_db)
+        
+    def get_media_db(self):
+        return self.get_db(self._media_db)
         
     def _init_config(self):
         """Initialize config dict-like object"""

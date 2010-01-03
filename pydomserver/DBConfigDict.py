@@ -44,7 +44,11 @@ DOMSERVER_CONFIG_DEFAULTS = {
     'bt.run_interval':          1,
     'bt.refresh_interval':      1,
     
-    'media.lobby_dir':          '/data/lobby',
+    'media.lobby_dir':          '/data/test_lobby',
+    'media.music_dir':          '/data/test_media/music',
+    'media.log_file':           '/var/log/domserver/media.log',
+    'media.log_level':          3,
+    'media.deter':              'the,le,la,les',
     
     'fileman.log_file':         '/var/log/domserver/fileman.log',
     'fileman.log_level':        3

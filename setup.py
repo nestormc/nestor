@@ -35,5 +35,9 @@ setup(
     author_email = 'joyard.nicolas@gmail.com',
     url = 'http://www.mnkey.ney/domserver/',
 
-    packages = ['pydomserver', 'pydomserver.helpers']
+    packages = [
+        'pydomserver',
+        'pydomserver.helpers',
+        'pydomserver.helpers.media'
+    ]
 )

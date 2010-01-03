@@ -25,6 +25,7 @@ from pydomserver.Utils import domserverRunning, remoteSetConfig
 from pydomserver.helpers.Amule import AmuleHelper
 from pydomserver.helpers.Bittorrent import BitTorrentHelper
 from pydomserver.helpers.FileManager import FileManagerHelper
+from pydomserver.helpers.MediaLibrary import MediaLibraryHelper
 from pydomserver.helpers.SystemActions import SystemActionsHelper
 
 def usage():
@@ -178,6 +179,7 @@ def run_domserver():
     domserver.add_helper(AmuleHelper)
     domserver.add_helper(BitTorrentHelper)
     domserver.add_helper(FileManagerHelper)
+    domserver.add_helper(MediaLibraryHelper)
     domserver.add_helper(SystemActionsHelper)
     
     if int(domserver.config['domserver.use_psyco']):

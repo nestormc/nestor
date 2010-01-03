@@ -14,10 +14,8 @@
 # along with avhes.  If not, see <http://www.gnu.org/licenses/>.
 
 __all__ = [
-    'Amule',
-    'Bittorrent',
-    'FileManager',
-    'MediaLibrary',
-    'SystemActions'
+    'Errors',
+    'Import',
+    'Music'
 ]
 
