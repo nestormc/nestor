@@ -37,6 +37,8 @@ class MLObjectProvider(ObjectProvider):
         return []
         
     def _decompose_oid(self, oid):
+        """Validate and decompose an object id"""
+        
         desc = []
         try:
             kind, desc = oid.split('/', 1)
@@ -91,12 +93,12 @@ class MLObjectProvider(ObjectProvider):
                 return artist
             elif prop == 'id':
                 return self.music.get_artist_id(artist)
-            elif 'file' in types or 'folder' in types and prop == 'path':
+            elif ('file' in types or 'folder' in types) and prop == 'path':
                 meta = {'artist': artist}
                 return self.music.meta_to_filename(meta, 2)
                 
         if 'music-album' in types:
-            artist, album = desc[1:2]
+            artist, album = desc[1:3]
             album_id = self.music.get_album_id(artist, album)
             if prop == 'keywords':
                 return "%s %s" % (artist, album)
@@ -106,7 +108,7 @@ class MLObjectProvider(ObjectProvider):
                 return artist
             elif prop == 'id':
                 return album_id
-            elif 'file' in types or 'folder' in types and prop == 'path':
+            elif ('file' in types or 'folder' in types) and prop == 'path':
                 meta = {'artist': artist, 'album': album}
                 return self.music.meta_to_filename(meta, 1)
             elif prop in ('year', 'genre'):
@@ -114,7 +116,7 @@ class MLObjectProvider(ObjectProvider):
                 return meta[prop]
                 
         if 'music-track' in types:
-            artist, album, title = desc[1:3]
+            artist, album, title = desc[1:4]
             track_id = self.music.get_track_id(artist, album, title)
             if prop == 'keywords':
                 return "%s %s %s" % (artist, album, title)
@@ -128,7 +130,7 @@ class MLObjectProvider(ObjectProvider):
                 return track_id
             else:
                 meta = self.music.get_metadata(track_id)
-                if 'file' in types or 'folder' in types and prop == 'path':
+                if ('file' in types or 'folder' in types) and prop == 'path':
                     return self.music.meta_to_filename(meta)
                 elif prop in ('year', 'genre', 'len', 'fmt', 'num'):
                     return meta[prop]
@@ -138,7 +140,7 @@ class MLObjectProvider(ObjectProvider):
     def set_value(self, oid, prop, val):
         raise KeyError('MediaLibrary does not support writing')
         
-    def describe_props(self, oid):
+    def describe_props(self, oid, detail_level):
         types = self.get_types(oid)
         props = []
         if 'music' in types:
@@ -156,7 +158,7 @@ class MLObjectProvider(ObjectProvider):
         desc = {}
         for k in props:
             if k in ('keywords', 'name', 'title', 'genre', 'artist', 'album',
-                'format', 'path'):
+                'fmt', 'path'):
                 desc[k] = {'type': 'string'}
             elif k in ('year', 'num', 'len'):
                 desc[k] = {
@@ -166,7 +168,27 @@ class MLObjectProvider(ObjectProvider):
         return desc
         
     def matching_oids(self, expr, types):
-        return []
+        oids = []
+        types = types or []
+        
+        if 'music-track' in types:
+            track_ids = self.music.match(expr, 0)
+            for i in track_ids:
+                m = self.music.get_metadata(i)
+                oids.append('music-track/%s/%s/%s' % (m['artist'], m['album'],
+                    m['title']))
+        if 'music-album' in types:
+            album_ids = self.music.match(expr, 1)
+            for i in album_ids:
+                m = self.music.get_album_metadata(i)
+                oids.append('music-album/%s/%s' % (m['artist'], m['title']))
+        if 'music-artist' in types:
+            artist_ids = self.music.match(expr, 2)
+            for i in artist_ids:
+                m = self.music.get_artist_metadata(i)
+                oids.append('music-artist/%s' % m['name'])
+                
+        return oids
 
 class MediaLibraryHelper:
 
@@ -181,7 +203,7 @@ class MediaLibraryHelper:
             self.music)
         ret = self.domserver.add_thread(self.lw_thread, True)
         
-        self.objs = ObjectProvider(domserver, self.music)
+        self.objs = MLObjectProvider(domserver, self.music)
         #self.proc = AmuleObjectProcessor(domserver, 'amule', self.objs)
         
         domserver.register_object_interface(
