@@ -251,10 +251,10 @@ class BTObjectProcessor(ObjectProcessor):
     def get_action_names(self, obj=None):
         names = []
         
-        if obj and obj.is_a("bt-app"):
+        if obj.is_a("bt-app"):
             names.append('bt-clear-finished')
             
-        if obj and obj.is_a("download") and obj.is_a("torrent"):
+        if obj.is_a("download") and obj.is_a("torrent"):
             status = obj["status"]
             try:
                 seed = obj["seed"]

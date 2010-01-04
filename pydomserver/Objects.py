@@ -425,8 +425,8 @@ class ObjectProcessor:
     """Base class for object processors.
     
     Methods to override:
-    - get_action_names must return a list of executable action names, either
-      applicable to obj if not None, or void otherwise.
+    - get_action_names must return a list of executable action names applicable
+      to a given object.
     - describe_action must call add_params on the actionwrapper passed to
       complete its description.  It should access the actionwrapper name and obj
       properties.
@@ -440,7 +440,7 @@ class ObjectProcessor:
         self.domserver = domserver
         self.name = name
         
-    def get_action_names(self, obj=None):
+    def get_action_names(self, obj):
         raise ImplementationError("get_action_names not overriden")
         
     def describe_action(self, actwrapper):
