@@ -17,7 +17,7 @@ from ..Errors import ObjectError
 from ..Objects import ObjectProvider, ObjectProcessor
 from ..SocketInterfaceCodes import SIC
 from .media.Import import LobbyWatcherThread
-from .media.Music import MusicLibrary
+from .media.Music import MusicLibrary, MusicTypes
 
 
 class MLObjectProvider(ObjectProvider):
@@ -95,7 +95,7 @@ class MLObjectProvider(ObjectProvider):
                 return self.music.get_artist_id(artist)
             elif ('file' in types or 'folder' in types) and prop == 'path':
                 meta = {'artist': artist}
-                return self.music.meta_to_filename(meta, 2)
+                return self.music.meta_to_filename(meta, MusicTypes.ARTIST)
                 
         if 'music-album' in types:
             artist, album = desc[1:3]
@@ -110,7 +110,7 @@ class MLObjectProvider(ObjectProvider):
                 return album_id
             elif ('file' in types or 'folder' in types) and prop == 'path':
                 meta = {'artist': artist, 'album': album}
-                return self.music.meta_to_filename(meta, 1)
+                return self.music.meta_to_filename(meta, MusicTypes.ALBUM)
             elif prop in ('year', 'genre'):
                 meta = self.music.get_album_metadata(album_id)
                 return meta[prop]
@@ -129,9 +129,9 @@ class MLObjectProvider(ObjectProvider):
             elif prop == 'id':
                 return track_id
             else:
-                meta = self.music.get_metadata(track_id)
+                meta = self.music.get_track_metadata(track_id)
                 if ('file' in types or 'folder' in types) and prop == 'path':
-                    return self.music.meta_to_filename(meta)
+                    return self.music.meta_to_filename(meta, MusicTypes.TRACK)
                 elif prop in ('year', 'genre', 'len', 'fmt', 'num'):
                     return meta[prop]
             
@@ -160,7 +160,7 @@ class MLObjectProvider(ObjectProvider):
             if k in ('keywords', 'name', 'title', 'genre', 'artist', 'album',
                 'fmt', 'path'):
                 desc[k] = {'type': 'string'}
-            elif k in ('year', 'num', 'len'):
+            elif k in ('id', 'year', 'num', 'len'):
                 desc[k] = {
                     'type': 'uint32',
                     'conv': lambda x: int(x)
@@ -172,23 +172,85 @@ class MLObjectProvider(ObjectProvider):
         types = types or []
         
         if 'music-track' in types:
-            track_ids = self.music.match(expr, 0)
+            track_ids = self.music.match(expr, MusicTypes.TRACK)
             for i in track_ids:
-                m = self.music.get_metadata(i)
+                m = self.music.get_track_metadata(i)
                 oids.append('music-track/%s/%s/%s' % (m['artist'], m['album'],
                     m['title']))
         if 'music-album' in types:
-            album_ids = self.music.match(expr, 1)
+            album_ids = self.music.match(expr, MusicTypes.ALBUM)
             for i in album_ids:
                 m = self.music.get_album_metadata(i)
                 oids.append('music-album/%s/%s' % (m['artist'], m['title']))
         if 'music-artist' in types:
-            artist_ids = self.music.match(expr, 2)
+            artist_ids = self.music.match(expr, MusicTypes.ARTIST)
             for i in artist_ids:
                 m = self.music.get_artist_metadata(i)
                 oids.append('music-artist/%s' % m['name'])
                 
         return oids
+
+
+class MLObjectProcessor(ObjectProcessor):
+
+    def __init__(self, domserver, objs, music):
+        ObjectProcessor.__init__(self, domserver, 'media')
+        self.objs = objs
+        self.music = music
+        
+    def get_action_names(self, obj):
+        names = []
+        
+        if obj.is_a('music-artist'):
+            names.extend(['edit-artist'])
+        if obj.is_a('music-album'):
+            names.extend(['edit-album'])
+        if obj.is_a('music-track'):
+            names.extend(['edit-track'])
+        if obj.is_a('music'):
+            names.extend(['remove', 'mpd-play', 'mpd-enqueue'])
+            
+        return names
+        
+    def describe_action(self, act):
+        name = act.name
+        obj = act.obj
+        
+        if name == 'edit-artist':
+            act.add_param('name', SIC.APFLAG_TYPE_STRING, obj['name'])
+        elif name == 'edit-album':
+            act.add_param('artist', SIC.APFLAG_TYPE_STRING, obj['artist'])
+            act.add_param('title', SIC.APFLAG_TYPE_STRING, obj['title'])
+            act.add_param('year', SIC.APFLAG_TYPE_NUMBER, obj['year'])
+            act.add_param('genre', SIC.APFLAG_TYPE_STRING, obj['genre'])
+        elif name == 'edit-track':
+            act.add_param('artist', SIC.APFLAG_TYPE_STRING, obj['artist'])
+            act.add_param('album', SIC.APFLAG_TYPE_STRING, obj['album'])
+            act.add_param('num', SIC.APFLAG_TYPE_NUMBER, obj['num'])
+            act.add_param('title', SIC.APFLAG_TYPE_STRING, obj['title'])
+    
+    def execute_action(self, act):
+        name = act.name
+        obj = act.obj
+        
+        if name == 'edit-artist':
+            meta = self.music.get_artist_metadata(obj['id'])
+            meta['artist'] = act['name']
+            self.music.update_artist(meta, obj['id'])
+        elif name == 'edit-album':
+            meta = self.music.get_album_metadata(obj['id'])
+            meta['artist'] = act['artist']
+            meta['album'] = act['title']
+            meta['year'] = act['year']
+            meta['genre'] = act['genre']
+            self.music.update_album(meta, obj['id'])
+        elif name == 'edit-track':
+            metaa = self.music.get_track_metadata(obj['id'])
+            meta['artist'] = act['artist']
+            meta['album'] = act['album']
+            meta['num'] = act['num']
+            meta['title'] = act['title']
+            self.music.update_track(meta, obj['id'])
 
 class MediaLibraryHelper:
 
@@ -204,12 +266,12 @@ class MediaLibraryHelper:
         ret = self.domserver.add_thread(self.lw_thread, True)
         
         self.objs = MLObjectProvider(domserver, self.music)
-        #self.proc = AmuleObjectProcessor(domserver, 'amule', self.objs)
+        self.proc = MLObjectProcessor(domserver, self.objs, self.music)
         
         domserver.register_object_interface(
             name='media',
-            provider=self.objs
-        #    processor=self.proc
+            provider=self.objs,
+            processor=self.proc
         )
         
         
