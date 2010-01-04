@@ -151,23 +151,33 @@ class MediaImporterThread(Thread):
     def import_media(self, path):
         self.debug("Importing '%s'" % path)
         if os.path.isdir(path):
-            for r, dirs, files in os.walk(path):
-                for f in dirs + files:
-                    self.import_media(os.path.join(path, f))
-                dirs[0:len(dirs)] = []
-            try:
-                os.rmdir(path)
-            except OSError:
-                pass
+            count = 0
+            failed = 0
+            for r, dirs, files in os.walk(path, False):
+                for f in files:
+                    count += 1
+                    path = os.path.join(r, f)
+                    ret = self.import_file(path)
+                    if ret:
+                        os.remove(path)
+                    else:
+                        failed += 1
+                try:
+                    os.rmdir(r)
+                except:
+                    pass
+            return count, count - failed
         else:
             ret = self.import_file(path)
             if ret:
                 os.remove(path)
+            return 1, 1 if ret else 0
                 
     def process(self):
         self.debug("Start processing for %s" % self.path)
-        self.import_media(self.path)
-        self.debug("Finished processing %s" % self.path)
+        count, success = self.import_media(self.path)
+        self.debug("Finished processing %s, %d/%d files imported" % (self.path,
+            success, count))
         
         
 class LobbyEventCatcher(ProcessEvent):
