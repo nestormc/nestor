@@ -49,6 +49,9 @@ DOMSERVER_CONFIG_DEFAULTS = {
     'media.log_file':           '/var/log/domserver/media.log',
     'media.log_level':          3,
     'media.deter':              'the,le,la,les',
+    'media.mpd_host':           'localhost',
+    'media.mpd_port':           6600,
+    'media.mpd_password':       'mpd',
     
     'fileman.log_file':         '/var/log/domserver/fileman.log',
     'fileman.log_level':        3
