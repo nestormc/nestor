@@ -130,6 +130,29 @@ class MusicLibrary:
                 meta['album'],
                 "%s.%s" % (fname, meta['fmt'])
             )
+            
+    def filename_to_meta(self, path):
+        self.log.debug('fn to meta: path=%s' % path)
+        spath = path.split('/')
+        self.log.debug('spath = %s' % repr(spath))
+        
+        if len(spath) == 1:
+            artist_id = self.get_artist_id(spath[0])            
+            if artist_id:
+                return (self.get_artist_metadata(artist_id), MediaTypes.ARTIST)
+                
+        if len(spath) == 2:
+            album_id = self.get_album_id(spath[0], spath[1])
+            if album_id:
+                return (self.get_album_metadata(album_id), MediaTypes.ALBUM)
+                
+        if len(spath) == 3:
+            title = re.sub("^(\d+ - )?", "", spath[2])
+            track_id = self.get_track_id(spath[0], spath[1], title)
+            if track_id:
+                return (self.get_track_metadata(track_id), MediaTypes.TRACK)
+        
+        return (None, None)
         
     def get_artist_id(self, artist):
         db = self.domserver.get_media_db()
@@ -302,7 +325,7 @@ class MusicLibrary:
         moves files)
         """
         
-        album_id = self.get_album_id(meta['artist'], meta['title'])
+        album_id = self.get_album_id(meta['artist'], meta['album'])
         db = self.domserver.get_media_db()
         
         if track_id is None:
@@ -374,7 +397,9 @@ class MusicLibrary:
             os.makedirs(os.path.dirname(mlpath))
         except os.error:
             pass
-        
+            
+        # self.log.debug("import_track path='%s' meta=%s" % (path, repr(meta)))
+        shutil.copy(path, mlpath)
         artist_id = self.write_artist_metadata(meta, artist_id)
         album_id = self.write_album_metadata(meta, album_id)
         return self.write_track_metadata(meta)
