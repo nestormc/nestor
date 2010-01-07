@@ -13,6 +13,8 @@
 # You should have received a copy of the GNU General Public License
 # along with domserver.  If not, see <http://www.gnu.org/licenses/>.
 
+from mpd import MPDClient
+
 from ..Errors import ObjectError
 from ..Objects import ObjectProvider, ObjectProcessor
 from ..SocketInterfaceCodes import SIC
@@ -29,12 +31,14 @@ class MLObjectProvider(ObjectProvider):
         media:music-track/<artist>/<album>/<title>
     """
     
-    def __init__(self, domserver, music):
+    def __init__(self, domserver, helper):
         ObjectProvider.__init__(self, domserver, 'media')
-        self.music = music
+        self.music = helper['music']
+        self.mpd = helper['mpd']
         
     def get_oids(self):
-        return []
+        mpd_oids = ['mpd-item/%d' % i for i in range(len(self.mpd.playlist()))]
+        return mpd_oids
         
     def _decompose_oid(self, oid):
         """Validate and decompose an object id"""
@@ -45,7 +49,7 @@ class MLObjectProvider(ObjectProvider):
         except ValueError:
             return False
             
-        if kind == 'music-artist':
+        if kind in ('mpd-item', 'music-artist'):
             return [kind, desc]
         elif kind == 'music-album':
             try:
@@ -63,6 +67,9 @@ class MLObjectProvider(ObjectProvider):
             return False
         
     def valid_oid(self, oid):
+        if oid in self.get_oids():
+            return True
+    
         desc = self._decompose_oid(oid)
         if not desc:
             return False
@@ -74,6 +81,8 @@ class MLObjectProvider(ObjectProvider):
         elif desc[0] == 'music-track':
             return self.music.get_track_id(desc[1], desc[2], desc[3]) is not None
             
+        return False
+            
     def get_types(self, oid):
         desc = self._decompose_oid(oid)
         if desc[0] == 'music-artist':
@@ -82,6 +91,8 @@ class MLObjectProvider(ObjectProvider):
             return ['music', 'music-album', 'folder']
         elif desc[0] == 'music-track':
             return ['music', 'music-track', 'file']
+        elif desc[0] == 'mpd-item':
+            return ['music', 'mpd-item', 'file']
 
     def get_value(self, oid, prop):
         types = self.get_types(oid)
@@ -134,6 +145,23 @@ class MLObjectProvider(ObjectProvider):
                     return self.music.meta_to_filename(meta, MusicTypes.TRACK)
                 elif prop in ('year', 'genre', 'len', 'fmt', 'num'):
                     return meta[prop]
+                    
+        if 'mpd-item' in types:
+            idx = int(desc[1])
+            relpath = self.mpd.playlist()[idx]
+            abspath = "%s/%s" % (self.domserver.config['media.music_dir'], 
+                relpath)
+            meta, mtype = self.music.filename_to_meta(relpath)
+            if prop == 'keywords':
+                return '%s %s %s' % (meta['artist'], meta['album'],
+                    meta['title'])
+            elif prop == 'pos':
+                return idx
+            elif prop == 'ml_objref':
+                return 'music-track/%s/%s/%s' % (meta['artist'], meta['album'],
+                    meta['title'])
+            elif ('file' in types or 'folder' in types) and prop == 'path':
+                return abspath
             
         raise KeyError("Object '%s' has no property '%s'" % (oid, prop))
         
@@ -152,15 +180,17 @@ class MLObjectProvider(ObjectProvider):
         if 'music-track' in types:
             props.extend(['id', 'album', 'year', 'genre', 'artist', 'title',
                 'num', 'len', 'fmt'])
+        if 'mpd-item' in types:
+            props.extend(['pos', 'ml_objref'])
         if 'file' in types or 'folder' in types:
             props.extend(['path'])
         
         desc = {}
         for k in props:
             if k in ('keywords', 'name', 'title', 'genre', 'artist', 'album',
-                'fmt', 'path'):
+                'fmt', 'path', 'ml_objref'):
                 desc[k] = {'type': 'string'}
-            elif k in ('id', 'year', 'num', 'len'):
+            elif k in ('id', 'year', 'num', 'len', 'pos'):
                 desc[k] = {
                     'type': 'uint32',
                     'conv': lambda x: int(x)
@@ -188,15 +218,16 @@ class MLObjectProvider(ObjectProvider):
                 m = self.music.get_artist_metadata(i)
                 oids.append('music-artist/%s' % m['name'])
                 
+        oids.extend(ObjectProvider.matching_oids(self, expr, types))
         return oids
 
 
 class MLObjectProcessor(ObjectProcessor):
 
-    def __init__(self, domserver, objs, music):
+    def __init__(self, domserver, helper):
         ObjectProcessor.__init__(self, domserver, 'media')
-        self.objs = objs
-        self.music = music
+        self.objs = helper['objs']
+        self.music = helper['music']
         
     def get_action_names(self, obj):
         names = []
@@ -252,6 +283,27 @@ class MLObjectProcessor(ObjectProcessor):
             meta['title'] = act['title']
             self.music.update_track(meta, obj['id'])
 
+class MPDWrapper:
+    
+    def __init__(self, domserver):
+        self.domserver = domserver
+    
+    def connect(self):
+        client = MPDClient()
+        client.connect(
+            self.domserver.config['media.mpd_host'],
+            int(self.domserver.config['media.mpd_port'])
+        )
+        client.password(self.domserver.config['media.mpd_password'])
+        return client
+        
+    def playlist(self):
+        client = self.connect()
+        ret = client.playlist()
+        client.disconnect()
+        return ret
+        
+
 class MediaLibraryHelper:
 
     def __init__(self, domserver):
@@ -259,14 +311,14 @@ class MediaLibraryHelper:
         self.domserver.info("Initializing media library helper")
         self.logger = domserver.get_logger('media.log_file', 'media.log_level')
         
+        self.mpd = MPDWrapper(self.domserver)
         self.music = MusicLibrary(self.domserver, self.logger)
         
-        self.lw_thread = LobbyWatcherThread(self.domserver, self.logger,
-            self.music)
+        self.lw_thread = LobbyWatcherThread(self.domserver, self.logger, self)
         ret = self.domserver.add_thread(self.lw_thread, True)
         
-        self.objs = MLObjectProvider(domserver, self.music)
-        self.proc = MLObjectProcessor(domserver, self.objs, self.music)
+        self.objs = MLObjectProvider(domserver, self)
+        self.proc = MLObjectProcessor(domserver, self)
         
         domserver.register_object_interface(
             name='media',
@@ -274,4 +326,13 @@ class MediaLibraryHelper:
             processor=self.proc
         )
         
+    def __getitem__(self, key):
+        if key == 'music':
+            return self.music
+        elif key == 'mpd':
+            return self.mpd
+        elif key == 'objs':
+            return self.objs
+        else:
+            raise KeyError("MediaLibraryHelper has no key '%s'" % key)
         
