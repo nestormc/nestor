@@ -16,7 +16,7 @@
 import os
 import time
 
-MAX_LOG_SIZE = 128 * 1024
+MAX_LOG_SIZE = 1024**2 
 
 LL_QUIET = 0
 LL_INFO = 1
@@ -58,7 +58,10 @@ class Logger:
             text = "%s [%s] %s" % (tm, LL_DESC[level], text) 
         
         l = open(self.logfile, 'a')
-        l.write(text + "\n")
+        try:
+            l.write("%s\n" % text)
+        except UnicodeError:
+            l.write("%s\n" % text.encode('utf-8'))
         l.close()
         self.rotate()
             
