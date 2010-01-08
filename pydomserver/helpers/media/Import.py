@@ -71,7 +71,11 @@ class MediaImporterThread(Thread):
         self._wm = WatchManager()
         notifier = ThreadedNotifier(self._wm, ItemEventCatcher(self))
         notifier.start()
-        self.add_watch(self.path)
+        
+        try:
+            self.add_watch(self.path)
+        except UnicodeError:
+            self.add_watch(self.path.encode('utf-8'))
         
         self.last_activity = time.time()
         self.running = True
@@ -110,7 +114,6 @@ class MediaImporterThread(Thread):
         if dirname in self.cache['file_start']:
             if ext in self.cache['file_start'][dirname]:
                 start = self.cache['file_start'][dirname][ext]
-                self.debug("guess_tracknum: cached start '%s'" % start)
     
         if start is None:
             for r, dirs, files in os.walk(dirname):
@@ -130,15 +133,12 @@ class MediaImporterThread(Thread):
                         
             start = start.rstrip('0')
             self.cache['file_start'][dirname] = {ext: start}
-            self.debug("guess_tracknum: found common start '%s' for %s (%s)" % (start, dirname, ext))
                     
         basename = basename[len(start):len(basename)]
         match = re.search("^(\d+)", basename)
         if match:
-            self.debug("guess_tracknum: found num '%s'" % match.group(1))
             return int(match.group(1))
         else:
-            self.debug("guess_tracknum: found nothing :(")
             return -1
         
     def guess_metadata(self, path):
@@ -168,10 +168,13 @@ class MediaImporterThread(Thread):
                 if tracknum is None:
                     tracknum = self.guess_tracknum(path)
                         
-                if not k['title']:
+                unknown_titles = ['unknown', 'unknown track', 'piste inconnue']
+                if not k['title'] or k['title'].lower() in unknown_titles:
                     title = os.path.basename(path).rsplit('.', 1)[0]
                     if title.lstrip('0123456789') != '':
                         title = title.lstrip('0123456789')
+                else:
+                    title = k['title']
                         
                 ext = path.split('.')[-1].lower()
                 
@@ -180,15 +183,15 @@ class MediaImporterThread(Thread):
                     'year':     year,
                     'album':    k['album'] or '_unknown_',
                     'num':      tracknum,
-                    'title':    k['title'] or title,
+                    'title':    title,
                     'genre':    k['genre'] or '',
                     'len':      k['length'],
                     'fmt':      ext
                 }
             else:
-                self.debug("Unsupported media '%s'" % k['media'])
+                self.debug("Unsupported media '%s' in '%s'" % (k['media'],path))
         else:
-            self.debug("Could not find media streams")
+            self.debug("Could not find media streams in '%s'" % path)
             
         return None, None
                 
@@ -208,7 +211,6 @@ class MediaImporterThread(Thread):
         return False
     
     def import_media(self, path):
-        self.debug("Importing '%s'" % path)
         if os.path.isdir(path):
             fpaths = []
             roots = []
@@ -218,7 +220,7 @@ class MediaImporterThread(Thread):
                 for f in files:
                     fpaths.append(os.path.join(r, f))
                     
-            self.debug("filelist: \n%s" % "\n".join(sorted(fpaths)))
+            # self.debug("filelist: \n%s" % "\n".join(sorted(fpaths)))
                     
             failed = 0
             for f in sorted(fpaths):
@@ -260,13 +262,13 @@ class MediaImporterThread(Thread):
             return 1, 1 if ret else 0
                 
     def process(self):
-        self.debug("Start processing for %s" % self.path)
+        self.verbose("Processing %s" % self.path)
         try:
             count, success = self.import_media(self.path)
         except Exception, e:
             self.log_exception(e)
         else:
-            self.debug("Finished processing %s, %d/%d files imported" % (self.path,
+            self.verbose("Finished processing %s, %d/%d files imported" % (self.path,
                 success, count))
         
         
