@@ -14,7 +14,7 @@
 # along with avhes.  If not, see <http://www.gnu.org/licenses/>.
 
 __all__ = [
-    'amule',
+    'amuledl',
     'bittorrent',
     'filemanager',
     'medialibrary',
