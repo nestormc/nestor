@@ -164,7 +164,7 @@ class MediaImporterThread(Thread):
                     except (ValueError, TypeError):
                         pass
                         
-            if tracknum is None:
+            if not tracknum:
                 tracknum = self.guess_tracknum(path)
                     
             unknown_titles = ['unknown', 'unknown track', 'piste inconnue']
