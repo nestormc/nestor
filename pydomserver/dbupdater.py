@@ -73,7 +73,10 @@ UPDATE_SCRIPTS = {
     },
     3: {
         'media': """
+            PRAGMA foreign_keys = TRUE;
+        
             DROP TABLE IF EXISTS music_artists;
+            DROP INDEX IF EXISTS idx_mar_sortname;
             CREATE TABLE music_artists (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 name TEXT NOT NULL,
@@ -81,8 +84,12 @@ UPDATE_SCRIPTS = {
                 
                 CONSTRAINT uk_mar_name UNIQUE (name)
             );
+            CREATE INDEX idx_mar_sortname ON music_artists(sortname);
             
             DROP TABLE IF EXISTS music_albums;
+            DROP INDEX IF EXISTS idx_mal_artist_id;
+            DROP INDEX IF EXISTS idx_mal_year;
+            DROP INDEX IF EXISTS idx_mal_genre;
             CREATE TABLE music_albums (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 artist_id INTEGER NOT NULL,
@@ -93,8 +100,12 @@ UPDATE_SCRIPTS = {
                 CONSTRAINT fk_mal_artist_id FOREIGN KEY (artist_id) REFERENCES music_artists(id),
                 CONSTRAINT uk_mal_artist_id_title UNIQUE (artist_id, title)
             );
+            CREATE INDEX idx_mal_artist_id ON music_albums(artist_id);
+            CREATE INDEX idx_mal_year ON music_albums(year);
+            CREATE INDEX idx_mal_genre ON music_albums(genre);
             
             DROP TABLE IF EXISTS music_tracks;
+            DROP INDEX IF EXISTS idx_mtk_album_id;
             CREATE TABLE music_tracks (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 album_id INTEGER NOT NULL,
@@ -105,6 +116,7 @@ UPDATE_SCRIPTS = {
                 
                 CONSTRAINT fk_mtk_album_id FOREIGN KEY (album_id) REFERENCES music_albums(id)
             );
+            CREATE INDEX idx_mtk_album_id ON music_tracks(album_id);
         """
     }
 }
