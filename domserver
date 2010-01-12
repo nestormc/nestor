@@ -22,7 +22,7 @@ import sys
 from pydomserver import Domserver
 from pydomserver.dbconfigdict import DOMSERVER_CONFIG_DEFAULTS
 from pydomserver.utils import domserverRunning, remoteSetConfig
-from pydomserver.helpers.amule import AmuleHelper
+from pydomserver.helpers.amuledl import AmuleHelper
 from pydomserver.helpers.bittorrent import BitTorrentHelper
 from pydomserver.helpers.filemanager import FileManagerHelper
 from pydomserver.helpers.medialibrary import MediaLibraryHelper
