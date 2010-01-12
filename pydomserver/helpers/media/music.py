@@ -21,6 +21,7 @@ import urllib
 import urllib2
 
 from .errors import MediaImportError, MediaUpdateError
+from .metadata import Metadata
 
 
 class MusicTypes:
@@ -180,6 +181,13 @@ class MusicLibrary:
             'artist': rset[0]
         }
         
+    def get_artist_albumids(self, artist_id):
+        db = self.domserver.get_media_db()
+        query = "SELECT id FROM music_albums WHERE artist_id = ?"
+        rset = db.execute(query, (artist_id,)).fetchall()
+        db.close()
+        return [r[0] for r in rset]
+        
     def write_artist_metadata(self, meta, artist_id=None):
         """Write artist metadata in database.
         
@@ -204,6 +212,12 @@ class MusicLibrary:
         
         db.commit()
         db.close()
+        
+        for album_id in self.get_artist_albumids(artist_id):
+            for track_id in self.get_album_trackids(album_id):
+                tmeta = self.get_track_metadata(track_id)
+                self.write_file_tags(tmeta)
+        
         return artist_id
         
     def update_artist(self, meta, artist_id):
@@ -246,12 +260,19 @@ class MusicLibrary:
             'artist': rset[3]
         }
         
-    def write_album_metadata(self, meta, album_id=None):
-        """Write album metadata in database.
+    def get_album_trackids(self, album_id):
+        db = self.domserver.get_media_db()
+        query = "SELECT id FROM music_tracks WHERE album_id=?"
+        rset = db.execute(query, (album_id,)).fetchall()
+        db.close()
+        return [r[0] for r in rset]
         
-        The metadata keys needed here are artist, album, year and genre.
-        Should not be called directly, use update_album instead (which also
-        moves files).
+    def write_album_metadata(self, meta, album_id=None):
+        """Write album metadata.
+        
+        Write metadata in database and associated files.  The metadata keys
+        needed here are artist, album, year and genre.  Should not be called
+        directly, use update_album instead (which also moves files).
         """
         
         artist_id = self.get_artist_id(meta['artist'])
@@ -271,6 +292,11 @@ class MusicLibrary:
         
         db.commit()
         db.close() 
+        
+        for track_id in self.get_album_trackids(album_id):
+            tmeta = self.get_track_metadata(track_id)
+            self.write_file_tags(tmeta)
+            
         return album_id
         
     def update_album(self, meta, album_id):
@@ -354,13 +380,30 @@ class MusicLibrary:
         if data:
             for i in range(len(mapping)):
                 meta[mapping[i]] = data[i]
-        return meta   
+        return meta
+        
+    def write_file_tags(self, meta):
+        """Write metadata to file tags"""
+        
+        path = self.meta_to_filename(meta, MusicTypes.TRACK)
+        self.log.debug("Writing tags in '%s'" % path)
+        
+        filemeta = Metadata(path)
+        filemeta['artist'] = meta['artist']
+        filemeta['album'] = meta['album']
+        filemeta['title'] = meta['title']
+        filemeta['trackno'] = str(meta['num']) if meta['num'] != -1 else ''
+        filemeta['genre'] = meta['genre']
+        filemeta['year'] = str(meta['year']) if meta['year'] != -1 else '' 
+        filemeta.save()
         
     def write_track_metadata(self, meta, track_id=None):
-        """Write track metadata in database.
+        """Write track metadata.
         
+        Update (or insert if track_id is None) track metadata in database; write
+        metadata to file tags.
         Should not be called directly, use update_track instead (which also
-        moves files)
+        moves files when necessary)
         """
         
         album_id = self.get_album_id(meta['artist'], meta['album'])
@@ -381,6 +424,7 @@ class MusicLibrary:
         
         db.commit()
         db.close()
+        self.write_file_tags(meta)
         return track_id
         
     def update_track(self, meta, track_id):
@@ -411,7 +455,7 @@ class MusicLibrary:
                 raise MediaUpdateError("Track '%s/%s/%s' already exists" % (
                     meta['artist'], meta['album'], meta['title']))
             shutil.move(oldpath, newpath)
-        self.write_track_metadata(meta)
+        self.write_track_metadata(meta, track_id)
 
     def import_track(self, path, meta, move=False):
         """Import a music track into the media library
@@ -436,7 +480,6 @@ class MusicLibrary:
         except os.error:
             pass
             
-        # self.log.debug("import_track path='%s' meta=%s" % (path, repr(meta)))
         if move:
             shutil.move(path, mlpath)
         else:
