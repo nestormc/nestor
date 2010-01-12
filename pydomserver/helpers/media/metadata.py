@@ -33,7 +33,7 @@ class TagWrapper():
     filename = None
     keys = None
     emptytag = False
-    found_keys = {}
+    found_tags = {}
 
     def __init__(self, *args):
         raise ImplementationError
@@ -48,7 +48,7 @@ class TagWrapper():
                     ntag = ntag[0]
                 if type == 'str':
                     ntag = unicode(ntag)
-                elif type == 'lst':
+                elif type in ('lst', '2numbers'):
                     ntag = unicode(ntag[0])
                     
                 if tag == None or (tag == '' and ntag != ''):
@@ -63,6 +63,12 @@ class TagWrapper():
             self.tag[key] = [value]
         elif type == 'lst':
             self.tag[key] = [(value)]    
+        elif type == '2numbers':
+            try:
+                val = int(value)
+            except ValueError, TypeError:
+                val = 0
+            self.tag[key] = [(val, val)]
 
     def save(self):
         if self.emptytag:
@@ -73,7 +79,8 @@ class TagWrapper():
     def readTag(self, key):
         rtype, rkeys = self.keys[key]
         t, k = self.tryReadTag(rkeys, rtype)
-        self.found_tags[key] = k
+        if k:
+            self.found_tags[key] = k
         return t
         
     def writeTag(self, key, value):
@@ -163,7 +170,7 @@ class MP4Tag(TagWrapper):
             'artist': ['str', ['aART', '\xa9ART', '\xa9art']],
             'album': ['str', ['\xa9alb']],
             'title': ['str', ['\xa9nam']],
-            'trackno': ['lst', ['trkn']],
+            'trackno': ['2numbers', ['trkn']],
             'year': ['str', ['\xa9day']],
             'genre': ['str', ['\xa9gen', 'gnre']]
         }
@@ -238,13 +245,19 @@ class Metadata:
             
         if self.tag:
             self.tag.writeTag(key, value)
-            self.tag.save()
+            self.data[key] = value
+        else:
+            raise KeyError("Cannot write tags")
         
     def keys(self):
         return self.data.keys()
         
     def has_key(self, key):
         return self.data.has_key(key)
+        
+    def save(self):
+        if self.tag:
+            self.tag.save()
     
     def parse(self):
         try:
