@@ -72,8 +72,8 @@ class OCriterion:
             '>=': ['%s >= ?', lambda x:x],
             '<':  ['%s < ?', lambda x:x],
             '<=': ['%s <= ?', lambda x:x],
-            '<~': ['%s LIKE ?', lambda x:"%%%s" % x],
-            '~>': ['%s LIKE ?', lambda x:"%s%%" % x],
+            '<~': ['%s LIKE ?', lambda x:"%s%%" % x],
+            '~>': ['%s LIKE ?', lambda x:"%%%s" % x],
             '~':  ['%s LIKE ?', lambda x:"%%%s%%" % x]
         }[self.oper]
         
