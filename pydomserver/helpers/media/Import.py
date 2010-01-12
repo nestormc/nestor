@@ -13,15 +13,16 @@
 # You should have received a copy of the GNU General Public License
 # along with domserver.  If not, see <http://www.gnu.org/licenses/>.
 
-import kaa.metadata as kmd
 import os
 import os.path
 from pyinotify import WatchManager, ThreadedNotifier, ProcessEvent, EventsCodes
 import re
+import threading
 import time
 
 from ...Thread import Thread
 from .Errors import MediaImportError
+from .Metadata import Metadata
 
 
 class ItemEventCatcher(ProcessEvent):
@@ -58,16 +59,15 @@ class MediaImporterThread(Thread):
     
     """
     
-    def __init__(self, domserver, logger, music, path):
+    def __init__(self, domserver, logger, music, path, delete=False):
         Thread.__init__(self, domserver, logger)
         self.music = music
         self.path = path
         self.running = False
+        self.delete = delete
         self.cache = {}
         
     def domserver_run(self):
-        self.debug("mediaimporter: waiting %s" % self.path)
-    
         self._wm = WatchManager()
         notifier = ThreadedNotifier(self._wm, ItemEventCatcher(self))
         notifier.start()
@@ -142,65 +142,62 @@ class MediaImporterThread(Thread):
             return -1
         
     def guess_metadata(self, path):
-        k = kmd.parse(path)
-        if k:
-            if k['media'] == kmd.MEDIA_AUDIO:
-                if not k['artist']:
-                    artist = '_unknown_'
-                else:
-                    artist = self.music.match_artist(k['artist'])
-            
-                try:
-                    year = int(k['userdate'])
-                except (ValueError, TypeError):
-                    year = -1
-                    
-                tracknum = None
-                if k['trackno']:
-                    try:
-                        tracknum = int(k['trackno'])
-                    except (ValueError, TypeError):
-                        try:
-                            tracknum = int(k['trackno'].split('/')[0])
-                        except (ValueError, TypeError):
-                            pass
-                            
-                if tracknum is None:
-                    tracknum = self.guess_tracknum(path)
-                        
-                unknown_titles = ['unknown', 'unknown track', 'piste inconnue']
-                if not k['title'] or k['title'].lower() in unknown_titles:
-                    title = os.path.basename(path).rsplit('.', 1)[0]
-                    if title.lstrip('0123456789') != '':
-                        title = title.lstrip('0123456789')
-                else:
-                    title = k['title']
-                        
-                ext = path.split('.')[-1].lower()
-                
-                return kmd.MEDIA_AUDIO, {
-                    'artist':   artist,
-                    'year':     year,
-                    'album':    k['album'] or '_unknown_',
-                    'num':      tracknum,
-                    'title':    title,
-                    'genre':    k['genre'] or '',
-                    'len':      k['length'],
-                    'fmt':      ext
-                }
+        md = Metadata(path)
+        if md['media'] == Metadata.MEDIA_MUSIC:
+            if not md['artist']:
+                artist = '_unknown_'
             else:
-                self.debug("Unsupported media '%s' in '%s'" % (k['media'],path))
+                artist = self.music.match_artist(md['artist'])
+        
+            try:
+                year = int(md['year'])
+            except (ValueError, TypeError):
+                year = -1
+                
+            tracknum = None
+            if md['trackno']:
+                try:
+                    tracknum = int(md['trackno'])
+                except (ValueError, TypeError):
+                    try:
+                        tracknum = int(md['trackno'].split('/')[0])
+                    except (ValueError, TypeError):
+                        pass
+                        
+            if tracknum is None:
+                tracknum = self.guess_tracknum(path)
+                    
+            unknown_titles = ['unknown', 'unknown track', 'piste inconnue']
+            if not md['title'] or md['title'].lower() in unknown_titles:
+                title = os.path.basename(path).rsplit('.', 1)[0]
+                if title.lstrip('0123456789') != '':
+                    title = title.lstrip('0123456789')
+            else:
+                title = md['title']
+                    
+            return Metadata.MEDIA_MUSIC, {
+                'artist':   artist,
+                'year':     year,
+                'album':    md['album'] or '_unknown_',
+                'num':      tracknum,
+                'title':    title,
+                'genre':    md['genre'] or '',
+                'len':      md['length'],
+                'fmt':      md['ext']
+            }
         else:
-            self.debug("Could not find media streams in '%s'" % path)
+            self.verbose("Unsupported media '%s' in '%s'" % (md['media'], path))
+            if md['media'] == Metadata.MEDIA_UNKNOWN:
+                self.debug("Metadata err = %s in '%s'" % (md.err_msg, path))
             
         return None, None
                 
     def import_file(self, path):
         mtype, meta = self.guess_metadata(path)
         
-        if mtype == kmd.MEDIA_AUDIO:
+        if mtype == Metadata.MEDIA_MUSIC:
             try:
-                track_id = self.music.import_track(path, meta)
+                track_id = self.music.import_track(path, meta, self.delete)
             except MediaImportError, e:
                 self.verbose("Import error: %s" % e)
                 track_id = None
@@ -230,24 +227,22 @@ class MediaImporterThread(Thread):
                     self.info("Exception importing %s" % f)
                     raise
                 
-                if ret:
-                    os.remove(f)
-                else:
+                if not ret:
                     failed += 1
                     
-            # Like os.removedirs, but stops at dirname(path)
-            for r in roots:
-                while r != path:
+            if self.delete:
+                # Like os.removedirs, but stops at dirname(path)
+                for r in roots:
+                    while r != path:
+                        try:
+                            os.rmdir(r)
+                        except:
+                            break
+                        r = os.path.dirname(r)
                     try:
                         os.rmdir(r)
                     except:
-                        break
-                    r = os.path.dirname(r)
-                try:
-                    os.rmdir(r)
-                except:
-                    pass
-                    
+                        pass
                 
             return len(fpaths), len(fpaths) - failed
         else:
@@ -257,8 +252,6 @@ class MediaImporterThread(Thread):
                 self.info("Exception importing %s" % path)
                 raise
                 
-            if ret:
-                os.remove(path)
             return 1, 1 if ret else 0
                 
     def process(self):
@@ -268,8 +261,8 @@ class MediaImporterThread(Thread):
         except Exception, e:
             self.log_exception(e)
         else:
-            self.verbose("Finished processing %s, %d/%d files imported" % (self.path,
-                success, count))
+            self.verbose("Finished processing %s, %d/%d files imported" %
+                (self.path, success, count))
         
         
 class LobbyEventCatcher(ProcessEvent):
@@ -283,7 +276,7 @@ class LobbyEventCatcher(ProcessEvent):
         self.thread = thread
 
     def process_default(self, event):
-        self.thread.process(os.path.join(event.path, event.name))
+        self.thread.enqueue(os.path.join(event.path, event.name))
             
             
 class LobbyWatcherThread(Thread):
@@ -299,12 +292,15 @@ class LobbyWatcherThread(Thread):
         self.running = False
         self.lobby = self.domserver.config["media.lobby_dir"]
         self.music = helper['music']
-        self.threads = []
-        
+        self._jobs = []
+        self._lock = threading.Condition(threading.Lock())
+        self._threads = []
+        self._max_threads = 10
+                
     def domserver_run(self):
         for root, dirs, files in os.walk(self.lobby):
             for f in files + dirs:
-                self.process(f)
+                self.enqueue(f)
     		dirs[0:len(dirs)] = []
     
         wm = WatchManager()
@@ -320,15 +316,39 @@ class LobbyWatcherThread(Thread):
         
         self.running = True
         while self.running:
-            time.sleep(1)
+            self._lock.acquire()
+            try:
+                self._process_queue()
+            finally:
+                self._lock.release()
+            time.sleep(0.2)
             
         notifier.stop()
         
     def stop(self):
         self.running = False
         
-    def process(self, path):
-        self.debug("lobbywatcher: process %s" % path)
+    def _process_queue(self):
+        while len(self._jobs) and len(self._threads) <= self._max_threads:
+            self._threads.append(self._process(self._jobs.pop()))
+        if len(self._jobs):
+            for i in range(self._max_threads):
+                if not self._threads[i].isAlive():
+                    try:
+                        self._threads[i] = self._process(self._jobs.pop())
+                    except IndexError:
+                        pass
+        
+    def enqueue(self, path):
+        self._lock.acquire()
+        try:
+            self._jobs.insert(0, path)
+        finally:
+            self._lock.release()
+        
+    def _process(self, path):
         t = MediaImporterThread(self.domserver, self.logger, self.music,
-            os.path.join(self.lobby, path))
+            os.path.join(self.lobby, path), True)
         self.domserver.add_thread(t)
+        return t
+        

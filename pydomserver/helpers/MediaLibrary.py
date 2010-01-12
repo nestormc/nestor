@@ -37,7 +37,7 @@ class MLObjectProvider(ObjectProvider):
         self.mpd = helper['mpd']
         
     def get_oids(self):
-        mpd_oids = ['mpd-item/%d' % i for i in range(len(self.mpd.playlist()))]
+        mpd_oids = [] # ['mpd-item/%d' % i for i in range(len(self.mpd.playlist()))]
         return mpd_oids
         
     def _decompose_oid(self, oid):
@@ -211,12 +211,12 @@ class MLObjectProvider(ObjectProvider):
             album_ids = self.music.match(expr, MusicTypes.ALBUM)
             for i in album_ids:
                 m = self.music.get_album_metadata(i)
-                oids.append('music-album/%s/%s' % (m['artist'], m['title']))
+                oids.append('music-album/%s/%s' % (m['artist'], m['album']))
         if 'music-artist' in types:
             artist_ids = self.music.match(expr, MusicTypes.ARTIST)
             for i in artist_ids:
                 m = self.music.get_artist_metadata(i)
-                oids.append('music-artist/%s' % m['name'])
+                oids.append('music-artist/%s' % m['artist'])
                 
         oids.extend(ObjectProvider.matching_oids(self, expr, types))
         return oids

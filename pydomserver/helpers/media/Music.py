@@ -13,11 +13,12 @@
 # You should have received a copy of the GNU General Public License
 # along with domserver.  If not, see <http://www.gnu.org/licenses/>.
 
-import kaa.metadata as kmd
 import os
 import os.path
 import re
 import shutil
+import urllib
+import urllib2
 
 from .Errors import MediaImportError, MediaUpdateError
 
@@ -52,7 +53,7 @@ class MusicLibrary:
 
     def __init__(self, domserver, logger=None):
         self.domserver = domserver
-        self.log = logger if logger else domserver            
+        self.log = logger if logger else domserver
         
     def cleanup_database(self):
         """Cleanup obsolete data in database (eg. albums w/o tracks or artists
@@ -73,12 +74,14 @@ class MusicLibrary:
     def get_sortname(self, name):
         """Compute the sortname for a given artist name.
         
-        Use the 'media.deter' config key to delete starting determiners.
+        Use the 'media.deter' config key to delete starting determiners. Also
+        delete any non-alphanumeric char.
         """
         
         det = self.domserver.config['media.deter'].split(',')
-        reg = re.compile("^(" + '|'.join(det) + ')\s+', re.I)
-        return reg.sub('', name)
+        reg_det = re.compile("^(" + '|'.join(det) + ')\s+', re.I)
+        reg_alnum = re.compile("[^a-z0-9]", re.I)
+        return reg_alnum.sub('', reg_det.sub('', name)).lower()
         
     def match_artist(self, artist):
         """Find a matching artist name in database.
@@ -106,28 +109,35 @@ class MusicLibrary:
                 
         return artist
         
+    def meta_to_coverfile(self, meta):
+        return os.path.join(
+            self.meta_to_filename(meta, MusicTypes.ALBUM),
+            'cover.jpg'
+        )
+        
     def meta_to_filename(self, meta, typ=MusicTypes.TRACK):
         if typ == MusicTypes.ARTIST:
             return os.path.join(
                 self.domserver.config['media.music_dir'],
-                meta['artist']
+                meta['artist'].replace('/', '_')
             )
         elif typ == MusicTypes.ALBUM:
             return os.path.join(
                 self.domserver.config['media.music_dir'],
-                meta['artist'],
-                meta['album']
+                meta['artist'].replace('/', '_'),
+                meta['album'].replace('/', '_')
             )
         elif typ == MusicTypes.TRACK:
             if meta['num'] != -1:
-                fname = "%02d - %s" % (meta['num'], meta['title'])
+                fname = "%02d - %s" % (meta['num'],
+                    meta['title'].replace('/', '_'))
             else:
-                fname = meta['title']
+                fname = meta['title'].replace('/', '_')
         
             return os.path.join(
                 self.domserver.config['media.music_dir'],
-                meta['artist'],
-                meta['album'],
+                meta['artist'].replace('/', '_'),
+                meta['album'].replace('/', '_'),
                 "%s.%s" % (fname, meta['fmt'])
             )
             
@@ -167,7 +177,7 @@ class MusicLibrary:
         rset = db.execute(query, (artist_id,)).fetchone()
         db.close
         return {
-            'name': rset[0]
+            'artist': rset[0]
         }
         
     def write_artist_metadata(self, meta, artist_id=None):
@@ -230,7 +240,7 @@ class MusicLibrary:
         rset = db.execute(query, (album_id,)).fetchone()
         db.close()
         return {
-            'title': rset[0],
+            'album': rset[0],
             'year': rset[1],
             'genre': rset[2],
             'artist': rset[3]
@@ -287,6 +297,34 @@ class MusicLibrary:
                     meta['artist'], meta['album']))
             shutil.move(oldpath, newpath)
         self.write_album_metadata(meta)
+        
+    def search_album_cover(self, album_id):
+        meta = self.get_album_metadata(album_id)
+        finders = [AlbumartOrgCoverFinder()]
+        urls = []
+        for f in finders:
+            urls.extend(f.search_cover(meta['artist'], meta['album']))
+            if len(urls):
+                self.fetch_album_cover(album_id, urls[0])
+                break
+                    
+    def fetch_album_cover(self, album_id, url):
+        meta = self.get_album_metadata(album_id)
+        op = urllib2.build_opener()
+        if url:
+            try:
+                img = op.open(url)
+            except urllib2.HTTPError, e:
+                self.log.debug("HTTPError while fetching '%s' (%s)" % (url,e))
+            else:
+                fimg = open(self.meta_to_coverfile(meta), 'w')
+                fimg.write(img.read())
+                fimg.close()
+                img.close()
+            
+    def has_album_cover(self, album_id):
+        meta = self.get_album_metadata(album_id)
+        return os.path.exists(self.meta_to_coverfile(meta))
         
     def get_track_id(self, artist, album, track):
         db = self.domserver.get_media_db()
@@ -375,7 +413,7 @@ class MusicLibrary:
             shutil.move(oldpath, newpath)
         self.write_track_metadata(meta)
 
-    def import_track(self, path, meta):
+    def import_track(self, path, meta, move=False):
         """Import a music track into the media library
         
         Copy 'path' into the media library folder and insert metadata in
@@ -399,9 +437,15 @@ class MusicLibrary:
             pass
             
         # self.log.debug("import_track path='%s' meta=%s" % (path, repr(meta)))
-        shutil.copy(path, mlpath)
+        if move:
+            shutil.move(path, mlpath)
+        else:
+            shutil.copy(path, mlpath)
+            
         artist_id = self.write_artist_metadata(meta, artist_id)
         album_id = self.write_album_metadata(meta, album_id)
+        if not self.has_album_cover(album_id):
+            self.search_album_cover(album_id)
         return self.write_track_metadata(meta)
         
     def match(self, expr, typ=0):
@@ -459,4 +503,39 @@ class MusicLibrary:
         db.close()
         return [r[0] for r in rset]
         
+
+class CoverFinder():
+    
+    def search_cover(self, artist, album):
+        """Return a list of cover art urls"""
+        raise ImplementationError("search_cover not overriden")
         
+        
+class AlbumartOrgCoverFinder(CoverFinder):
+        
+    _SEARCH_URL=("http://www.albumart.org/index.php"
+        "?srchkey=%s&itempage=1&newsearch=1&searchindex=Music")
+    _RESULT_FILTER_RE="http://www\.albumart\.org/images/zoom-icon\.jpg"
+    _IMAGE_MATCH_RE='<img src="([^"]+)" border="0" class="image_border"'
+        
+    def search_cover(self, artist, album):
+        op = urllib2.build_opener()
+        
+        query = ("%s %s" % (artist, album)).encode('utf-8')
+        try:
+            search = op.open(self._SEARCH_URL % urllib.quote_plus(query))
+        except urllib2.HTTPError:
+            return []
+            
+        results = search.read()
+        search.close()
+        
+        imgurls = []
+        for line in results.splitlines():
+            if re.search(self._RESULT_FILTER_RE, line):
+                match = re.search(self._IMAGE_MATCH_RE, line)
+                if match:
+                    imgurls.append(match.group(1))
+                    
+        return imgurls
+            
