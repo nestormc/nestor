@@ -15,11 +15,11 @@
 
 from mpd import MPDClient
 
-from ..Errors import ObjectError
-from ..Objects import ObjectProvider, ObjectProcessor
-from ..SocketInterfaceCodes import SIC
-from .media.Import import LobbyWatcherThread
-from .media.Music import MusicLibrary, MusicTypes
+from ..errors import ObjectError
+from ..objects import ObjectProvider, ObjectProcessor
+from ..socketinterfacecodes import SIC
+from .media.importer import LobbyWatcherThread
+from .media.music import MusicLibrary, MusicTypes
 
 
 class MLObjectProvider(ObjectProvider):

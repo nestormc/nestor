@@ -17,7 +17,7 @@ import os
 import subprocess
 import time
 
-from .Thread import Thread
+from .thread import Thread
 
 domserver_RUNWATCHER_INTERVAL = 1
 TERM_KILL_WAIT_CYCLES = 2

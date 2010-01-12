@@ -20,12 +20,12 @@ from pyinotify import WatchManager, ThreadedNotifier, ProcessEvent, EventsCodes
 import shutil
 import time
 
-from ..Errors import ObjectError
-from ..Thread import Thread
-from ..Objects import ObjectProvider, ObjectProcessor
-from ..SocketInterface import SIPacket, SIStringTag, SIUInt32Tag, SIUInt8Tag
-from ..SocketInterfaceCodes import SIC
-from ..Utils import fileIsOpen
+from ..errors import ObjectError
+from ..thread import Thread
+from ..objects import ObjectProvider, ObjectProcessor
+from ..socketinterface import SIPacket, SIStringTag, SIUInt32Tag, SIUInt8Tag
+from ..socketinterfacecodes import SIC
+from ..utils import fileIsOpen
 
 class DictTorrent:
     def __init__(self, logger, handle):

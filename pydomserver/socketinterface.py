@@ -18,9 +18,9 @@ import socket
 import struct
 import zlib
 
-from .Errors import SIVersionMismatch
-from .Thread import Thread
-from .SocketInterfaceCodes import SIC
+from .errors import SIVersionMismatch
+from .thread import Thread
+from .socketinterfacecodes import SIC
 
 
 SIC.MAX_CONNECTIONS          = 5

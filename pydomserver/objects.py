@@ -15,9 +15,9 @@
 
 import sqlite3
 
-from .Errors import ObjectError, ImplementationError
-from .SocketInterface import SIPacket, SIStringTag, SIUInt32Tag
-from .SocketInterfaceCodes import SIC
+from .errors import ObjectError, ImplementationError
+from .socketinterface import SIPacket, SIStringTag, SIUInt32Tag
+from .socketinterfacecodes import SIC
 
 
 class OCriterion:

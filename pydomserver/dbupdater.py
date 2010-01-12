@@ -16,7 +16,7 @@
 import os
 import sqlite3
 
-from .Errors import DBError
+from .errors import DBError
 
 DATABASES = ['domserver', 'objects', 'media']
 UPDATE_SCRIPTS = { 

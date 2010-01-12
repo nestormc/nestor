@@ -16,7 +16,7 @@
 import threading
 import time
 
-from .Errors import UnexpectedStopError
+from .errors import UnexpectedStopError
 
 
 THREAD_MANAGER_INTERVAL = 0.5

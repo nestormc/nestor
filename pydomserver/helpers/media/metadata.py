@@ -23,7 +23,7 @@ from mutagen.musepack import Musepack
 from mutagen.oggvorbis import OggVorbis, OggVorbisHeaderError
 import os.path
 
-from ...Errors import ImplementationError
+from ...errors import ImplementationError
 
 
 class InvalidTagError(Exception): pass

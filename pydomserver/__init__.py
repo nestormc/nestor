@@ -15,16 +15,16 @@
 
 __all__ = [
     'helpers',
-    'DBConfigDict',
-    'Errors',
-    'Logger',
-    'Objects',
-    'RunWatcherThread',
-    'SocketInterface',
-    'SocketInterfaceCodes',
-    'Thread',
-    'ThreadManager',
-    'Utils'
+    'dbConfigdict',
+    'errors',
+    'logger',
+    'objects',
+    'runwatcherthread',
+    'socketinterface',
+    'socketinterfacecodes',
+    'thread',
+    'threadmanager',
+    'utils'
 ]
 
 import os
@@ -35,13 +35,13 @@ import sqlite3
 import sys
 import traceback
 
-from .DBConfigDict import DBConfigDict
-from .DBUpdater import DBUpdater
-from .Errors import DomserverError, DaemonizeError, UnexpectedStopError
-from .Logger import Logger
-from .ThreadManager import ThreadManager
-from .Objects import ObjectAccessor
-from .SocketInterface import SIServerThread
+from .dbconfigdict import DBConfigDict
+from .dbupdater import DBUpdater
+from .errors import DomserverError, DaemonizeError, UnexpectedStopError
+from .logger import Logger
+from .threadmanager import ThreadManager
+from .objects import ObjectAccessor
+from .socketinterface import SIServerThread
 
            
 class Domserver:

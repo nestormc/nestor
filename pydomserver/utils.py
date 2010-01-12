@@ -17,8 +17,8 @@ import os
 import os.path
 import socket
 
-from .SocketInterface import SIPacket, SIStringTag
-from .SocketInterfaceCodes import SIC
+from .socketinterface import SIPacket, SIStringTag
+from .socketinterfacecodes import SIC
     
 
 def domserverRunning(name):

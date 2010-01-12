@@ -19,10 +19,10 @@ import StringIO
 import time
 from amule import AmuleClient, ECConnectionError
 
-from ..Errors import ObjectError
-from ..Objects import ObjectProvider, ObjectProcessor
-from ..RunWatcherThread import RunWatcherThread
-from ..SocketInterfaceCodes import SIC
+from ..errors import ObjectError
+from ..objects import ObjectProvider, ObjectProcessor
+from ..runwatcherthread import RunWatcherThread
+from ..socketinterfacecodes import SIC
 
 
 class DictDownload:

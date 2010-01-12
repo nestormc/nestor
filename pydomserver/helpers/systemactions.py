@@ -19,10 +19,10 @@ import subprocess
 import time
 import urllib
 
-from ..Errors import CancelOperation
-from ..Thread import Thread
-from ..SocketInterface import SIPacket, SIStringTag, SIUInt32Tag
-from ..SocketInterfaceCodes import SIC
+from ..errors import CancelOperation
+from ..thread import Thread
+from ..socketinterface import SIPacket, SIStringTag, SIUInt32Tag
+from ..socketinterfacecodes import SIC
 
             
 class FileOpThread(Thread):

@@ -25,7 +25,7 @@ method (instead of run() for threading.Thread)
 import threading
 import traceback
 
-from .Errors import ImplementationError
+from .errors import ImplementationError
 
 class Thread(threading.Thread):
 

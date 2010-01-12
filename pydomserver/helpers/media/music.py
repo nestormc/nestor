@@ -20,7 +20,7 @@ import shutil
 import urllib
 import urllib2
 
-from .Errors import MediaImportError, MediaUpdateError
+from .errors import MediaImportError, MediaUpdateError
 
 
 class MusicTypes:

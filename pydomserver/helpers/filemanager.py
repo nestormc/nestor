@@ -19,10 +19,10 @@ import gobject
 import os
 import os.path
 
-from ..Objects import OCriterion, OExpression, ObjectProvider, ObjectProcessor
-from ..SocketInterface import SIStringTag, SIUInt32Tag
-from ..SocketInterfaceCodes import SIC
-from ..Thread import Thread
+from ..objects import OCriterion, OExpression, ObjectProvider, ObjectProcessor
+from ..socketinterface import SIStringTag, SIUInt32Tag
+from ..socketinterfacecodes import SIC
+from ..thread import Thread
 
 class StorageDeviceWatcher(Thread):
 

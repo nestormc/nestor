@@ -20,9 +20,9 @@ import re
 import threading
 import time
 
-from ...Thread import Thread
-from .Errors import MediaImportError
-from .Metadata import Metadata
+from ...thread import Thread
+from .errors import MediaImportError
+from .metadata import Metadata
 
 
 class ItemEventCatcher(ProcessEvent):
