@@ -90,8 +90,8 @@ UPDATE_SCRIPTS = {
                 year INTEGER,
                 genre TEXT,
                 
-                CONSTRAINT fk_mal_artist_id FOREIGN KEY (artist_id) REFERENCES music_artists(id)
-                CONSTRAINT uk_mal_title UNIQUE (title)
+                CONSTRAINT fk_mal_artist_id FOREIGN KEY (artist_id) REFERENCES music_artists(id),
+                CONSTRAINT uk_mal_artist_id_title UNIQUE (artist_id, title)
             );
             
             DROP TABLE IF EXISTS music_tracks;
