@@ -16,6 +16,7 @@
 __all__ = [
     'Errors',
     'Import',
+    'Metadata',
     'Music'
 ]
 
