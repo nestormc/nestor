@@ -351,8 +351,11 @@ class ObjectProvider:
                 tags.append(self._prop_to_sitags(prop, item[prop], desc['*']))
         return tags
         
-    def to_sitags(self, oid, detail_level):
-        desc = self.describe_props(oid, detail_level)
+    def to_sitags(self, oid, lod):
+        if lod == SIC.LOD_NONE:
+            desc = {}
+        else:
+            desc = self.describe_props(oid, lod)
         item = {}
         for prop in desc.keys():
             item[prop] = self.get_value(oid, prop)
@@ -385,7 +388,7 @@ class ObjectProvider:
         if it has no such property or if it is not writable."""
         raise ImplementationError("set_value not overriden")
         
-    def describe_props(self, oid, detail_level):
+    def describe_props(self, oid, lod):
         """Describe how to transmit object property values
                 
         Must return a dict with properties to transmit as keys (*) and a dicts
@@ -402,6 +405,18 @@ class ObjectProvider:
         for all other properties, but it can only be used in level 2+
         descriptions (ie. for type 'dict') as ObjectWrappers do not have a
         keys() method.
+        
+        The 'lod' parameter describe how detailed the description should be, ie.
+        how many properties the client wants to see.  The following rules must
+        be followed:
+        - lod = LOD_NONE: provide _no_ properties (**)
+        - lod = LOD_BASIC: provide _one_ property (a display label)
+        - lod = LOD_MAX: provide _all_ possible properties.
+        
+        All other 'lod' values (ie. between LOD_BASIC and LOD_MAX) can be
+        implemented freely (but logically, please).
+        
+        (**) If lod = LOD_NONE, this method may not be called at all.
         
         """
         raise ImplementationError("describe_props not overriden")
@@ -562,14 +577,14 @@ class ObjectAccessor:
                 return
                 
             try:
-                detail_level = tag.get_subtag(SIC.TAG_OBJ_DETAIL_LEVEL).value
+                lod = tag.get_subtag(SIC.TAG_OBJ_DETAIL_LEVEL).value
             except AttributeError:
-                detail_level = 0
+                lod = 0
                 
             resp = SIPacket(opcode=SIC.OP_OBJECTS)
             for o in objs:
                 tag = SIStringTag("%s:%s" % (o.owner, o.oid), SIC.TAG_OBJ_REFERENCE)
-                tag.subtags.extend(o.to_sitags(detail_level))
+                tag.subtags.extend(o.to_sitags(lod))
                 typetag = SIStringTag(','.join(o.get_types()), SIC.TAG_OBJ_TYPE)
                 tag.subtags.append(typetag)
                 resp.tags.append(tag)
@@ -585,13 +600,13 @@ class ObjectAccessor:
                 return
                 
             try:
-                detail_level = tag.get_subtag(SIC.TAG_OBJ_DETAIL_LEVEL).value
+                lod = tag.get_subtag(SIC.TAG_OBJ_DETAIL_LEVEL).value
             except AttributeError:
-                detail_level = 0
+                lod = 0
                 
             resp = SIPacket(opcode=SIC.OP_OBJECTS)
             tag = SIStringTag("%s:%s" % (o.owner, o.oid), SIC.TAG_OBJ_REFERENCE)
-            tag.subtags.extend(o.to_sitags(detail_level))
+            tag.subtags.extend(o.to_sitags(lod))
             typetag = SIStringTag(','.join(o.get_types()), SIC.TAG_OBJ_TYPE)
             tag.subtags.append(typetag)
             resp.tags.append(tag)
@@ -682,8 +697,8 @@ class ObjectWrapper:
         if not self.provider.valid_oid(oid):
             raise ObjectError("invalid-oid:%s:%s" % (owner, oid))
                 
-    def to_sitags(self, detail_level):
-        return self.provider.to_sitags(self.oid, detail_level)
+    def to_sitags(self, lod):
+        return self.provider.to_sitags(self.oid, lod)
         
     def is_a(self, typ):
         return typ in self.provider.get_types(self.oid)

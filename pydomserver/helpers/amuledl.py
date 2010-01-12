@@ -248,30 +248,42 @@ class AmuleObjectProvider(ObjectProvider):
             raise KeyError("Invalid or readonly property '%s'" % prop)
         self.save_object_property(oid, prop, val)
         
-    def describe_props(self, oid, detail_level):
+    def describe_props(self, oid, lod):
         if oid == '':
             return {}
             
         kind, hash = oid.split('/', 1)
         
-        desc = {}
-        for k in ('name', 'hash'):
-            desc[k] = {'type':'string'}
-        desc['size'] = {
-            'type':'uint32',
-            'conv':(lambda x: int(x / 1024))
-        }
-        
+        props = []
         if kind == 'download':
-            for k in ('speed', 'seeds', 'status'):
+            if lod >= SIC.LOD_BASIC:
+                props.extend(['name'])
+            if lod == SIC.LOD_MAX:
+                props.extend(['hash', 'size', 'speed', 'seeds', 'status',
+                    'progress'])
+                
+        if kind == 'result':
+            if lod >= SIC.LOD_BASIC:
+                props.extend(['name'])
+            if lod == SIC.LOD_MAX:
+                props.extend(['hash', 'size', 'seeds'])
+        
+        desc = {}
+        for k in props:
+            if k in ('name', 'hash'):
+                desc[k] = {'type':'string'}
+            elif k == 'size':
+                desc[k] = {
+                    'type':'uint32',
+                    'conv':(lambda x: int(x / 1024))
+                }
+            elif k in ('speed', 'seeds', 'status'):
                 desc[k] = {'type':'uint32'}
-            desc['progress'] = {
-                'type':'string',
-                'conv':(lambda x: "%.2f%%" % x)
-            }
-        elif kind == 'result':
-            desc['seeds'] = {'type':'uint32'}
-            
+            elif k == 'progress':
+                desc[k] = {
+                    'type':'string',
+                    'conv':(lambda x: "%.2f%%" % x)
+                }            
         return desc
         
         

@@ -168,22 +168,40 @@ class MLObjectProvider(ObjectProvider):
     def set_value(self, oid, prop, val):
         raise KeyError('MediaLibrary does not support writing')
         
-    def describe_props(self, oid, detail_level):
+    def describe_props(self, oid, lod):
         types = self.get_types(oid)
+        
         props = []
         if 'music' in types:
-            props.extend(['keywords'])
+            if lod == SIC.LOD_MAX:
+                props.extend(['keywords'])
+                
         if 'music-artist' in types:
-            props.extend(['id', 'name'])
+            if lod >= SIC.LOD_BASIC:
+                props.extend(['name'])
+            if lod == SIC.LOD_MAX:
+                props.extend(['id'])
+                
         if 'music-album' in types:
-            props.extend(['id', 'title', 'year', 'genre', 'artist'])
+            if lod >= SIC.LOD_BASIC:
+                props.extend(['title'])
+            if lod == SIC.LOD_MAX:
+                props.extend(['id', 'year', 'genre', 'artist'])
+                
         if 'music-track' in types:
-            props.extend(['id', 'album', 'year', 'genre', 'artist', 'title',
-                'num', 'len', 'fmt'])
+            if lod >= SIC.LOD_BASIC:
+                props.extend(['title'])
+            if lod == SIC.LOD_MAX:
+                props.extend(['id', 'album', 'year', 'genre', 'artist', 'num',
+                    'len', 'fmt'])
+                    
         if 'mpd-item' in types:
-            props.extend(['pos', 'ml_objref'])
+            if lod >= SIC.LOD_BASIC:
+                props.extend(['pos'])
+            
         if 'file' in types or 'folder' in types:
-            props.extend(['path'])
+            if lod == SIC.LOD_MAX:
+                props.extend(['path'])
         
         desc = {}
         for k in props:

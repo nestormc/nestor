@@ -207,38 +207,49 @@ class BTObjectProvider(ObjectProvider):
             raise KeyError("Invalid or readonly property '%s'" % prop)
         self.save_object_property(oid, prop, val)
         
-    def describe_props(self, oid, detail_level):
+    def describe_props(self, oid, lod):
         if oid == '':
             return {}
             
+        props = []
+        if lod >= SIC.LOD_BASIC:
+            props.extend(['name'])
+        if lod >= SIC.LOD_MAX - 1:
+            props.extend(['files', 'hash', 'speed', 'seeds', 'status', 'seed',
+                'cancel', 'date_started', 'size', 'progress'])
+        
         desc = {}
-        for k in ('name','hash'):
-            desc[k] = {'type':'string'}
-        for k in ('speed', 'seeds', 'status', 'seed', 'cancel', 'date_started'):
-            desc[k] = {'type':'uint32'}
-        desc['size'] = {
-            'type':'uint32',
-            'conv':(lambda x: int(x / 1024))
-        }
-        desc['progress'] = {
-            'type':'string',
-            'conv':(lambda x: "%.2f%%" % x)
-        }
-        if detail_level == 0:
-            desc['files'] = {
+        for k in props:
+            if k in ('name','hash'):
+                desc[k] = {'type':'string'}
+            elif k in ('speed', 'seeds', 'status', 'seed', 'cancel', 'date_started'):
+                desc[k] = {'type':'uint32'}
+            elif k == 'size':
+                desc[k] = {
                 'type':'uint32',
-                'conv':(lambda x: len(x))
+                'conv':(lambda x: int(x / 1024))
             }
-        else:
-            desc['files'] = {
-                'type':'dict',
-                'desc': {
-                    '*': {
-                        'type':'uint32',
-                        'conv':(lambda x: int(x / 1024))
-                    }
+            elif k == 'progress':
+                desc[k] = {
+                    'type':'string',
+                    'conv':(lambda x: "%.2f%%" % x)
                 }
-            }
+            elif k == 'files':
+                if detail_level == SIC.LOD_MAX:
+                    desc[k] = {
+                        'type':'dict',
+                        'desc': {
+                            '*': {
+                                'type':'uint32',
+                                'conv':(lambda x: int(x / 1024))
+                            }
+                        }
+                    }
+                else:
+                    desc[k] = {
+                        'type':'uint32',
+                        'conv':(lambda x: len(x))
+                    }
         return desc
         
                     

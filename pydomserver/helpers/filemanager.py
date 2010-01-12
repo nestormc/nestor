@@ -195,24 +195,38 @@ class FileObjectProvider(ObjectProvider):
     def set_value(self, path, prop, val):
         raise KeyError("Property '%s' is readonly" % prop)
         
-    def describe_props(self, path, detail_level):
-        desc = {}
+    def describe_props(self, path, lod):
+        props = []
         if path.startswith('#'):
-            desc['size'] = {
-                'type': 'uint32',
-                'conv': lambda x:int(x / 1024 ** 2)
-            }
-            for k in ('path', 'label', 'fs', 'dev'):
-                desc[k] = {'type': 'string'}
+            if lod >= SIC.LOD_BASIC:
+                props.extend(['label'])
+            if lod == SIC.LOD_MAX:
+                props.extend(['size', 'path', 'fs', 'dev'])
+                
         elif path.startswith('/'):
-            desc['size'] = {
-                'type': 'uint32',
-                'conv': lambda x:int(x / 1024)
-            }
-            for k in ('owner', 'group', 'mtime', 'perms'):
-                desc[k] = {'type': 'uint32'}
-            for k in ('path', 'basename', 'dirname'):
+            if lod >= SIC.LOD_BASIC:
+                props.extend(['path'])
+            if lod == SIC.LOD_MAX:
+                props.extend(['size', 'owner', 'group', 'mtime', 'perms',
+                    'basename', 'dirname'])
+                    
+        desc = {}
+        for k in props:
+            if k == 'size':
+                if path.startswith('#'):
+                    desc[k] = {
+                        'type': 'uint32',
+                        'conv': lambda x:int(x / 1024 ** 2)
+                    }
+                elif path.startswith('/'):
+                    desc[k] = {
+                        'type': 'uint32',
+                        'conv': lambda x:int(x / 1024)
+                    }
+            elif k in ('path', 'label', 'fs', 'dev', 'basename', 'dirname'):
                 desc[k] = {'type': 'string'}
+            elif k in ('owner', 'group', 'mtime', 'perms'):
+                desc[k] = {'type': 'uint32'}
         return desc
         
         

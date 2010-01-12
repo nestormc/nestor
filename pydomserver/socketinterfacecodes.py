@@ -73,6 +73,11 @@ class _SICodes:
     TAG_ACTION_PARAM_FLAGS       = 0x0714
     TAG_ACTION_PARAM_VALUE       = 0x0715
     
+    # Levels of detail
+    LOD_NONE                     = 0x00
+    LOD_BASIC                    = 0x01
+    LOD_MAX                      = 0xFF
+    
     # Action parameter flags
     APFLAG_MASK_TYPE             = 0x000000FF
     APFLAG_TYPE_STRING           = 0x00000001
