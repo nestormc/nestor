@@ -51,6 +51,8 @@ class MusicLibrary:
     For some specific methods, only partial metadata is needed.  See those
     methods' docstrings.
     """
+    
+    fnchars_replace = {'/': '_'}
 
     def __init__(self, domserver, logger=None):
         self.domserver = domserver
@@ -110,6 +112,11 @@ class MusicLibrary:
                 
         return artist
         
+    def fnchars(self, string):
+        for k in self.fnchars_replace:
+            string = string.replace(k, self.fnchars_replace[k])
+        return string
+        
     def meta_to_coverfile(self, meta):
         return os.path.join(
             self.meta_to_filename(meta, MusicTypes.ALBUM),
@@ -120,57 +127,57 @@ class MusicLibrary:
         if typ == MusicTypes.ARTIST:
             return os.path.join(
                 self.domserver.config['media.music_dir'],
-                meta['artist'].replace('/', '_')
+                self.fnchars(meta['artist'])
             )
         elif typ == MusicTypes.ALBUM:
             return os.path.join(
                 self.domserver.config['media.music_dir'],
-                meta['artist'].replace('/', '_'),
-                meta['album'].replace('/', '_')
+                self.fnchars(meta['artist']),
+                self.fnchars(meta['album'])
             )
         elif typ == MusicTypes.TRACK:
             if meta['num'] != -1:
-                fname = "%02d - %s" % (meta['num'],
-                    meta['title'].replace('/', '_'))
+                fname = "%02d - %s" % (meta['num'],self.fnchars(meta['title']))
             else:
-                fname = meta['title'].replace('/', '_')
+                fname = self.fnchars(meta['title'])
         
             return os.path.join(
                 self.domserver.config['media.music_dir'],
-                meta['artist'].replace('/', '_'),
-                meta['album'].replace('/', '_'),
+                self.fnchars(meta['artist']),
+                self.fnchars(meta['album']),
                 "%s.%s" % (fname, meta['fmt'])
             )
             
     def filename_to_meta(self, path):
-        self.log.debug('fn to meta: path=%s' % path)
         spath = path.split('/')
-        self.log.debug('spath = %s' % repr(spath))
         
         if len(spath) == 1:
             artist_id = self.get_artist_id(spath[0])            
             if artist_id:
-                return (self.get_artist_metadata(artist_id), MediaTypes.ARTIST)
+                return (self.get_artist_metadata(artist_id), MusicTypes.ARTIST)
                 
         if len(spath) == 2:
             album_id = self.get_album_id(spath[0], spath[1])
             if album_id:
-                return (self.get_album_metadata(album_id), MediaTypes.ALBUM)
+                return (self.get_album_metadata(album_id), MusicTypes.ALBUM)
                 
         if len(spath) == 3:
-            title = re.sub("^(\d+ - )?", "", spath[2])
+            title = re.sub("^(\d+ - )?", "", spath[2].rsplit('.', 1)[0])
             track_id = self.get_track_id(spath[0], spath[1], title)
             if track_id:
-                return (self.get_track_metadata(track_id), MediaTypes.TRACK)
+                return (self.get_track_metadata(track_id), MusicTypes.TRACK)
         
         return (None, None)
         
     def get_artist_id(self, artist):
         db = self.domserver.get_media_db()
-        query = "SELECT id FROM music_artists WHERE name = ?"
-        rset = db.execute(query, (artist,)).fetchone()
+        query = "SELECT id, name FROM music_artists WHERE name LIKE ?"
+        rset = db.execute(query, (self.fnchars(artist),)).fetchall()
         db.close()
-        return rset[0] if rset else None
+        for artist_id, name in rset:
+            if self.fnchars(name) == artist:
+                return artist_id
+        return None
         
     def get_artist_metadata(self, artist_id):
         db = self.domserver.get_media_db()
@@ -238,13 +245,17 @@ class MusicLibrary:
         self.write_artist_metadata(meta)
         
     def get_album_id(self, artist, album):
-        db = self.domserver.get_media_db()
-        query = """SELECT al.id FROM music_albums al
-            JOIN music_artists ar ON al.artist_id = ar.id
-            WHERE ar.name = ? AND al.title = ?"""
-        rset = db.execute(query, (artist, album)).fetchone()
-        db.close()
-        return rset[0] if rset else None
+        artist_id = self.get_artist_id(artist)
+        if artist_id:
+            query = """SELECT id, title FROM music_albums
+                WHERE artist_id = ? AND title LIKE ?"""
+            db = self.domserver.get_media_db()
+            rset = db.execute(query, (artist_id, self.fnchars(album))).fetchall()
+            db.close()
+            for album_id, title in rset:
+                if self.fnchars(title) == album:
+                    return album_id
+        return None
         
     def get_album_metadata(self, album_id):
         db = self.domserver.get_media_db()
@@ -353,14 +364,17 @@ class MusicLibrary:
         return os.path.exists(self.meta_to_coverfile(meta))
         
     def get_track_id(self, artist, album, track):
-        db = self.domserver.get_media_db()
-        query = """SELECT tr.id FROM music_tracks tr
-            JOIN music_albums al ON tr.album_id = al.id
-            JOIN music_artists ar ON al.artist_id = ar.id
-            WHERE ar.name = ? AND al.title = ? AND tr.title = ?"""
-        rset = db.execute(query, (artist, album, track)).fetchone()
-        db.close()
-        return rset[0] if rset else None
+        album_id = self.get_album_id(artist, album)
+        if album_id:
+            query = """SELECT id, title FROM music_tracks
+                WHERE album_id = ? AND title LIKE ?"""
+            db = self.domserver.get_media_db()
+            rset = db.execute(query, (album_id, self.fnchars(track))).fetchall()
+            db.close()
+            for track_id, title in rset:
+                if self.fnchars(title) == track:
+                    return track_id
+        return None
             
     def get_track_metadata(self, track_id):
         db = self.domserver.get_media_db()
