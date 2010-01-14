@@ -648,7 +648,7 @@ class ObjectAccessor:
                 actiontag = tag.get_subtag(SIC.TAG_ACTION_ID)
                 action = actiontag.value
             except AttributeError:
-                self.answer_failure("no-action-id")
+                self.answer_failure("missing-action-id")
                 return
             
             try:
@@ -669,8 +669,8 @@ class ObjectAccessor:
                 return
                 
             act = ActionWrapper(self, proc.name, action, o)
-            proc._describe_action(act)
             try:
+                proc._describe_action(act)
                 ret = act.execute(actiontag)
             except ObjectError, e:
                 client.answer_failure(e)
@@ -753,7 +753,7 @@ class ActionWrapper:
     def to_sitag(self):
         actiontag = SIStringTag(self.name, SIC.TAG_ACTION_ID)
         subtags = []
-        for name in self.params.keys():
+        for name in self.params:
             p = self.params[name]
             tag = SIStringTag(name, SIC.TAG_ACTION_PARAM)
             tag.subtags.append(
