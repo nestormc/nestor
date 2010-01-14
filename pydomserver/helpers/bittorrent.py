@@ -235,7 +235,7 @@ class BTObjectProvider(ObjectProvider):
                     'conv':(lambda x: "%.2f%%" % x)
                 }
             elif k == 'files':
-                if detail_level == SIC.LOD_MAX:
+                if lod == SIC.LOD_MAX:
                     desc[k] = {
                         'type':'dict',
                         'desc': {
