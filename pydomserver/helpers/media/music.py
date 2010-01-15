@@ -175,7 +175,7 @@ class MusicLibrary:
         rset = db.execute(query, (self.fnchars(artist),)).fetchall()
         db.close()
         for artist_id, name in rset:
-            if self.fnchars(name) == artist:
+            if self.fnchars(name) == self.fnchars(artist):
                 return artist_id
         return None
         
@@ -219,12 +219,6 @@ class MusicLibrary:
         
         db.commit()
         db.close()
-        
-        for album_id in self.get_artist_albumids(artist_id):
-            for track_id in self.get_album_trackids(album_id):
-                tmeta = self.get_track_metadata(track_id)
-                self.write_file_tags(tmeta)
-        
         return artist_id
         
     def update_artist(self, meta, artist_id):
@@ -244,6 +238,11 @@ class MusicLibrary:
             shutil.move(oldpath, newpath)
         self.write_artist_metadata(meta)
         
+        for album_id in self.get_artist_albumids(artist_id):
+            for track_id in self.get_album_trackids(album_id):
+                tmeta = self.get_track_metadata(track_id)
+                self.write_file_tags(tmeta)
+        
     def get_album_id(self, artist, album):
         artist_id = self.get_artist_id(artist)
         if artist_id:
@@ -253,7 +252,8 @@ class MusicLibrary:
             rset = db.execute(query, (artist_id, self.fnchars(album))).fetchall()
             db.close()
             for album_id, title in rset:
-                if self.fnchars(title) == album:
+                if self.fnchars(title) == self.fnchars(album):
+                    self.log.debug("GALID: found album %r (%d)" % (title, album_id))
                     return album_id
         return None
         
@@ -303,11 +303,6 @@ class MusicLibrary:
         
         db.commit()
         db.close() 
-        
-        for track_id in self.get_album_trackids(album_id):
-            tmeta = self.get_track_metadata(track_id)
-            self.write_file_tags(tmeta)
-            
         return album_id
         
     def update_album(self, meta, album_id):
@@ -334,6 +329,10 @@ class MusicLibrary:
                     meta['artist'], meta['album']))
             shutil.move(oldpath, newpath)
         self.write_album_metadata(meta)
+        
+        for track_id in self.get_album_trackids(album_id):
+            tmeta = self.get_track_metadata(track_id)
+            self.write_file_tags(tmeta)
         
     def search_album_cover(self, album_id):
         meta = self.get_album_metadata(album_id)
@@ -372,7 +371,7 @@ class MusicLibrary:
             rset = db.execute(query, (album_id, self.fnchars(track))).fetchall()
             db.close()
             for track_id, title in rset:
-                if self.fnchars(title) == track:
+                if self.fnchars(title) == self.fnchars(track):
                     return track_id
         return None
             
@@ -438,7 +437,6 @@ class MusicLibrary:
         
         db.commit()
         db.close()
-        self.write_file_tags(meta)
         return track_id
         
     def update_track(self, meta, track_id):
@@ -470,6 +468,7 @@ class MusicLibrary:
                     meta['artist'], meta['album'], meta['title']))
             shutil.move(oldpath, newpath)
         self.write_track_metadata(meta, track_id)
+        self.write_file_tags(meta)
 
     def import_track(self, path, meta, move=False):
         """Import a music track into the media library
@@ -503,7 +502,10 @@ class MusicLibrary:
         album_id = self.write_album_metadata(meta, album_id)
         if not self.has_album_cover(album_id):
             self.search_album_cover(album_id)
-        return self.write_track_metadata(meta)
+            
+        track_id = self.write_track_metadata(meta)
+        self.write_file_tags(meta)
+        return track_id
         
     def match(self, expr, typ=0):
         """Match music library objects.
