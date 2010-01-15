@@ -14,6 +14,7 @@
 # along with domserver.  If not, see <http://www.gnu.org/licenses/>.
 
 import mpd
+import os.path
 import time
 
 from ..errors import ObjectError
@@ -27,9 +28,11 @@ class MLObjectProvider(ObjectProvider):
     """Media library object provider
     
     Provides:
-        media:music-artist/<artist>
-        media:music-album/<artist>/<album>
-        media:music-track/<artist>/<album>/<title>
+        media:music-artist|<artist>
+        media:music-album|<artist>|<album>
+        media:music-track|<artist>|<album>|<title>
+        media:mpd
+        media:mpd-item|<position>
     """
     
     def __init__(self, domserver, helper):
@@ -38,7 +41,7 @@ class MLObjectProvider(ObjectProvider):
         self.mpd = helper['mpd']
         
     def get_oids(self):
-        mpd_oids = ['mpd-item/%d' % i for i in range(len(self.mpd.playlist()))]
+        mpd_oids = ['mpd-item|%d' % i for i in range(len(self.mpd.playlist()))]
         return mpd_oids + ['mpd']
         
     def _decompose_oid(self, oid):
@@ -49,7 +52,7 @@ class MLObjectProvider(ObjectProvider):
         
         desc = []
         try:
-            kind, desc = oid.split('/', 1)
+            kind, desc = oid.split('|', 1)
         except ValueError:
             return False
             
@@ -57,13 +60,13 @@ class MLObjectProvider(ObjectProvider):
             return [kind, desc]
         elif kind == 'music-album':
             try:
-                artist, album = desc.split('/', 1)
+                artist, album = desc.split('|', 1)
             except ValueError:
                 return False
             return [kind, artist, album]
         elif kind == 'music-track':
             try:
-                artist, album, title = desc.split('/', 2)
+                artist, album, title = desc.split('|', 2)
             except ValueError:
                 return False
             return [kind, artist, album, title]
@@ -154,8 +157,8 @@ class MLObjectProvider(ObjectProvider):
                     
         if 'mpd-item' in types:
             idx = int(desc[1])
-            relpath = self.mpd.playlist()[idx]
-            abspath = "%s/%s" % (self.domserver.config['media.music_dir'], 
+            relpath = self.mpd.playlist()[idx].decode('utf-8')
+            abspath = os.path.join(self.domserver.config['media.music_dir'], 
                 relpath)
             meta, mtype = self.music.filename_to_meta(relpath)
             if prop == 'keywords':
@@ -164,7 +167,7 @@ class MLObjectProvider(ObjectProvider):
             elif prop == 'pos':
                 return idx
             elif prop == 'ml-objref':
-                return 'music-track/%s/%s/%s' % (meta['artist'], meta['album'],
+                return 'music-track|%s|%s|%s' % (meta['artist'], meta['album'],
                     meta['title'])
             elif ('file' in types or 'folder' in types) and prop == 'path':
                 return abspath
@@ -246,18 +249,18 @@ class MLObjectProvider(ObjectProvider):
             track_ids = self.music.match(expr, MusicTypes.TRACK)
             for i in track_ids:
                 m = self.music.get_track_metadata(i)
-                oids.append('music-track/%s/%s/%s' % (m['artist'], m['album'],
+                oids.append('music-track|%s|%s|%s' % (m['artist'], m['album'],
                     m['title']))
         if 'music-album' in types:
             album_ids = self.music.match(expr, MusicTypes.ALBUM)
             for i in album_ids:
                 m = self.music.get_album_metadata(i)
-                oids.append('music-album/%s/%s' % (m['artist'], m['album']))
+                oids.append('music-album|%s|%s' % (m['artist'], m['album']))
         if 'music-artist' in types:
             artist_ids = self.music.match(expr, MusicTypes.ARTIST)
             for i in artist_ids:
                 m = self.music.get_artist_metadata(i)
-                oids.append('music-artist/%s' % m['artist'])
+                oids.append('music-artist|%s' % m['artist'])
                 
         oids.extend(ObjectProvider.matching_oids(self, expr, types))
         return oids
