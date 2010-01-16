@@ -225,7 +225,10 @@ class AmuleObjectProvider(ObjectProvider):
             
     def get_value(self, oid, prop):
         if oid == '':
-            raise KeyError("No property '%s' for '%s'" % (prop, oid))
+            if prop == 'active':
+                return int(self.am.connected)
+            else:
+                raise KeyError("No property '%s' for '%s'" % (prop, oid))
             
         obj_exists = False
         if oid in self.am.keys():
@@ -250,7 +253,10 @@ class AmuleObjectProvider(ObjectProvider):
         
     def describe_props(self, oid, lod):
         if oid == '':
-            return {}
+            desc = {}
+            if lod >= SIC.LOD_BASIC:
+                desc['active'] = {'type': 'uint32'}
+            return desc
             
         kind, hash = oid.split('/', 1)
         
@@ -310,7 +316,8 @@ class AmuleObjectProcessor(ObjectProcessor):
                 names.append('result-download')
                 
         if obj.is_a('amule-app'):
-            names.extend(['amule-search', 'amule-download-ed2k'])
+            if obj['active']:
+                names.extend(['amule-search', 'amule-download-ed2k'])
             
         return names
         

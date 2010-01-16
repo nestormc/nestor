@@ -177,7 +177,10 @@ class BTObjectProvider(ObjectProvider):
         
     def get_value(self, oid, prop):
         if oid == '':
-            raise KeyError("No property '%s' for '%s'"% (prop, oid))
+            if prop == 'active':
+                return int(self.bt.is_active() is not None)
+            else:
+                raise KeyError("No property '%s' for '%s'"% (prop, oid))
     
         obj_exists = False
         if oid in self.bt.keys():
@@ -209,7 +212,10 @@ class BTObjectProvider(ObjectProvider):
         
     def describe_props(self, oid, lod):
         if oid == '':
-            return {}
+            desc = {}
+            if lod >= SIC.LOD_BASIC:
+                desc['active'] = {'type': 'uint32'}
+            return desc
             
         props = []
         if lod >= SIC.LOD_BASIC:
