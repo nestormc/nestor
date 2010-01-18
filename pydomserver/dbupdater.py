@@ -118,6 +118,32 @@ UPDATE_SCRIPTS = {
             );
             CREATE INDEX idx_mtk_album_id ON music_tracks(album_id);
         """
+    },
+    4: {
+        'domserver': """
+            DROP TABLE IF EXISTS web_sessions;
+            DROP INDEX IF EXISTS idx_web_sessions_names;
+            CREATE TABLE web_sessions (
+                name TEXT NOT NULL,
+                expires INTEGER,
+                
+                CONSTRAINT uk_web_sessions_name UNIQUE(name)
+            );
+            CREATE INDEX idx_web_sessions_name ON web_sessions(name);
+
+            DROP TABLE IF EXISTS web_values;
+            DROP INDEX IF EXISTS idx_web_values_session_name;
+            CREATE TABLE web_values (
+                session_name TEXT NOT NULL,
+                key TEXT NOT NULL,
+                value TEXT,
+                
+                CONSTRAINT uk_web_values_session_key UNIQUE(session_name, key),
+                CONSTRAINT fk_web_values_session_name FOREIGN KEY (session_name) REFERENCES web_sessions(name)
+            );
+            CREATE INDEX idx_web_values_session_name ON web_values(session_name);
+            
+            """,
     }
 }
 
