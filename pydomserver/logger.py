@@ -51,7 +51,10 @@ class Logger:
         if level > self.level:
             return
         
-        tm = time.strftime('%Y-%m-%d %H:%M:%S')
+        t = time.time()
+        msec = (t - int(t)) * 1000
+        lt = time.localtime(t)
+        tm = "%s.%03d" % (time.strftime('%Y-%m-%d %H:%M:%S', lt), msec)
         if level == LL_QUIET:
             text = "%s ****************************************" % tm
         else:
