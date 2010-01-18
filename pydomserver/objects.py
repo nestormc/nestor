@@ -48,11 +48,14 @@ class OCriterion:
                 return val.find(sval) != -1
             
     def get_matching(self, objset):
-        newset = objset.copy()
+        yes = []
+        no = []
         for obj in objset:
-            if not self.is_true(obj):
-                newset.discard(obj)
-        return newset
+            if self.is_true(obj):
+                yes.append(obj)
+            else:
+                no.append(obj)
+        return yes, no
     
     def to_sqlwhere(self, prop_map):
         """Translate criterion into SQL WHERE condition
@@ -95,24 +98,26 @@ class OExpression:
         self.crit_b = crit_b
         
     def is_true(self, obj):
-        return len(self.get_matching(set([obj]))) > 0
+        yes, no = self.get_matching([obj])
+        return len(yes) > 0
             
     def get_matching(self, objset):
         if self.crit_a is None:
             # Empty expression is always true
-            return objset
+            return objset, []
     
-        set_a = self.crit_a.get_matching(objset)
+        yes_a, no_a = self.crit_a.get_matching(objset)
         
         if self.oper == 'and':
             # Only check the right expr on objects matching the left expr
-            return self.crit_b.get_matching(set_a)
+            yes_b, no_b = self.crit_b.get_matching(yes_a)
+            return yes_b, no_a + no_b
         elif self.oper == 'or':
             # Only check the right expr on objects not matching the left expr
-            set_b = objset - set_a        
-            return set_a | self.crit_b.get_matching(set_b)
+            yes_b, no_b = self.crit_b.get_matching(no_a)
+            return yes_a + yes_b, no_b
         elif self.oper == '':
-            return set_a
+            return yes_a, no_a
             
     def to_sqlwhere(self, prop_map):
         """Translate expression into a SQL WHERE condition
@@ -432,8 +437,8 @@ class ObjectProvider:
         oids = self.get_oids()
         objects = [self.domserver._obj.obj("%s:%s" % (self.name, oid))
                     for oid in oids]
-        mobjects = expr.get_matching(set(objects))
-        return [o.oid for o in mobjects if o.is_oneof(types)]
+        yes, no = expr.get_matching(objects)
+        return [o.oid for o in yes if o.is_oneof(types)]
         
         
 class ObjectProcessor:
@@ -496,8 +501,10 @@ class ObjectAccessor:
             self.providers[name] = provider
         if processor:
             self.processors[name] = processor
-        
+            
     def obj(self, objref):
+        """Build an ObjectWrapper around objref"""
+        
         try:
             owner, oid = objref.split(':', 1)
         except ValueError:
@@ -507,6 +514,20 @@ class ObjectAccessor:
         except KeyError:
             raise ObjectError("invalid-provider:%s" % owner)
         return ObjectWrapper(owner, oid, source)
+        
+    def vobj(self, objref):
+        """Like obj, but do not check for object validity (used to speed up
+        things when we already know objref is valid"""
+        
+        try:
+            owner, oid = objref.split(':', 1)
+        except ValueError:
+            raise ObjectError("malformed-oid:%s" % objref)
+        try:
+            source = self.providers[owner]
+        except KeyError:
+            raise ObjectError("invalid-provider:%s" % owner)
+        return ObjectWrapper(owner, oid, source, True)
         
     def act(self, actref, objref=None):
         try:
@@ -526,8 +547,12 @@ class ObjectAccessor:
             raise KeyError(e)
         
     def match(self, owner, expr, types=None):
+        # self.domserver.debug("M start")
         oids = self.providers[owner].matching_oids(expr, types)
-        return [self.obj("%s:%s" % (owner, oid)) for oid in oids]
+        # self.domserver.debug("M got oids, building objrefs")
+        ret = [self.vobj("%s:%s" % (owner, oid)) for oid in oids]
+        # self.domserver.debug("M done")
+        return ret
         
     def match_searchtag(self, tag):
         owner = tag.value
@@ -570,26 +595,52 @@ class ObjectAccessor:
             return
     
         if found == SIC.TAG_OBJ_MATCHQUERY:
+            # self.domserver.debug("[PERF] MQ start")
             try:
                 objs = self.match_searchtag(tag)
             except ObjectError, e:
                 client.answer_failure(e)
                 return
+            # self.domserver.debug("[PERF] MQ matched")
                 
             try:
                 lod = tag.get_subtag(SIC.TAG_OBJ_DETAIL_LEVEL).value
             except AttributeError:
                 lod = 0
                 
+            try:
+                offset = tag.get_subtag(SIC.TAG_OBJ_LIST_OFFSET).value
+            except AttributeError:
+                offset = 0
+                
+            try:
+                limit = tag.get_subtag(SIC.TAG_OBJ_LIST_LIMIT).value
+            except AttributeError:
+                limit = -1
+                
+            # self.domserver.debug("[PERF] MQ option tags read")
+                
+            if limit != -1:
+                objs = objs[offset:offset+limit]
+            else:
+                objs = objs[offset:]
+                
+            # self.domserver.debug("[PERF] MQ sublist computed")
+                
             resp = SIPacket(opcode=SIC.OP_OBJECTS)
             for o in objs:
                 tag = SIStringTag("%s:%s" % (o.owner, o.oid), SIC.TAG_OBJ_REFERENCE)
+                # self.domserver.debug("[PERF] MQ   starting to_sitags")
                 tag.subtags.extend(o.to_sitags(lod))
+                # self.domserver.debug("[PERF] MQ   to_sitags done")
                 typetag = SIStringTag(','.join(o.get_types()), SIC.TAG_OBJ_TYPE)
                 tag.subtags.append(typetag)
                 resp.tags.append(tag)
             resp.set_flag(SIC.FLAGS_USE_ZLIB)
+            
+            # self.domserver.debug("[PERF] MQ packet built")
             client.answer(resp)
+            # self.domserver.debug("[PERF] MQ packet sent; end")
             return
             
         elif found == SIC.TAG_OBJ_REFERENCE:
@@ -689,12 +740,12 @@ class ObjectWrapper:
     Provides dictionnary-like interfaces to read/write object properties and
     method to check object types."""
 
-    def __init__(self, owner, oid, provider):
+    def __init__(self, owner, oid, provider, known_valid = False):
         self.owner = owner
         self.oid = oid
         self.provider = provider
         
-        if not self.provider.valid_oid(oid):
+        if not known_valid and not self.provider.valid_oid(oid):
             raise ObjectError("invalid-oid:%s:%s" % (owner, oid))
                 
     def to_sitags(self, lod):
