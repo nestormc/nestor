@@ -57,6 +57,7 @@ class MusicLibrary:
     def __init__(self, domserver, logger=None):
         self.domserver = domserver
         self.log = logger if logger else domserver
+        self.cache = {'track':{}, 'album':{}, 'artist':{}}
         
     def cleanup_database(self):
         """Cleanup obsolete data in database (eg. albums w/o tracks or artists
@@ -180,13 +181,19 @@ class MusicLibrary:
         return None
         
     def get_artist_metadata(self, artist_id):
+        if artist_id in self.cache['artist']:
+            return self.cache['artist'][artist_id]
+            
         db = self.domserver.get_media_db()
         query = "SELECT name FROM music_artists WHERE id = ?"
         rset = db.execute(query, (artist_id,)).fetchone()
         db.close
-        return {
+        
+        meta = {
             'artist': rset[0]
         }
+        self.cache['artist'][artist_id] = meta
+        return meta
         
     def get_artist_albumids(self, artist_id):
         db = self.domserver.get_media_db()
@@ -228,6 +235,9 @@ class MusicLibrary:
         Update metadata in database and move associated files.
         """
         
+        if artist_id in self.cache['artist']:
+            del self.cache['artist'][artist_id]
+            
         oldmeta = self.get_artist_metadata(artist_id)
         oldpath = self.meta_to_filename(oldmeta, MusicTypes.ARTIST)
         newpath = self.meta_to_filename(meta, MusicTypes.ARTIST)
@@ -253,23 +263,28 @@ class MusicLibrary:
             db.close()
             for album_id, title in rset:
                 if self.fnchars(title) == self.fnchars(album):
-                    self.log.debug("GALID: found album %r (%d)" % (title, album_id))
                     return album_id
         return None
         
     def get_album_metadata(self, album_id):
+        if album_id in self.cache['album']:
+            return self.cache['album'][album_id]
+            
         db = self.domserver.get_media_db()
         query = """SELECT al.title, al.year, al.genre, ar.name
             FROM music_albums al JOIN music_artists ar ON al.artist_id = ar.id
             WHERE al.id = ?"""
         rset = db.execute(query, (album_id,)).fetchone()
         db.close()
-        return {
+        
+        meta = {
             'album': rset[0],
             'year': rset[1],
             'genre': rset[2],
             'artist': rset[3]
         }
+        self.cache['album'][album_id] = meta
+        return meta
         
     def get_album_trackids(self, album_id):
         db = self.domserver.get_media_db()
@@ -312,6 +327,9 @@ class MusicLibrary:
         Update metadata in database and move associated files.
         """
         
+        if album_id in self.cache['album']:
+            del self.cache['album'][album_id]
+            
         oldmeta = self.get_album_metadata(album_id)
         
         if meta['artist'] != oldmeta['artist']:
@@ -376,6 +394,9 @@ class MusicLibrary:
         return None
             
     def get_track_metadata(self, track_id):
+        if track_id in self.cache['track']:
+            return self.cache['track'][track_id]
+            
         db = self.domserver.get_media_db()
         query = """
             SELECT ar.name, al.title, al.year, al.genre, tr.title,
@@ -393,6 +414,7 @@ class MusicLibrary:
         if data:
             for i in range(len(mapping)):
                 meta[mapping[i]] = data[i]
+        self.cache['track'][track_id] = meta
         return meta
         
     def write_file_tags(self, meta):
@@ -444,6 +466,9 @@ class MusicLibrary:
         
         Update metadata in database and move the associated file.
         """
+        
+        if track_id in self.cache['track']:
+            del self.cache['track'][track_id]
         
         oldmeta = self.get_track_metadata(track_id)
          
