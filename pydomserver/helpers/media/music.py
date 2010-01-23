@@ -57,7 +57,9 @@ class MusicLibrary:
     def __init__(self, domserver, logger=None):
         self.domserver = domserver
         self.log = logger if logger else domserver
-        self.cache = {'track':{}, 'album':{}, 'artist':{}}
+            
+    def __del__(self):
+        self.close_mdb()
         
     def cleanup_database(self):
         """Cleanup obsolete data in database (eg. albums w/o tracks or artists
@@ -71,6 +73,7 @@ class MusicLibrary:
             DELETE FROM music_artists ar WHERE NOT EXISTS
                 (SELECT * FROM music_albums al WHERE al.artist_id = ar.id);
         """
+            
         db.executescript(script)
         db.commit()
         db.close()
@@ -101,8 +104,9 @@ class MusicLibrary:
             reg = re.compile("^(" + '|'.join(deter) + ')\s+', re.I)
             return reg.sub('', xs)
         
-        db = self.domserver.get_media_db()
+        
         query = "SELECT name FROM music_artists ORDER BY name"
+        db = self.domserver.get_media_db()
         names = [r[0] for r in db.execute(query).fetchall()]
         db.close()
         
@@ -171,33 +175,33 @@ class MusicLibrary:
         return (None, None)
         
     def get_artist_id(self, artist):
-        db = self.domserver.get_media_db()
         query = "SELECT id, name FROM music_artists WHERE name LIKE ?"
+        db = self.domserver.get_media_db()
         rset = db.execute(query, (self.fnchars(artist),)).fetchall()
         db.close()
+        ret = None
         for artist_id, name in rset:
             if self.fnchars(name) == self.fnchars(artist):
-                return artist_id
-        return None
+                ret = artist_id
+                break
+                
+        return ret
         
-    def get_artist_metadata(self, artist_id):
-        if artist_id in self.cache['artist']:
-            return self.cache['artist'][artist_id]
-            
-        db = self.domserver.get_media_db()
+    def get_artist_metadata(self, artist_id):            
         query = "SELECT name FROM music_artists WHERE id = ?"
+        db = self.domserver.get_media_db()
         rset = db.execute(query, (artist_id,)).fetchone()
         db.close
         
         meta = {
             'artist': rset[0]
         }
-        self.cache['artist'][artist_id] = meta
+        
         return meta
         
     def get_artist_albumids(self, artist_id):
-        db = self.domserver.get_media_db()
         query = "SELECT id FROM music_albums WHERE artist_id = ?"
+        db = self.domserver.get_media_db()
         rset = db.execute(query, (artist_id,)).fetchall()
         db.close()
         return [r[0] for r in rset]
@@ -234,9 +238,6 @@ class MusicLibrary:
         Only the 'artist' key of metadata is needed here.
         Update metadata in database and move associated files.
         """
-        
-        if artist_id in self.cache['artist']:
-            del self.cache['artist'][artist_id]
             
         oldmeta = self.get_artist_metadata(artist_id)
         oldpath = self.meta_to_filename(oldmeta, MusicTypes.ARTIST)
@@ -255,6 +256,7 @@ class MusicLibrary:
         
     def get_album_id(self, artist, album):
         artist_id = self.get_artist_id(artist)
+        ret = None
         if artist_id:
             query = """SELECT id, title FROM music_albums
                 WHERE artist_id = ? AND title LIKE ?"""
@@ -263,17 +265,15 @@ class MusicLibrary:
             db.close()
             for album_id, title in rset:
                 if self.fnchars(title) == self.fnchars(album):
-                    return album_id
-        return None
+                    ret = album_id
+                    break
+        return ret
         
     def get_album_metadata(self, album_id):
-        if album_id in self.cache['album']:
-            return self.cache['album'][album_id]
-            
-        db = self.domserver.get_media_db()
         query = """SELECT al.title, al.year, al.genre, ar.name
             FROM music_albums al JOIN music_artists ar ON al.artist_id = ar.id
             WHERE al.id = ?"""
+        db = self.domserver.get_media_db()
         rset = db.execute(query, (album_id,)).fetchone()
         db.close()
         
@@ -283,12 +283,11 @@ class MusicLibrary:
             'genre': rset[2],
             'artist': rset[3]
         }
-        self.cache['album'][album_id] = meta
         return meta
         
     def get_album_trackids(self, album_id):
-        db = self.domserver.get_media_db()
         query = "SELECT id FROM music_tracks WHERE album_id=?"
+        db = self.domserver.get_media_db()
         rset = db.execute(query, (album_id,)).fetchall()
         db.close()
         return [r[0] for r in rset]
@@ -327,9 +326,6 @@ class MusicLibrary:
         Update metadata in database and move associated files.
         """
         
-        if album_id in self.cache['album']:
-            del self.cache['album'][album_id]
-            
         oldmeta = self.get_album_metadata(album_id)
         
         if meta['artist'] != oldmeta['artist']:
@@ -382,6 +378,7 @@ class MusicLibrary:
         
     def get_track_id(self, artist, album, track):
         album_id = self.get_album_id(artist, album)
+        ret = None
         if album_id:
             query = """SELECT id, title FROM music_tracks
                 WHERE album_id = ? AND title LIKE ?"""
@@ -390,14 +387,11 @@ class MusicLibrary:
             db.close()
             for track_id, title in rset:
                 if self.fnchars(title) == self.fnchars(track):
-                    return track_id
-        return None
+                    ret = track_id
+                    break
+        return ret
             
     def get_track_metadata(self, track_id):
-        if track_id in self.cache['track']:
-            return self.cache['track'][track_id]
-            
-        db = self.domserver.get_media_db()
         query = """
             SELECT ar.name, al.title, al.year, al.genre, tr.title,
                    tr.tracknum, tr.length, tr.format
@@ -407,6 +401,8 @@ class MusicLibrary:
             WHERE tr.id = ?
         """
         mapping = ['artist','album','year','genre','title','num','len','fmt']
+        
+        db = self.domserver.get_media_db()
         data = db.execute(query, (track_id,)).fetchone()
         db.close()
         
@@ -414,7 +410,6 @@ class MusicLibrary:
         if data:
             for i in range(len(mapping)):
                 meta[mapping[i]] = data[i]
-        self.cache['track'][track_id] = meta
         return meta
         
     def write_file_tags(self, meta):
@@ -466,9 +461,6 @@ class MusicLibrary:
         
         Update metadata in database and move the associated file.
         """
-        
-        if track_id in self.cache['track']:
-            del self.cache['track'][track_id]
         
         oldmeta = self.get_track_metadata(track_id)
          
@@ -532,7 +524,7 @@ class MusicLibrary:
         self.write_file_tags(meta)
         return track_id
         
-    def match(self, expr, typ=0):
+    def match(self, expr, typ=0, offset=0, limit=-1):
         """Match music library objects.
         
         Return a list of music library object ids matching an OExpression.
@@ -566,24 +558,27 @@ class MusicLibrary:
         
         queries = {
             0: """SELECT tr.id FROM music_tracks tr
-                 JOIN music_albums al ON tr.album_id = al.id
-                 JOIN music_artists ar ON al.artist_id = ar.id
-                 WHERE %s
-                 ORDER BY ar.sortname, al.year, al.title, tr.tracknum,
-                          tr.title""",
+                JOIN music_albums al ON tr.album_id = al.id
+                JOIN music_artists ar ON al.artist_id = ar.id
+                WHERE %s
+                ORDER BY ar.sortname, al.year, al.title, tr.tracknum,
+                         tr.title
+                LIMIT %d OFFSET %d""",
             1: """SELECT al.id FROM music_albums al
                 JOIN music_artists ar ON al.artist_id = ar.id
                 WHERE %s
-                ORDER BY ar.sortname, al.year, al.title""",
+                ORDER BY ar.sortname, al.year, al.title
+                LIMIT %d OFFSET %d""",
             2: """SELECT ar.id FROM music_artists ar
                 WHERE %s
-                ORDER BY ar.sortname"""
+                ORDER BY ar.sortname
+                LIMIT %d OFFSET %d"""
         }
         
         where, data = expr.to_sqlwhere(prop_map[typ])
         
         db = self.domserver.get_media_db()
-        rset = db.execute(queries[typ] % where, data).fetchall()
+        rset = db.execute(queries[typ] % (where,limit,offset), data).fetchall()
         db.close()
         return [r[0] for r in rset]
         
