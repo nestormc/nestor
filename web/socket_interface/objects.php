@@ -44,6 +44,11 @@ class __Criterion
         );
         return $tag;
     }
+    
+    function is_expr()
+    {
+        return FALSE;
+    }
 }
         
         
@@ -67,6 +72,11 @@ class __Expression
         }
         return $tag;
     }
+    
+    function is_expr()
+    {
+        return TRUE;
+    }
 }
 
 /* The following 4 functions are shortcuts to buid expressions:
@@ -79,6 +89,9 @@ class __Expression
 Some examples :
     _and(_c("artist", "=", "Incubus"), _or(_c("year", "<", "1998"), _c("year", ">", "2002")))
     _e(_c("progress", ">=", "50"))
+    
+One notable special case: _e(FALSE) is an expression with _no_ criterion, i.e.
+it is always true.
 */
 
 function _c($prop, $oper, $val)
@@ -205,13 +218,15 @@ class ObjectAccess
         return $ret;
     }
 
-    function match_objects($app, $expr, $detail_level = 0, $types = FALSE)
+    function match_objects($app, $expr, $detail_level = 0, $types = FALSE, $offset = 0, $limit = -1)
     {
         $ret = array();
         $req = new SIPacket(SIC('OP_OBJECTS'));
         $tag = new SIStringTag($app, SIC('TAG_OBJ_MATCHQUERY'));
         if ($types) $tag->subtags[] = new SIStringTag($types, SIC('TAG_OBJ_TYPE'));
         $tag->subtags[] = new SIUInt8Tag($detail_level, SIC('TAG_OBJ_DETAIL_LEVEL'));
+        if ($offset > 0) $tag->subtags[] = new SIUInt32Tag($offset, SIC('TAG_OBJ_LIST_OFFSET'));
+        if ($limit > 0) $tag->subtags[] = new SIUInt32Tag($limit, SIC('TAG_OBJ_LIST_LIMIT'));
         $tag->subtags[] = $expr->to_sitag();
         $req->tags[] = $tag;
         $resp = $this->si->request($req);

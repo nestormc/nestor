@@ -335,7 +335,6 @@ class SocketInterface
     {
 		$this->host = $host;
 		$this->port = $port;
-        $this->connected = $this->connect();
     }
     
     function __destruct()
@@ -348,9 +347,9 @@ class SocketInterface
    		$this->socket = @fsockopen($this->host, $this->port, $errno, $errstr, 10);
 		if (!$this->socket) {
 			$this->errmsg = "Socket error: $errstr ($errno)";
-			return FALSE;
+			$this->connected = FALSE;
 		}
-		return TRUE;
+		else $this->connected = TRUE;
     }
     
     function disconnect()
@@ -358,7 +357,7 @@ class SocketInterface
         if (!$this->connected)
         {
             $this->errmsg = "Already disconnected";
-            return FALSE;
+            return;
         }
         
         $packet = new SIPacket(SIC('OP_DISCONNECT'));
@@ -366,17 +365,11 @@ class SocketInterface
         
         fclose($this->socket);
         $this->connected = FALSE;
-        return TRUE;
     }
     
     function request($packet)
     {
-        if (!$this->connected)
-        {
-            $this->errmsg = "Not connected";
-            return FALSE;
-        }
-        
+        if (!$this->connected) $this->connect();        
         fwrite($this->socket, $packet->get_raw_packet());
         fflush($this->socket);
         return new SIPacket(0, $this->socket);
