@@ -16,6 +16,7 @@
 from cStringIO import StringIO
 import socket
 import struct
+import time
 import zlib
 
 from .errors import SIVersionMismatch
@@ -204,7 +205,7 @@ class SIPacket:
                         break
                     else:
                         string = string + char
-                tag = SIStringTag(string, tagname)
+                tag = SIStringTag(string.decode('utf-8'), tagname)
             else:
                 raise ValueError("Unsupported TagType: 0x%x" % tagtype)
 
@@ -282,7 +283,15 @@ class SIServerThread(Thread):
         self._reset()
             
     def domserver_run(self):
-        self._listen(self.host, self.port, self.max_conn)
+        err = True
+        while err:
+            try:
+                self._listen(self.host, self.port, self.max_conn)
+                err = False
+            except socket.error:
+                self.info("Could not listen on %s:%d, waiting 5s..." %
+                    (self.host, self.port))
+                time.sleep(5)
 
     def stop(self):
         self.listening = False  
@@ -383,7 +392,6 @@ class SIClientThread(Thread):
             self._rfile.close()
             self._wfile.close()
             self._sock.close()
-            self.debug("Client %s closed connection" % repr(self.address))
         except:
             self._rfile.close()
             self._wfile.close()
