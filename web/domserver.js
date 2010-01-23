@@ -64,8 +64,6 @@ function $remC(obj, c)
 	obj.className = classes.join(" ");
 }
 
-
-
 /********************************************************************
  *                           AJAX QUEUES                            *
  ********************************************************************/
@@ -232,10 +230,136 @@ function $update(id)
 /* Element method handler */
 function $method(id, method, arg)
 {
-    var url = "?a=event&eid=" + encodeURIComponent(id) +
+    var url = "?a=method&eid=" + encodeURIComponent(id) +
         "&m=" + encodeURIComponent(method) +
         "&arg=" + encodeURIComponent(arg);
     $queue.get(url, $op);   
 }
 
+/* Fatal error */
+function $fatal(msg)
+{
+    var err = document.createElement("div");
+    err.className = "domserver_fatal_error";
+    err.innerHTML = "<b>Fatal error !</b><br>" + msg;
+    document.getElementsByTagName("body")[0].appendChild(err);
+}
 
+
+
+/********************************************************************
+ *                          DRAG AND DROP                           *
+ *     Code adapted from Aaron Boodman's public domain library      *
+ ********************************************************************/
+var $drag_src = {};
+var $drag_targets = {};
+
+var $drag = {
+
+    obj : null,
+    label : null,
+    labelX : null,
+    labelY : null,
+    offX : 16,
+    offY : 0,
+
+    init : function(o)
+    {
+        o.onmousedown = $drag.start;
+        if (isNaN(parseInt(o.style.left))) o.style.left   = "0px";
+        if (isNaN(parseInt(o.style.top))) o.style.top    = "0px";
+        o.onDragStart = new Function();
+        o.onDragEnd = new Function();
+        o.onDrag = new Function();
+    },
+
+    start : function(e)
+    {
+        var o = $drag.obj = this;
+        e = $drag.fixE(e);
+        var y = parseInt(o.style.top);
+        var x = parseInt(o.style.left);
+        
+        o.onDragStart(x, y);
+
+        o.lastMouseX = e.clientX;
+        o.lastMouseY = e.clientY;
+
+        document.onmousemove = $drag.drag;
+        document.onmouseup = $drag.end;
+        return false;
+    },
+
+    drag : function(e)
+    {
+        e = $drag.fixE(e);
+        var o = $drag.obj;
+        var l = $drag.label;
+    
+        if (l == null)
+        {
+            /* Create drag label */
+            l = document.createElement("span");
+            l.className = "drag_label";
+            l.innerHTML = $drag_src[o.id]["label"];
+            l.style.position = "absolute";
+            document.documentElement.appendChild(l);
+            $drag.label = l;
+            
+            /* Position it under the cursor */
+            l.style.left = o.lastMouseX + $drag.offX;
+            l.style.top = o.lastMouseY + $drag.offY;
+        }
+
+        var ey = e.clientY;
+        var ex = e.clientX;
+        var y = parseInt(l.style.top);
+        var x = parseInt(l.style.left);
+        var nx, ny;
+
+        nx = x + (ex - o.lastMouseX);
+        ny = y + (ey - o.lastMouseY);
+
+        $drag.label.style.left = nx + "px";
+        $drag.label.style.top = ny + "px";
+        $drag.obj.lastMouseX = ex;
+        $drag.obj.lastMouseY = ey;
+
+        $drag.obj.onDrag(nx, ny);
+        return false;
+    },
+
+    end : function()
+    {
+        document.onmousemove = null;
+        document.onmouseup = null;
+        
+        if ($drag.label != null)
+        {
+            var x = parseInt($drag.label.style.left) - $drag.offX;
+            var y = parseInt($drag.label.style.top) - $drag.offY;
+            
+            var target = document.elementFromPoint(x, y);
+            if (target && $drag_targets[target.id])
+            {
+                var app = $drag_targets[target.id];
+                var objref = $drag_src[$drag.obj.id]["objref"];
+                window.alert("Objref \"" + objref + "\" dragged to app \"" + app + "\"");
+            }
+        
+            $drag.obj.onDragEnd(x, y);
+            document.documentElement.removeChild($drag.label);
+            $drag.label = null;
+        }
+        
+        $drag.obj = null;
+    },
+
+    fixE : function(e)
+    {
+        if (typeof e == 'undefined') e = window.event;
+        if (typeof e.layerX == 'undefined') e.layerX = e.offsetX;
+        if (typeof e.layerY == 'undefined') e.layerY = e.offsetY;
+        return e;
+    }
+};
