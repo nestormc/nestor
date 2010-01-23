@@ -144,6 +144,15 @@ UPDATE_SCRIPTS = {
             CREATE INDEX idx_web_values_session_name ON web_values(session_name);
             
             """,
+    },
+    5: {
+        'media': """
+            DROP INDEX IF EXISTS idx_mar_name;
+            CREATE INDEX idx_mar_name ON music_artists(name);
+            
+            DROP INDEX IF EXISTS idx_mal_title;
+            CREATE INDEX idx_mal_title ON music_albums(title);
+            """,
     }
 }
 
