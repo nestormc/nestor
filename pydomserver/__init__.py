@@ -88,6 +88,7 @@ class Domserver:
         self.info = None
         self.verbose = None
         self.debug = None
+        self.perf = None
         self.config = None
         self._obj_db = None
         self._db = None
@@ -211,6 +212,7 @@ class Domserver:
         self.info = self._logger.info
         self.verbose = self._logger.verbose
         self.debug = self._logger.debug
+        self.perf = self._logger.perf
         
     def _init_threads(self):
         """Initialize the thread manager"""

@@ -14,6 +14,7 @@
 # along with domserver.  If not, see <http://www.gnu.org/licenses/>.
 
 import os
+import shutil
 import time
 
 MAX_LOG_SIZE = 1024**2 
@@ -22,11 +23,13 @@ LL_QUIET = 0
 LL_INFO = 1
 LL_VERBOSE = 2
 LL_DEBUG = 3
+LL_PERF = 4
 
 LL_DESC = {
     LL_INFO:    'INFO',
     LL_VERBOSE: 'VERBOSE',
-    LL_DEBUG:   'DEBUG'
+    LL_DEBUG:   'DEBUG',
+    LL_PERF:    'PERF'
 }
 
 class Logger:
@@ -45,7 +48,10 @@ class Logger:
                 lfile0 = "%s.0" % self.logfile
                 if os.path.exists(lfile0):
                     os.unlink(lfile0)
-                os.rename(self.logfile, lfile0)
+                shutil.copy(self.logfile, lfile0)
+                l = open(self.logfile, 'a')
+                l.truncate(0)
+                l.close()
 
     def log(self, text, level = LL_DEBUG):
         if level > self.level:
@@ -76,6 +82,9 @@ class Logger:
         
     def debug(self, text):
         self.log(text, LL_DEBUG)
+        
+    def perf(self, text):
+        self.log(text, LL_PERF)
 
     def mark(self):
         self.log('', LL_QUIET)

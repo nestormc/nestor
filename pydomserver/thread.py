@@ -44,6 +44,7 @@ class Thread(threading.Thread):
         self.info = logger.info
         self.verbose = logger.verbose
         self.debug = logger.debug
+        self.perf = logger.perf
 
     def domserver_run(self):
         raise ImplementationError("domserver_run() was not overriden")
