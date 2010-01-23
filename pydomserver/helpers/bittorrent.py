@@ -22,7 +22,7 @@ import time
 
 from ..errors import ObjectError
 from ..thread import Thread
-from ..objects import ObjectProvider, ObjectProcessor
+from ..objects import ObjectProvider, ObjectProcessor, ObjectWrapper
 from ..socketinterface import SIPacket, SIStringTag, SIUInt32Tag, SIUInt8Tag
 from ..socketinterfacecodes import SIC
 from ..utils import fileIsOpen
@@ -140,6 +140,92 @@ class BitTorrent:
         else:
             return []
             
+
+class BTDownloadObj(ObjectWrapper):
+    
+    def describe(self):
+        self.types = ['download', 'torrent']
+        self.prop_desc = {
+            'name':         {'lod': SIC.LOD_BASIC,      'type': 'string'},
+            'files':        {'lod': SIC.LOD_BASIC,      'type': 'uint32'},
+            'hash':         {'lod': SIC.LOD_BASIC + 1,  'type': 'string'},
+            'speed':        {'lod': SIC.LOD_BASIC + 1,  'type': 'uint32'},
+            'seeds':        {'lod': SIC.LOD_BASIC + 1,  'type': 'uint32'},
+            'status':       {'lod': SIC.LOD_BASIC + 1,  'type': 'uint32'},
+            'seed':         {'lod': SIC.LOD_BASIC + 1,  'type': 'uint32'},
+            'cancel':       {'lod': SIC.LOD_BASIC + 1,  'type': 'uint32'},
+            'date_started': {'lod': SIC.LOD_BASIC + 1,  'type': 'uint32'},
+            'size':         {'lod': SIC.LOD_BASIC + 1,  'type': 'uint32'},
+            'progress':     {'lod': SIC.LOD_BASIC + 1,  'type': 'string'}
+        }
+        
+        self.prop_desc['size']['conv'] = lambda x: int(x / 1024)
+        self.prop_desc['progress']['conv'] = lambda x: "%.2f%%" % x
+        self.prop_desc['files']['conv'] = lambda x: len(x)
+        
+        try:
+            self.provider.bt[self.oid]
+            found_active = 1
+        except KeyError:
+            found_active = 0
+        
+        for p in self.prop_desc:
+            if found_active and p in self.provider.bt[self.oid].keys():
+                self.props[p] = self.provider.bt[self.oid][p]
+            else:
+                try:
+                    val = self.provider.load_object_property(self.oid, p)
+                except KeyError:
+                    if p in ('seed', 'cancel'):
+                        val = 0
+                    else:
+                        raise
+                self.props[p] = val
+
+    def update(self):
+        try:
+            self.provider.bt[self.oid]
+            found_active = 1
+        except KeyError:
+            found_active = 0
+        
+        for p in ('speed', 'seeds', 'status', 'cancel', 'progress'):
+            if found_active and p in self.provider.bt[self.oid].keys():
+                self.props[p] = self.provider.bt[self.oid][p]
+            else:
+                try:
+                    val = self.provider.load_object_property(self.oid, p)
+                except KeyError:
+                    if p in ('seed', 'cancel'):
+                        val = 0
+                    else:
+                        raise
+                self.props[p] = val
+                        
+    def set_value(self, key, value):
+        if key in ('seed', 'cancel', 'hash', 'date_started'):
+            self.props[key] = value
+            self.provider.save_object_property(self.oid, key, value)
+        else:
+            raise KeyError("Cannot write to MusicTrackObj['%s']" % key)
+            
+            
+class BitTorrentObj(ObjectWrapper):
+
+    def describe(self):
+        self.types = ['bt-app']
+        self.prop_desc = {
+            'active': {'lod': SIC.LOD_BASIC, 'type': 'uint32'}
+        }
+        
+        self.update()
+    
+    def update(self):
+        self.props['active'] = int(self.provider.bt.is_active() is not None)
+        
+    def set_value(self, key, value):
+        raise KeyError("Cannot write to MusicTrackObj['%s']" % key)
+        
             
 class BTObjectProvider(ObjectProvider):
 
@@ -166,97 +252,11 @@ class BTObjectProvider(ObjectProvider):
         oids.extend([h for h in self.list_objects() if h not in oids])
         return oids
         
-    def valid_oid(self, oid):
-        return oid in self.get_oids()
-        
-    def get_types(self, oid):
+    def get_object(self, oid):
         if oid == '':
-            return ['bt-app']
+            return BitTorrentObj(self.domserver, self, '')
         else:
-            return ['download', 'torrent']
-        
-    def get_value(self, oid, prop):
-        if oid == '':
-            if prop == 'active':
-                return int(self.bt.is_active() is not None)
-            else:
-                raise KeyError("No property '%s' for '%s'"% (prop, oid))
-    
-        obj_exists = False
-        if oid in self.bt.keys():
-            obj_exists = True
-            try:
-                return self.bt[oid][prop]
-            except KeyError:
-                pass
-        
-        try:
-            try:
-                return self.load_object_property(oid, prop)
-            except ObjectError:
-                if obj_exists:
-                    raise KeyError("No property '%s' for '%s'" % (prop, oid))
-                else:
-                    raise
-        except KeyError:
-            # Default values
-            if prop in ('seed', 'cancel'):
-                return 0
-            else:
-                raise
-                
-    def set_value(self, oid, prop, val):
-        if prop not in ('seed', 'cancel', 'date_started', 'hash') or oid == '':
-            raise KeyError("Invalid or readonly property '%s'" % prop)
-        self.save_object_property(oid, prop, val)
-        
-    def describe_props(self, oid, lod):
-        if oid == '':
-            desc = {}
-            if lod >= SIC.LOD_BASIC:
-                desc['active'] = {'type': 'uint32'}
-            return desc
-            
-        props = []
-        if lod >= SIC.LOD_BASIC:
-            props.extend(['name'])
-        if lod >= SIC.LOD_MAX - 1:
-            props.extend(['files', 'hash', 'speed', 'seeds', 'status', 'seed',
-                'cancel', 'date_started', 'size', 'progress'])
-        
-        desc = {}
-        for k in props:
-            if k in ('name','hash'):
-                desc[k] = {'type':'string'}
-            elif k in ('speed', 'seeds', 'status', 'seed', 'cancel', 'date_started'):
-                desc[k] = {'type':'uint32'}
-            elif k == 'size':
-                desc[k] = {
-                'type':'uint32',
-                'conv':(lambda x: int(x / 1024))
-            }
-            elif k == 'progress':
-                desc[k] = {
-                    'type':'string',
-                    'conv':(lambda x: "%.2f%%" % x)
-                }
-            elif k == 'files':
-                if lod == SIC.LOD_MAX:
-                    desc[k] = {
-                        'type':'dict',
-                        'desc': {
-                            '*': {
-                                'type':'uint32',
-                                'conv':(lambda x: int(x / 1024))
-                            }
-                        }
-                    }
-                else:
-                    desc[k] = {
-                        'type':'uint32',
-                        'conv':(lambda x: len(x))
-                    }
-        return desc
+            return BTDownloadObj(self.domserver, self, oid)
         
                     
 class BTObjectProcessor(ObjectProcessor):
@@ -265,7 +265,7 @@ class BTObjectProcessor(ObjectProcessor):
         ObjectProcessor.__init__(self, domserver, name)
         self.objs = objs
         
-    def get_action_names(self, obj=None):
+    def get_actions(self, obj=None):
         names = []
         
         if obj.is_a("bt-app"):
@@ -292,7 +292,7 @@ class BTObjectProcessor(ObjectProcessor):
                 
         return names
                 
-    def describe_action(self, act):
+    def describe(self, act):
         name = act.name
         obj = act.obj
             
@@ -305,7 +305,7 @@ class BTObjectProcessor(ObjectProcessor):
             # Call act.add_param
             pass
             
-    def execute_action(self, act):
+    def execute(self, act):
         name = act.name
         obj = act.obj
             

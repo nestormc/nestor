@@ -13,14 +13,15 @@
 # You should have received a copy of the GNU General Public License
 # along with domserver.  If not, see <http://www.gnu.org/licenses/>.
 
-import sqlite3
+import time
 
-from .errors import ObjectError, ImplementationError
+from .errors import ObjectError, ObjectCacheMiss, ImplementationError
 from .socketinterface import SIPacket, SIStringTag, SIUInt32Tag
 from .socketinterfacecodes import SIC
 
 
 class OCriterion:
+
     def __init__(self, prop, oper, val):
         self.prop = prop
         self.oper = oper
@@ -92,6 +93,7 @@ class OCriterion:
         
         
 class OExpression:
+
     def __init__(self, oper, crit_a, crit_b=None):
         self.oper = oper
         self.crit_a = crit_a
@@ -170,20 +172,276 @@ class OExpression:
                 return None
         else:
             return None
+
+
+class ObjectWrapper:
+    """Base class for objects.
+    
+    'types' is the list of types known by the application for the object. Its
+    only use is to filter objects returned by a search query.
+    
+    'props' is a dict of properties for the objects.
+    
+    'prop_desc' is a dict describing how to transmit those properties.  Keys are
+    property names (*) and values are dicts with the following properties:
+    
+        - lod: minimal query level-of-detail for the property to be transmitted
+        - type: 'uint32', 'string' or 'dict'
+        - conv (optional): function to convert the value before transmission
+    
+        Type 'dict' is used to transmit properties whose values are dicts.  In
+        this case, there should also be a second-level description dict as key
+        'desc' to describe how to transmit the values.
         
+        (*) The special property '*' can be used to specify transmission info
+        for all other properties, but it can only be used in level 2+
+        descriptions (ie. for type 'dict') as ObjectWrappers do not have a
+        keys() method.
+    
+    """
+    
+    def __init__(self, domserver, provider, oid):
+        self.domserver = domserver
+        self.provider = provider
+        self.owner = provider.name
+        self.oid = oid
+        self.objref = "%s:%s" % (self.owner, self.oid)
         
+        self.types = []
+        self.props = {}
+        self.prop_desc = {}
+        
+        self.last_access = 0
+        self.access_count = 0
+        self._update(True)
+        
+    def _prop_to_sitags(self, lod, prop, value, d):
+        """Create SITag for a property"""
+        if d.has_key('conv'):
+            conv = d['conv']
+        else:
+            conv = lambda x:x
+            
+        if d['type'] == 'dict':
+            tag = SIStringTag(prop, SIC.TAG_OBJ_ARRAY)
+            subtags = self._desc_to_sitags(lod, value, d['desc'])
+            tag.subtags.extend(subtags)
+        else:
+            tag = SIStringTag(prop, SIC.TAG_OBJ_PROPERTY)
+            if d['type'] == 'string':
+                cls = SIStringTag
+            elif d['type'] == 'uint32':
+                cls = SIUInt32Tag
+            tag.subtags.append(cls(conv(value), SIC.TAG_OBJ_VALUE))
+            
+        return tag
+        
+    def _desc_to_sitags(self, lod, item, desc):
+        """Create object properties SITags"""
+        
+        tags = []
+        for p in desc:
+            if p == '*':
+                continue
+            if lod >= desc[p]['lod']:
+                tags.append(self._prop_to_sitags(lod, p, item[p], desc[p]))
+            
+        if desc.has_key('*') and lod >= desc['*']['lod']:
+            for p in item.keys():
+                tags.append(self._prop_to_sitags(lod, p, item[p], desc['*']))
+        return tags
+        
+    def to_sitag(self, lod):
+        """Create object description SITag"""
+        
+        tag = SIStringTag(self.objref, SIC.TAG_OBJ_REFERENCE)
+        tag.subtags.extend(self._desc_to_sitags(lod, self, self.prop_desc))
+        typetag = SIStringTag(','.join(self.types), SIC.TAG_OBJ_TYPE)
+        tag.subtags.append(typetag)
+        return tag
+        
+    def _update(self, first=False):
+        """Update object properties and access statistics"""
+        
+        if first:
+            self.describe()
+        else:
+            self.update()
+        self.last_access = time.time()
+        self.access_count += 1
+        
+    def __getitem__(self, key):
+        """Return object property 'key'"""
+        
+        try:
+            return self.props[key]
+        except KeyError:
+            raise KeyError("Object '%s' has no property '%s'" % (self.objref,
+                key))
+        
+    def __setitem__(self, key, value):
+        """Set object property 'key' to 'value'"""
+        
+        self.set_value(key, value)
+        
+    def is_a(self, typ):
+        return typ in self.types
+        
+    def is_oneof(self, types):
+        if not types:
+            return True
+        for t in types:
+            if self.is_a(t):
+                return True
+        return False
+    
+    def describe(self):
+        """Describe the object.
+        
+        This function must be overriden to fill self.types, self.props and
+        self.prop_desc.
+        """
+        
+        raise ImplementationError("ObjectWrapper.describe() was not overriden")
+    
+    def update(self):
+        """Update the object.
+        
+        This function must be overriden to update the values in self.types and 
+        self.props.  For best performance, it should only update values that
+        have changed since self.last_access.
+        """
+        
+        raise ImplementationError("ObjectWrapper.update() was not overriden")
+    
+    def set_value(self, key, value):
+        """Set a property value.
+        
+        This function can be overriden to prevent some properties from being
+        written to, or to implement special behaviour when writing some
+        properties.
+        """
+        
+        if key in self.props:
+            self.props[key] = value
+        else:
+            raise KeyError("Object '%s' has no property '%s'" % (self.objref,
+                key))
+            
+
+class ActionWrapper:
+    
+    def __init__(self, processor, owner, name, obj):
+        self.processor = processor
+        self.owner = owner
+        self.name = name
+        self.obj = obj
+        self.params = {}
+        
+    def add_param(self, name, typ='uint32', optional=False, default=None):
+        self.params[name] = {
+            'type': typ,
+            'optional': optional,
+            'value': default
+        }
+        
+    def __getitem__(self, key):
+        return self.params[key]['value']
+                
+    def to_sitag(self):
+        actiontag = SIStringTag(self.name, SIC.TAG_ACTION_ID)
+        for name in self.params:
+            p = self.params[name]
+            tag = SIStringTag(name, SIC.TAG_ACTION_PARAM)
+            
+            flags = 0
+            if p['type'] == 'uint32':
+                flags |= SIC.APFLAG_TYPE_NUMBER
+                cls = SIUInt32Tag
+            elif p['type'] == 'string':
+                flags |= SIC.APFLAG_TYPE_STRING
+                cls = SIStringTag
+            elif p['type'] == 'objref':
+                flags |= SIC.APFLAG_TYPE_OBJREF
+                cls = SIStringTag
+            elif p['type'] == 'bool':
+                flags |= SIC.APFLAG_TYPE_BOOL
+                cls = SIUInt8Tag
+            
+            tag.subtags.append(
+                SIUInt32Tag(flags, SIC.TAG_ACTION_PARAM_FLAGS)
+            )
+            if p['value'] is not None:
+                tag.subtags.append(cls(p['value'], SIC.TAG_ACTION_PARAM_VALUE))
+            actiontag.subtags.append(tag)
+        return actiontag
+        
+    def execute(self, tag):
+        vals = {}
+        for t in tag.subtags:
+            if t.name == SIC.TAG_ACTION_PARAM:
+                st = t.get_subtag(SIC.TAG_ACTION_PARAM_VALUE)
+                if st is None:
+                    raise ObjectError("missing-param-value:%s" % t.value)
+                vals[t.value] = st.value
+        for name in self.params.keys():
+            if vals.has_key(name):
+                self.params[name]["value"] = vals[name]
+            elif self.params[name]['flags'] & SIC.APFLAG_OPTION_OPTIONAL == 0:
+                raise ObjectError("missing-param:%s" % name)
+        return self.processor._execute(self)
+            
+            
+class ObjectCache:
+
+    def __init__(self, domserver):
+        self.domserver = domserver
+        self.store = {}
+        self.size = 0
+        
+    def get(self, objref):
+        """Get ObjectWrapper with reference 'objref' from cache, or raise
+        ObjectCacheMiss on cache miss"""
+        
+        owner, oid = objref.split(':', 1)
+        if not owner in self.store or not oid in self.store[owner]:
+            raise ObjectCacheMiss("Object '%s' not in cache" % objref)
+        else:
+            obj = self.store[owner][oid]
+            obj._update()
+            return obj
+            
+    def put(self, obj):
+        """Put ObjectWrapper obj in cache"""
+        
+        if not obj.owner in self.store:
+            self.store[obj.owner] = {}
+        self.store[obj.owner][obj.oid] = obj
+        self.size += 1
+        
+        if self.size % 100 == 0:
+            self.domserver.debug("Object cache size: %d" % self.size)
+        
+    def remove(self, objref):
+        """Remove ObjectWrapper with reference 'objref' from cache, do not fail
+        on cache miss."""
+        
+        owner, oid = objref.split(':', 1)
+        if owner in self.store and oid in self.store[owner]:
+            del self.store[owner][oid]
+            self.size -= 1
+            if self.size % 100 == 0:
+                self.domserver.debug("Object cache size: %d" % self.size)
+        
+           
 class ObjectProvider:
     """Base class for object providers
     
     Provides some utility methods to help storing and retrieving object
-    properties, and defines exception-raising methods that must be overriden
-    (see those methods for more details):
+    properties, and defines methods that must be overriden (see those methods
+    for more details):
+    - get_object(oid)
     - get_oids()
-    - valid_oid(oid)
-    - get_types(oid)
-    - get_value(oid, prop)
-    - set_value(oid, prop, val)
-    - describe_props(oid, detail_level) 
       
     The following methods can also be overriden, but they have a default
     implementation:
@@ -191,9 +449,13 @@ class ObjectProvider:
     
     """
     
-    def __init__(self, domserver, name):
-        self.domserver = domserver
+    def __init__(self, domserver, name, logger=None):
         self.name = name
+        self.domserver = domserver
+        self.log = logger or domserver
+        
+        self.obj = None
+        self.cache = None
         
     def _get_object_id(self, oid, create=False):
         """Retrieve rowid from object database corresponding to object 'oid'.
@@ -324,119 +586,43 @@ class ObjectProvider:
         db.close()
         return oids
         
-    def _prop_to_sitags(self, prop, value, d):
-        if d.has_key('conv'):
-            conv = d['conv']
-        else:
-            conv = lambda x:x
-            
-        if d['type'] == 'dict':
-            tag = SIStringTag(prop, SIC.TAG_OBJ_ARRAY)
-            subtags = self._desc_to_sitags(value, d['desc'])
-            tag.subtags.extend(subtags)
-        else:
-            tag = SIStringTag(prop, SIC.TAG_OBJ_PROPERTY)
-            if d['type'] == 'string':
-                cls = SIStringTag
-            elif d['type'] == 'uint32':
-                cls = SIUInt32Tag
-            tag.subtags.append(cls(conv(value), SIC.TAG_OBJ_VALUE))
-            
-        return tag
+    def get(self, oid):
+        try:
+            return self.cache.get("%s:%s" % (self.name, oid))
+        except ObjectCacheMiss:
+            obj = self.get_object(oid)
+            self.cache.put(obj)
+            return obj
         
-    def _desc_to_sitags(self, item, desc):
-        tags = []
-        for prop in desc.keys():
-            if prop == '*':
-                continue
-            tags.append(self._prop_to_sitags(prop, item[prop], desc[prop]))
-            
-        if desc.has_key('*'):
-            for prop in item.keys():
-                tags.append(self._prop_to_sitags(prop, item[prop], desc['*']))
-        return tags
+    def get_object(self, oid):
+        """Return an ObjectWrapper corresponding to object oid.
         
-    def to_sitags(self, oid, lod):
-        if lod == SIC.LOD_NONE:
-            desc = {}
-        else:
-            desc = self.describe_props(oid, lod)
-        item = {}
-        for prop in desc.keys():
-            item[prop] = self.get_value(oid, prop)
-        return self._desc_to_sitags(item, desc)
-                
+        Must raise ObjectError when oid is not valid.
+        """
+        
+        raise ImplementationError("ObjectProvider.get_object() not overriden")
+        
     def get_oids(self):
         """Should return a list of all object ids known by the provider.
         
         It may always return an empty or partial list (when returning the whole
         list would be too expensive), in which case matching_oids() should be
-        overriden to make the object list searchable."""
-        raise ImplementationError("get_oids not overriden")
-        
-    def valid_oid(self, oid):
-        """Must return True is oid is known by the provider, False otherwise"""
-        raise ImplementationError("valid_oid not overriden")
-        
-    def get_types(self, oid):
-        """Must return the types of object oid.  This is used by other apps to
-        choose what they can do with this object."""
-        raise ImplementationError("get_types not overriden")
-        
-    def get_value(self, oid, prop):
-        """Must return the value of property prop for object oid, or raise
-        KeyError if it has no such property."""
-        raise ImplementationError("get_value not overriden")
-        
-    def set_value(self, oid, prop, val):
-        """Must set the value of property prop for object oid, or raise KeyError
-        if it has no such property or if it is not writable."""
-        raise ImplementationError("set_value not overriden")
-        
-    def describe_props(self, oid, lod):
-        """Describe how to transmit object property values
-                
-        Must return a dict with properties to transmit as keys (*) and a dicts
-        values, with the following keys:
-        - 'type': mandatory; 'uint32', 'string' or 'dict'
-        - 'conv': optional; callable to convert object property values before
-          transmitting.
-               
-        Type 'dict' is used to transmit properties whose values are dicts.  In
-        this case, there should also be a second-level description dict as key
-        'desc' to describe how to transmit the values.
-        
-        (*) The special property '*' can be used to specify transmission info
-        for all other properties, but it can only be used in level 2+
-        descriptions (ie. for type 'dict') as ObjectWrappers do not have a
-        keys() method.
-        
-        The 'lod' parameter describe how detailed the description should be, ie.
-        how many properties the client wants to see.  The following rules must
-        be followed:
-        - lod = LOD_NONE: provide _no_ properties (**)
-        - lod = LOD_BASIC: provide _one_ property (a display label)
-        - lod = LOD_MAX: provide _all_ possible properties.
-        
-        All other 'lod' values (ie. between LOD_BASIC and LOD_MAX) can be
-        implemented freely (but logically, please).
-        
-        (**) If lod = LOD_NONE, this method may not be called at all.
-        
+        overriden to make the object list searchable.
         """
-        raise ImplementationError("describe_props not overriden")
         
-    def matching_oids(self, expr, types):
-        """Should return a list of object ids matching
-        expr and, if types is not None or an empty list, of a type in types.
+        raise ImplementationError("ObjectProvider.get_oids() not overriden")
+        
+    def match_oids(self, expr, types):
+        """Should return a list of objects matching expr and, if types is not
+        None or an empty list, of a type in types.
+        
         This can be used for object providers that cannot reasonably return the
         whole list of their objects using get_oids(), in order to give access to
         subsets of the object list.  If not overriden, a default matching is
-        performed on the result of get_oids()."""
+        performed on the result of get_oids().
+        """
         
-        oids = self.get_oids()
-        objects = [self.domserver._obj.obj("%s:%s" % (self.name, oid))
-                    for oid in oids]
+        objects = [self.get(oid) for oid in self.get_oids()]
         yes, no = expr.get_matching(objects)
         return [o.oid for o in yes if o.is_oneof(types)]
         
@@ -445,12 +631,11 @@ class ObjectProcessor:
     """Base class for object processors.
     
     Methods to override:
-    - get_action_names must return a list of executable action names applicable
-      to a given object.
-    - describe_action must call add_params on the actionwrapper passed to
-      complete its description.  It should access the actionwrapper name and obj
-      properties.
-    - execute_action must execute the actionwrapper passed, and may only raise
+    - get_actions must return a list of executable action names applicable to a
+      given object.
+    - describe must call add_params on the actionwrapper passed to complete its
+      description.
+    - execute must execute the actionwrapper passed, and may only raise
       ObjectError when something goes wrong.  If it succeeds, it must return
       None, or a action_progress ID (integer) when one has been created.
     
@@ -460,27 +645,26 @@ class ObjectProcessor:
         self.domserver = domserver
         self.name = name
         
-    def get_action_names(self, obj):
-        raise ImplementationError("get_action_names not overriden")
+    def get_actions(self, obj):
+        raise ImplementationError("ObjectProcessor.get_actions() not overriden")
         
-    def describe_action(self, actwrapper):
-        raise ImplementationError("describe_action not overriden")
+    def describe(self, actwrapper):
+        raise ImplementationError("ObjectProcessor.describe() not overriden")
         
-    def execute_action(self, actwrapper):
-        raise ImplementationError("execute_action not overriden")
+    def execute(self, actwrapper):
+        raise ImplementationError("ObjectProcessor.execute() not overriden")
         
-    def _describe_action(self, actwrapper):
-        if actwrapper.name not in self.get_action_names(actwrapper.obj):
+    def _describe(self, actwrapper):
+        if actwrapper.name not in self.get_actions(actwrapper.obj):
             raise ObjectError("invalid-action-spec")
             
-        return self.describe_action(actwrapper)
+        return self.describe(actwrapper)
         
-    def _execute_action(self, actwrapper):
-        if actwrapper.name not in self.get_action_names(actwrapper.obj):
+    def _execute(self, actwrapper):
+        if actwrapper.name not in self.get_actions(actwrapper.obj):
             raise ObjectError("invalid-action-spec")
             
-        return self.execute_action(actwrapper)
-        
+        return self.execute(actwrapper)
         
 
 class ObjectAccessor:
@@ -489,6 +673,7 @@ class ObjectAccessor:
         self.providers = {}
         self.processors = {}
         self.domserver.register_packet_handler(SIC.OP_OBJECTS, self.handle_sipacket)
+        self.cache = ObjectCache(self.domserver)
         
     def register_interface(self, **kwargs):
         try:
@@ -499,81 +684,28 @@ class ObjectAccessor:
         processor = kwargs.get('processor', None)
         if provider:
             self.providers[name] = provider
+            provider.obj = self
+            provider.cache = self.cache
         if processor:
-            self.processors[name] = processor
+            self.processors[name] = processor 
+        
+    def get(self, objref):
+        """Try to get an ObjectWrapper from an object reference, or raise
+        ObjectError.  Return (object, object-provider).
+        """
+        try:
+            owner, oid = objref.split(':', 1)
+        except ValueError:
+            raise ObjectError("malformed-oid:%s" % objref)
             
-    def obj(self, objref):
-        """Build an ObjectWrapper around objref"""
-        
-        try:
-            owner, oid = objref.split(':', 1)
-        except ValueError:
-            raise ObjectError("malformed-oid:%s" % objref)
         try:
             source = self.providers[owner]
         except KeyError:
             raise ObjectError("invalid-provider:%s" % owner)
-        return ObjectWrapper(owner, oid, source)
+            
+        obj = source.get(oid)
+        return obj, source
         
-    def vobj(self, objref):
-        """Like obj, but do not check for object validity (used to speed up
-        things when we already know objref is valid"""
-        
-        try:
-            owner, oid = objref.split(':', 1)
-        except ValueError:
-            raise ObjectError("malformed-oid:%s" % objref)
-        try:
-            source = self.providers[owner]
-        except KeyError:
-            raise ObjectError("invalid-provider:%s" % owner)
-        return ObjectWrapper(owner, oid, source, True)
-        
-    def act(self, actref, objref=None):
-        try:
-            owner, aid = actref.split(':', 1)
-        except ValueError:
-            raise ObjectError("malformed-action:%s" % actref)
-        try:
-            source = self.processors[owner]
-        except KeyError:
-            raise ObjectError("invalid-processor:%s" % owner)
-        return ActionWrapper(self, owner, aid, objref)
-        
-    def __getitem__(self, key):
-        try:
-            return self.obj(key)
-        except ObjectError, e:
-            raise KeyError(e)
-        
-    def match(self, owner, expr, types=None):
-        # self.domserver.debug("M start")
-        oids = self.providers[owner].matching_oids(expr, types)
-        # self.domserver.debug("M got oids, building objrefs")
-        ret = [self.vobj("%s:%s" % (owner, oid)) for oid in oids]
-        # self.domserver.debug("M done")
-        return ret
-        
-    def match_searchtag(self, tag):
-        owner = tag.value
-        
-        if owner not in self.providers.keys():
-            self.domserver.verbose("Invalid object provider '%s'" % owner)
-            raise ObjectError("invalid-provider:%s" % owner)
-                    
-        exprtag = tag.get_subtag(SIC.TAG_OBJ_EXPRESSION)
-        expr = OExpression.from_sitag(exprtag)
-        
-        try:
-            types = tag.get_subtag(SIC.TAG_OBJ_TYPE).value
-        except AttributeError:
-            types = ''
-        if types == '':
-            types = None
-        else:
-            types = types.split(',')
-        
-        return self.match(owner, expr, types)
             
     def handle_sipacket(self, client, packet):
         tagnames = [
@@ -595,13 +727,7 @@ class ObjectAccessor:
             return
     
         if found == SIC.TAG_OBJ_MATCHQUERY:
-            # self.domserver.debug("[PERF] MQ start")
-            try:
-                objs = self.match_searchtag(tag)
-            except ObjectError, e:
-                client.answer_failure(e)
-                return
-            # self.domserver.debug("[PERF] MQ matched")
+            self.domserver.perf("Starting matchquery")
                 
             try:
                 lod = tag.get_subtag(SIC.TAG_OBJ_DETAIL_LEVEL).value
@@ -618,34 +744,49 @@ class ObjectAccessor:
             except AttributeError:
                 limit = -1
                 
-            # self.domserver.debug("[PERF] MQ option tags read")
+            owner = tag.value
+            try:
+                if owner not in self.providers:
+                    raise ObjectError("invalid-provider:%s" % owner)
+                    
+                exprtag = tag.get_subtag(SIC.TAG_OBJ_EXPRESSION)
+                expr = OExpression.from_sitag(exprtag)
                 
-            if limit != -1:
-                objs = objs[offset:offset+limit]
-            else:
-                objs = objs[offset:]
+                try:
+                    types = tag.get_subtag(SIC.TAG_OBJ_TYPE).value
+                except AttributeError:
+                    types = ''
+                if types == '':
+                    types = None
+                else:
+                    types = types.split(',')
                 
-            # self.domserver.debug("[PERF] MQ sublist computed")
+                oids = self.providers[owner].match_oids(expr, types)
+                if limit == -1:
+                    oids = oids[offset:]
+                else:
+                    oids = oids[offset:offset + limit]
+                objs = [self.providers[owner].get(oid) for oid in oids]
+            except ObjectError, e:
+                client.answer_failure(e)
+                return
+                
+            self.domserver.perf("Matching objects retrieved")
                 
             resp = SIPacket(opcode=SIC.OP_OBJECTS)
-            for o in objs:
-                tag = SIStringTag("%s:%s" % (o.owner, o.oid), SIC.TAG_OBJ_REFERENCE)
-                # self.domserver.debug("[PERF] MQ   starting to_sitags")
-                tag.subtags.extend(o.to_sitags(lod))
-                # self.domserver.debug("[PERF] MQ   to_sitags done")
-                typetag = SIStringTag(','.join(o.get_types()), SIC.TAG_OBJ_TYPE)
-                tag.subtags.append(typetag)
-                resp.tags.append(tag)
+            resp.tags.extend([o.to_sitag(lod) for o in objs])
             resp.set_flag(SIC.FLAGS_USE_ZLIB)
             
-            # self.domserver.debug("[PERF] MQ packet built")
+            self.domserver.perf("Packet built")
+            
             client.answer(resp)
-            # self.domserver.debug("[PERF] MQ packet sent; end")
+            
+            self.domserver.perf("Packet sent")
             return
             
         elif found == SIC.TAG_OBJ_REFERENCE:
             try:
-                o = self.obj(tag.value)
+                obj, source = self.get(tag.value)
             except ObjectError, e:
                 client.answer_failure(e)
                 return
@@ -656,11 +797,7 @@ class ObjectAccessor:
                 lod = 0
                 
             resp = SIPacket(opcode=SIC.OP_OBJECTS)
-            tag = SIStringTag("%s:%s" % (o.owner, o.oid), SIC.TAG_OBJ_REFERENCE)
-            tag.subtags.extend(o.to_sitags(lod))
-            typetag = SIStringTag(','.join(o.get_types()), SIC.TAG_OBJ_TYPE)
-            tag.subtags.append(typetag)
-            resp.tags.append(tag)
+            resp.tags.append(obj.to_sitag(lod))
             resp.set_flag(SIC.FLAGS_USE_ZLIB)
             client.answer(resp)
             return
@@ -668,60 +805,57 @@ class ObjectAccessor:
         elif found == SIC.TAG_ACTION_QUERY:
             try:
                 try:
+                    proc = self.processors[tag.value]
+                except KeyError:
+                    raise ObjectError("invalid-processor:%s" % tag.value)
+                    
+                try:
                     objref = tag.get_subtag(SIC.TAG_OBJ_REFERENCE).value
-                    o = self.obj(objref)
                 except AttributeError:
                     raise ObjectError("missing-objref")
+                
+                obj, source = self.get(objref)
             except ObjectError, e:
                 client.answer_failure(e)
                 return
                 
-            try:
-                proc = self.processors[tag.value]
-            except KeyError:
-                self.domserver.debug("Invalid object processor '%s'" % tag.value)
-                client.answer_failure("invalid-processor:%s" % tag.value)
-                return
+            actions = [ActionWrapper(proc, tag.value, name, obj)
+                for name in proc.get_actions(obj)]
+            for a in actions:
+                proc.describe(a)
                 
-            names = proc.get_action_names(o)
-            acts = [ActionWrapper(self, proc.name, n, o) for n in names]
-            for a in acts:
-                proc._describe_action(a)
-            
             resp = SIPacket(opcode=SIC.OP_OBJECTS)
-            resp.tags.extend([a.to_sitag() for a in acts])
+            resp.tags.extend([a.to_sitag() for a in actions])
             resp.set_flag(SIC.FLAGS_USE_ZLIB)
             client.answer(resp)
             return
                 
         elif found == SIC.TAG_ACTION_EXECUTE:
             try:
-                actiontag = tag.get_subtag(SIC.TAG_ACTION_ID)
-                action = actiontag.value
-            except AttributeError:
-                self.answer_failure("missing-action-id")
-                return
-            
-            try:
+                try:
+                    proc = self.processors[tag.value]
+                except KeyError:
+                    raise ObjectError("invalid-processor:%s" % tag.value)
+                    
+                try:
+                    actiontag = tag.get_subtag(SIC.TAG_ACTION_ID)
+                    action = actiontag.value
+                except AttributeError:
+                    raise ObjectError("missing-action-id")
+                    
                 try:
                     objref = tag.get_subtag(SIC.TAG_OBJ_REFERENCE).value
-                    o = self.obj(objref)
                 except AttributeError:
                     raise ObjectError("missing-objref")
+                    
+                obj, source = self.get(objref)
             except ObjectError, e:
                 client.answer_failure(e)
                 return
                 
+            act = ActionWrapper(proc, proc.name, action, obj)
             try:
-                proc = self.processors[tag.value]
-            except KeyError:
-                self.domserver.verbose("Invalid object processor '%s'" % tag.value)
-                client.answer_failure("invalid-processor:%s" % tag.value)
-                return
-                
-            act = ActionWrapper(self, proc.name, action, o)
-            try:
-                proc._describe_action(act)
+                proc._describe(act)
                 ret = act.execute(actiontag)
             except ObjectError, e:
                 client.answer_failure(e)
@@ -733,110 +867,3 @@ class ObjectAccessor:
                 client.answer_success()
             return
             
-            
-class ObjectWrapper:
-    """Wrapper class for objects to access provider functions.
-    
-    Provides dictionnary-like interfaces to read/write object properties and
-    method to check object types."""
-
-    def __init__(self, owner, oid, provider, known_valid = False):
-        self.owner = owner
-        self.oid = oid
-        self.provider = provider
-        
-        if not known_valid and not self.provider.valid_oid(oid):
-            raise ObjectError("invalid-oid:%s:%s" % (owner, oid))
-                
-    def to_sitags(self, lod):
-        return self.provider.to_sitags(self.oid, lod)
-        
-    def is_a(self, typ):
-        return typ in self.provider.get_types(self.oid)
-        
-    def is_oneof(self, types):
-        if types is None or len(types) == 0:
-            return True
-        else:
-            for t in types:
-                if self.is_a(t):
-                    return True
-            return False
-            
-    def get_types(self):
-        return self.provider.get_types(self.oid)
-        
-    def get_value(self, prop):
-        return self.provider.get_value(self.oid, prop)
-        
-    def set_value(self, prop, val):
-        self.provider.set_value(self.oid, prop, val)
-        
-    def __setitem__(self, key, value):
-        self.set_value(key, value)
-        
-    def __getitem__(self, key):
-        return self.get_value(key)
-        
-        
-class ActionWrapper:
-    
-    def __init__(self, accessor, owner, name, obj=None):
-        self.accessor = accessor
-        self.owner = owner
-        self.name = name
-        self.obj = obj
-        self.params = {}
-        try:
-            self.processor = accessor.processors[owner]
-        except KeyError:
-            raise ObjectError("invalid-processor:%s" % owner)
-        
-    def add_param(self, name, flags=0, default=None):
-        self.params[name] = {
-            'flags': flags,
-            'value': default
-        }
-        
-    def __getitem__(self, key):
-        return self.params[key]['value']
-                
-    def to_sitag(self):
-        actiontag = SIStringTag(self.name, SIC.TAG_ACTION_ID)
-        subtags = []
-        for name in self.params:
-            p = self.params[name]
-            tag = SIStringTag(name, SIC.TAG_ACTION_PARAM)
-            tag.subtags.append(
-                SIUInt32Tag(p['flags'], SIC.TAG_ACTION_PARAM_FLAGS)
-            )
-            if p['value'] is not None:
-                if p['flags'] & SIC.APFLAG_TYPE_STRING:
-                    cls = SIStringTag
-                elif p['flags'] & SIC.APFLAG_TYPE_NUMBER:
-                    cls = SIUInt32Tag
-                elif p['flags'] & SIC.APFLAG_TYPE_OBJREF:
-                    cls = SIStringTag
-                elif p['flags'] & SIC.APFLAG_TYPE_BOOL:
-                    cls = SIUInt8Tag
-                tag.subtags.append(cls(p['value'], SIC.TAG_ACTION_PARAM_VALUE))
-            subtags.append(tag)
-        actiontag.subtags.extend(subtags)
-        return actiontag
-        
-    def execute(self, tag):
-        vals = {}
-        for t in tag.subtags:
-            if t.name == SIC.TAG_ACTION_PARAM:
-                st = t.get_subtag(SIC.TAG_ACTION_PARAM_VALUE)
-                if st is None:
-                    raise ObjectError("missing-param-value:%s" % t.value)
-                vals[t.value] = st.value
-        for name in self.params.keys():
-            if vals.has_key(name):
-                self.params[name]["value"] = vals[name]
-            elif self.params[name]['flags'] & SIC.APFLAG_OPTION_OPTIONAL == 0:
-                raise ObjectError("missing-param:%s" % name)
-        return self.processor._execute_action(self)
-        
-

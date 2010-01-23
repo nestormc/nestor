@@ -36,8 +36,11 @@ class ImplementationError(DomserverError):
     pass
     
 class ObjectError(DomserverError):
-    """Raised when trying to get an object with a wrong reference (unknown
-    provider or malformed object reference)"""
+    """Raised when something bad happens during a query on objects"""
+    pass
+    
+class ObjectCacheMiss(DomserverError):
+    """Raised when an object is not in cache"""
     pass
     
 class SIVersionMismatch(DomserverError):
