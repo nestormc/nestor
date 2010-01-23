@@ -19,7 +19,7 @@ along with domserver.  If not, see <http://www.gnu.org/licenses/>.
 
 require_once "framework/element.php";
 
-class DomserverApplist extends Element
+class DomserverApplist extends UIElement
 {
     public $workspace = FALSE;
     
@@ -33,7 +33,9 @@ class DomserverApplist extends Element
         foreach ($this->apps as $id => $app)
         {
             $this->add_child($app);
+            $app->set_class("app_summary");
             $app->set_handler("onclick", $this->workspace, "set_active_app", $id);
+            $app->make_drag_target($id);
         }
     }
 }

@@ -76,7 +76,7 @@ class OutputManager
         if (is_bool($val)) return $val ? "true" : "false";
         if (is_int($val) || is_float($val)) return "$val";
         if (is_string($val)) return '"' . str_replace('"', '\"', $val) . '"';
-        if (is_array($va)) return $this->json_aarray($val);
+        if (is_array($val)) return $this->json_aarray($val);
         
         return "undefined";
     }
@@ -106,112 +106,49 @@ class OutputManager
         $this->cssheets[] = $file;
     }
     
-    /* Add child to element */
-    function add_child($element, $child)
+    /* Add opcode */
+    function add_op($opcode, $params)
     {
-        $this->ops[] = array(
-            "child",
-            array($element, $child)
-        );
-    }
-    
-    /* Set element HTML contents */
-    function set_contents($element, $html)
-    {
-        $this->ops[] = array(
-            "contents",
-            array($element, $html)
-        );
-    }
-    
-    /* Set element DOM property */
-    function set_dom($element, $property, $value)
-    {
-        $this->ops[] = array(
-            "dom",
-            array($element, $property, $value)
-        );
-    }
-    
-    /* Set element CSS property */
-    function set_css($element, $property, $value)
-    {
-        $this->ops[] = array(
-            "style",
-            array($element, $property, $value)
-        );
-    }
-    
-    /* Set element CSS class */
-    function set_class($element, $class)
-    {
-        $this->ops[] = array(
-            "class",
-            array($element, $class)
-        );
-    }
-    
-    /* Unset element CSS class */
-    function unset_class($element, $class)
-    {
-        $this->ops[] = array(
-            "unclass",
-            array($element, $class)
-        );
-    }
-    
-    /* Schedule element update */
-    function schedule_update($element, $interval)
-    {
-        $this->ops[] = array(
-            "sched_update",
-            array($element, $interval)
-        );
-    }
-    
-    /* Set event handler */
-    function set_handler($element, $event, $target, $method, $arg)
-    {
-        if (method_exists($target, $method))
-        {
-            $this->ops[] = array(
-                "event",
-                array($element, $event, $target, $method, $arg)
-            );
-        }
+        $this->ops[] = array($opcode, $params);
     }
     
     /* Render all pending opcodes into a JSON-wrapped JS function */
     private function render_json_opcodes()
     {
         $ops = array();
+        $prev_id = "";
         
         while ($op = array_shift($this->ops))
         {
             $opcode = $op[0];
             $params = $op[1];
             
+            $id = $this->dom_id($params[0]);
+            if ($id != $prev_id)
+            {
+                if ($prev_id != "") $ops[] = "}";
+                $ops[] = "if(\$(\"$id\")){";
+                $prev_id = $id;
+            }
+            
             switch ($opcode)
             {
             case 'style':
-                $id = $this->dom_id($params[0]);
                 $prop = $this->js_cssprop($params[1]);
                 $val = $this->json_value($params[2]);
                 $ops[] = "\$(\"$id\").$prop=$val;";
                 break;
                 
-            case 'contents':
+            case 'content':
                 $params[2] = $params[1];
                 $params[1] = "innerHTML";
             case 'dom':
-                $id = $this->dom_id($params[0]);
                 $prop = $params[1];
                 $val = $this->json_value($params[2]);
                 $ops[] = "\$(\"$id\").$prop=$val;";
                 break;
                 
             case 'child':
-                $id = $this->dom_id($params[0]);
                 $child = $params[1];
                 $childid = $this->dom_id($child);
                 $ops[] = "var c=document.createElement(\"div\");";
@@ -221,33 +158,42 @@ class OutputManager
                 break;
                 
             case 'sched_update':
-                $id = $this->dom_id($params[0]);
                 $interval = $params[1];
                 $ops[] = "window.setTimeout(function(){\$update(\"$id\");},$interval);";
                 break;
                 
             case 'class':
-                $id = $this->dom_id($params[0]);
                 $class = $params[1];
-                $ops[] = "\$addC(\$(\"$id\"), \"$class\");";
+                $ops[] = "\$addC(\$(\"$id\"),\"$class\");";
                 break;
                 
             case 'unclass':
-                $id = $this->dom_id($params[0]);
                 $class = $params[1];
-                $ops[] = "\$remC(\$(\"$id\"), \"$class\");";
+                $ops[] = "\$remC(\$(\"$id\"),\"$class\");";
                 break;
                 
             case 'event':
-                $id = $this->dom_id($params[0]);
                 $event = $params[1];
                 $tid = $this->dom_id($params[2]);
                 $method = $this->json_value($params[3]);
                 $arg = $this->json_value($params[4]);
                 $ops[] = "\$(\"$id\").$event=function(){\$method(\"$tid\",$method,$arg);};";
                 break;
+                
+            case 'drag_src':
+                $info = $this->json_value(array("objref" => $params[1], "label" => $params[2]));
+                $ops[] = "\$drag.init(\$(\"$id\"));";
+                $ops[] = "\$drag_src[\"$id\"]=$info;";
+                break;
+                
+            case 'drag_target':
+                $app = $this->json_value($params[1]);
+                $ops[] = "\$drag_targets[\"$id\"]=$app";
+                break;
             }
         }
+        
+        if (count($ops)) $ops[] = "}";
         
         return "{op:function(){" . implode("", $ops) . "}}";
     }
@@ -259,7 +205,7 @@ class OutputManager
         return $this->render_json_opcodes();
     }
     
-    function handle_event($id, $method, $arg)
+    function call_element_method($id, $method, $arg)
     {
         $element = $this->elements[$id];
         if (method_exists($element, $method))
@@ -271,26 +217,36 @@ class OutputManager
     
     private function render_htmltree($root, $elems)
     {
-        if (strlen($elems[$root]["contents"])) $html = $elems[$root]["contents"] . "\n";
+        if (strlen($elems[$root]["content"])) $html = $elems[$root]["content"];
+        
         foreach ($elems[$root]["children"] as $id)
-            $html .= $this->render_htmltree($id, $elems);
+            $children .= $this->render_htmltree($id, $elems);
+            
         if (count($elems[$root]["classes"]))
             $classes = "class=\"" . implode(" ", $elems[$root]["classes"]) . "\"";
         else $classes = "";
-        return "<div id=\"$root\"$classes>\n" . $this->indent($html) . "</div>\n";
+        
+        if (preg_match("/^(\s|\n)*$/", $children))
+            return $elems[$root]["obj"]->render_html($root, $elems[$root]["classes"], $html);
+        else
+            return $elems[$root]["obj"]->render_html($root, $elems[$root]["classes"], $this->indent("$html\n$children"));
     }
     
     function render_page($root)
     {
         $blank = array(
             "children" => array(),
-            "contents" => "",
-            "classes" => array()
+            "content" => "",
+            "classes" => array(),
+            "obj" => FALSE
         );
         
         $elems = array($this->dom_id($root) => $blank);
+        $elems[$this->dom_id($root)]["obj"] = $root;
         $css = array();
         $js = array();
+        $drag_src = array();
+        $drag_targets = array();
         
         $root->render();
         while ($op = array_shift($this->ops))
@@ -308,13 +264,13 @@ class OutputManager
             case 'dom':
                 $id = $this->dom_id($params[0]);
                 $val = $this->json_value($params[2]);
-                $js[] = "\$(\"$id\").${params[1]} = $val;";
+                $js[] = "if (\$(\"$id\")) \$(\"$id\").${params[1]} = $val;";
                 break;
                 
-            case 'contents':
+            case 'content':
                 $id = $this->dom_id($params[0]);
                 $elems[$id]["children"] = array();
-                $elems[$id]["contents"] = $params[1];
+                $elems[$id]["content"] = $params[1];
                 break;
                 
             case 'child':
@@ -322,6 +278,7 @@ class OutputManager
                 $child = $params[1];
                 $childid = $this->dom_id($params[1]);
                 $elems[$childid] = $blank;
+                $elems[$childid]["obj"] = $child;
                 $elems[$id]["children"][] = $childid;
                 $child->render();
                 break;
@@ -351,12 +308,23 @@ class OutputManager
                 $tid = $this->dom_id($params[2]);
                 $method = $this->json_value($params[3]);
                 $arg = $this->json_value($params[4]);
-                $js[] = "\$(\"$id\").$event = function() {\$method(\"$tid\", $method, $arg);};";
+                $js[] = "if (\$(\"$id\")) \$(\"$id\").$event = function() {\$method(\"$tid\", $method, $arg);};";
+                break;
+                
+            case 'drag_src':
+                $drag_src[$id] = array("objref" => $params[1], "label" => $params[2]);
+                $js[] = "\$drag.init(\$(\"$id\"));";
+                break;
+                
+            case 'drag_target':
+                $drag_targets[$id] = $params[1];
                 break;
             }
         }
         
         /* JS block */
+        $js[] = "\$drag_src = " . $this->json_value($drag_src) . ";";
+        $js[] = "\$drag_targets = " . $this->json_value($drag_targets) . ";";
         $js_out = "";
         foreach ($this->scripts as $src)
         {
@@ -388,6 +356,7 @@ class OutputManager
 <html>
 <head>
     <title>domserver</title>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
     
 $css_block
 $js_block</head>

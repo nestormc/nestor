@@ -27,6 +27,8 @@ require_once "ui/ui.php";
 
 class Domserver
 {
+    const session_expires = 604800;
+
     private $db = FALSE;
     private $si = FALSE;
     private $apps = array();
@@ -74,6 +76,106 @@ class Domserver
         $this->apps[$app->id] = $app;
     }
     
+    private function delete_expired_sessions()
+    {
+        $q = $this->db->prepare("SELECT name FROM web_sessions WHERE expires < :time");
+        $q->bindValue(':time', time(), PDO::PARAM_INT);
+        $q->execute();
+        
+        $expired = array();
+        while (($s = $q->fetch(PDO::FETCH_ASSOC)) && $expired[] = $s['name']);
+        $q = NULL;
+        
+        foreach ($expired as $sid)
+        {
+            $q = $this->db->prepare("DELETE FROM web_values WHERE session_name = :sid");
+            $q->bindValue(':sid', $sid, PDO::PARAM_STR);
+            $q->execute();
+            $q = NULL;
+            
+            $q = $this->db->prepare("DELETE FROM web_sessions WHERE name = :sid");
+            $q->bindValue(':sid', $sid, PDO::PARAM_STR);
+            $q->execute();
+            $q = NULL;
+        }
+    }
+    
+    private function session_exists($sid)
+    {
+        $q = $this->db->prepare("SELECT COUNT(*) AS c FROM web_sessions WHERE name = :name");
+        $q->bindValue(':name', $sid, PDO::PARAM_STR);
+        $q->execute();
+        $c = $q->fetch(PDO::FETCH_ASSOC);
+        return (intval($c["c"]) != 0);
+    }
+    
+    private function get_session_id()
+    {
+        $sid = FALSE;
+        $this->delete_expired_sessions();
+        
+        if (isset($_COOKIE["domserver:session_id"]))
+        {
+            $sid = $_COOKIE["domserver:session_id"];
+            if (!$this->session_exists($sid)) $sid = FALSE;
+        }
+        
+        if (!$sid)
+        {
+            do
+            {
+                $sid = md5("domserver:" . microtime() . $_SERVER["REMOTE_ADDR"] . $_SERVER["REMOTE_PORT"]);
+            }
+            while ($this->session_exists($sid));
+            
+            $q = $this->db->prepare("INSERT INTO web_sessions(name, expires) VALUES(:name, :expires)");
+            $q->bindValue(":name", $sid, PDO::PARAM_STR);
+            $q->bindValue(":expires", time() + self::session_expires, PDO::PARAM_INT);
+            $q->execute();
+        }
+        else
+        {
+            $q = $this->db->prepare("UPDATE web_sessions SET expires = :expires WHERE name = :name");
+            $q->bindValue(":name", $sid, PDO::PARAM_STR);
+            $q->bindValue(":expires", time() + self::session_expires, PDO::PARAM_INT);
+            $q->execute();
+        }
+        
+        $_COOKIE["domserver:session_id"] = $sid;
+        setcookie("domserver:session_id", $sid, time() + self::session_expires);
+        return $sid;
+    }
+    
+    function save_client_data($key, $value)
+    {
+        $sid = $this->get_session_id();
+        $exp = var_export($value, TRUE);
+        
+        $q = $this->db->prepare("INSERT OR REPLACE INTO web_values(session_name, key, value) VALUES(:name, :key, :value)");
+        $q->bindValue(':name', $sid, PDO::PARAM_STR);
+        $q->bindValue(':key', $key, PDO::PARAM_STR);
+        $q->bindValue(':value', $exp, PDO::PARAM_STR);
+        $q->execute();
+    }
+    
+    function load_client_data($key, $default)
+    {
+        $sid = $this->get_session_id();
+        $value = $default;
+        
+        $q = $this->db->prepare("SELECT value FROM web_values WHERE session_name = :name AND key = :key");
+        $q->bindValue(':name', $sid, PDO::PARAM_STR);
+        $q->bindValue(':key', $key, PDO::PARAM_STR);
+        $q->execute();
+        
+        if ($v = $q->fetch(PDO::FETCH_ASSOC))
+        {
+            $value = eval("return $v[value];");
+        }
+        
+        return $value;
+    }
+    
     function get_applist()
     {
         $ret = array();
@@ -97,8 +199,8 @@ class Domserver
             echo $this->output->update_element($_GET["eid"]);
             break;
             
-        case "event":
-            echo $this->output->handle_event($_GET["eid"], $_GET["m"], $_GET["arg"]);
+        case "method":
+            echo $this->output->call_element_method($_GET["eid"], $_GET["m"], stripslashes($_GET["arg"]));
             break;
             
         default:

@@ -22,7 +22,7 @@ require_once "ui/header.php";
 require_once "ui/applist.php";
 require_once "ui/workspace.php";
 
-class DomserverUI extends Element
+class DomserverUI extends UIElement
 {
     function init()
     {

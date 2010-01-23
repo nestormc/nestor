@@ -19,11 +19,11 @@ along with domserver.  If not, see <http://www.gnu.org/licenses/>.
 
 require_once "framework/element.php";
 
-class DomserverHeader extends Element
+class DomserverHeader extends UIElement
 {
     public function render() 
     {
-        $this->set_contents("domserver !!");
+        $this->set_content("header");
     }
 }
 ?>

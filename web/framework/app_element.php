@@ -19,7 +19,7 @@ along with domserver.  If not, see <http://www.gnu.org/licenses/>.
 
 require_once "framework/element.php";
 
-abstract class AppElement extends Element
+abstract class AppElement extends UIElement
 {
     function __construct($app, $id)
     {
@@ -32,7 +32,28 @@ abstract class AppElement extends Element
         $this->output = $this->app->output;
         
         $this->output->register_element($this);
+        $this->init();
     }
+}
+
+class ImageElement extends AppElement
+{
+    function __construct($app, $id, $src)
+    {
+        parent::__construct($app, $id);
+        $this->src = $src;
+    }
+    
+    function render_html($id, $classes, $contents)
+    {
+        if (count($classes))
+            $classes = " class=\"" . implode(" ", $classes) . "\"";
+        else $classes = "";
+        
+        return "<img id=\"$id\" src=\"{$this->src}\"$classes>\n";
+    }
+    
+    function render() {}
 }
 
 ?>

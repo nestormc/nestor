@@ -19,17 +19,29 @@ along with domserver.  If not, see <http://www.gnu.org/licenses/>.
 
 require_once "framework/element.php";
 
-class DomserverWorkspace extends Element
+class DomserverWorkspace extends UIElement
 {
+    function render() 
+    {
+        $app_id = $this->load_data("app", FALSE);
+        if ($app_id) $this->display_app($app_id);
+        else $this->set_content("No app selected");
+    }
+    
+    function display_app($app_id)
+    {
+        $this->save_data("app", $app_id);
+        $this->set_content("");
+        
+        $ws = $this->ds->get_app_workspace($app_id);
+        $this->add_child($ws);
+        $ws->set_class("app_workspace");
+    }
+
     function set_active_app($app_id)
     {
-        $this->set_contents("");
-        $this->add_child($this->ds->get_app_workspace($app_id));
-    }
-        
-    public function render() 
-    {
-        $this->set_contents("blank workspace - no app selected");
+        if ($app_id != $this->load_data("app", FALSE)) $this->display_app($app_id);
     }
 }
+
 ?>
