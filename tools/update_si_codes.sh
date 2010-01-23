@@ -17,7 +17,7 @@
 
 ifile=$1
 ofile=$2
-[ "x$ifile" = "x" ] && ifile=../pydomserver/SocketInterfaceCodes.py
+[ "x$ifile" = "x" ] && ifile=../pydomserver/socketinterfacecodes.py
 [ "x$ofile" = "x" ] && ofile=../web/socket_interface/si_codes.php
 cat "$ifile" | egrep "^    [^#]" | awk -f update_si_codes.awk > "$ofile"
 
