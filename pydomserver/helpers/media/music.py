@@ -545,13 +545,13 @@ class MusicLibrary:
             },
             1: {
                 'artist': 'ar.name',
-                'title': 'al.title',
+                'album': 'al.title',
                 'year': 'al.year',
                 'genre': 'al.genre',
                 'keywords': "ar.name || ' ' || al.title"
             },
             2: {
-                'name': 'ar.name',
+                'artist': 'ar.name',
                 'keywords': 'ar.name'
             }
         }
