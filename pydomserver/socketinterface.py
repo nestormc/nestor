@@ -262,6 +262,7 @@ class SIServerThread(Thread):
         self._sock.bind((host, port))
         self._sock.listen(max_conn)
         self.listening = True
+        self.info("Socket interface listening on %s:%d" % (host, port))
         
         while self.listening:
             self._sock.settimeout(1)
@@ -283,15 +284,22 @@ class SIServerThread(Thread):
         self._reset()
             
     def domserver_run(self):
-        err = True
-        while err:
+        tryagain = True
+        tries = 0
+        while tryagain:
             try:
+                tries += 1
                 self._listen(self.host, self.port, self.max_conn)
-                err = False
+                tryagain = False
             except socket.error:
-                self.info("Could not listen on %s:%d, waiting 5s..." %
-                    (self.host, self.port))
-                time.sleep(5)
+                if tries < 6:
+                    self.info("Could not listen on %s:%d, waiting 10s..." %
+                        (self.host, self.port))
+                    time.sleep(10)
+                else:
+                    self.info("Could not listen on %s:%d after 1mn, exiting." %
+                        (self.host, self.port))
+                    tryagain = False
 
     def stop(self):
         self.listening = False  
