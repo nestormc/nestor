@@ -78,6 +78,9 @@ class DictTorrent:
         else:
             raise KeyError("DictTorrent has no item named '%s'" % key)
             
+    def keys(self):
+        return ['name', 'size', 'seeds', 'progress', 'speed', 'status', 'files']
+            
         
 class BitTorrent:
     def __init__(self, domserver, logger):
@@ -176,10 +179,10 @@ class BTDownloadObj(ObjectWrapper):
                 try:
                     val = self.provider.load_object_property(self.oid, p)
                 except KeyError:
-                    if p in ('seed', 'cancel'):
+                    if p in ('seed', 'cancel', 'date_started'):
                         val = 0
                     else:
-                        raise
+                        val = ''
                 self.props[p] = val
 
     def update(self):
@@ -196,10 +199,10 @@ class BTDownloadObj(ObjectWrapper):
                 try:
                     val = self.provider.load_object_property(self.oid, p)
                 except KeyError:
-                    if p in ('seed', 'cancel'):
+                    if p in ('seed', 'cancel', 'date_started'):
                         val = 0
                     else:
-                        raise
+                        val = ''
                 self.props[p] = val
                         
     def set_value(self, key, value):
@@ -316,7 +319,8 @@ class BTObjectProcessor(ObjectProcessor):
         elif name == 'torrent-cancel':
             obj["cancel"] = 1
         elif name == 'torrent-clear':
-            self.objs.remove_object(obj['hash'])
+            self.objs.cache.remove(obj.oid)
+            self.objs.remove_object(obj.oid)
         elif name == 'torrent-pause':
             self.objs.bt[obj['hash']].pause()
         elif name == 'torrent-resume':
@@ -325,6 +329,7 @@ class BTObjectProcessor(ObjectProcessor):
             hashes = self.objs.list_objects()
             for h in hashes:
                 if self.objs.load_object_property(h, 'status') == 6:
+                    self.objs.cache.remove(h)
                     self.objs.remove_object(h)
             
         return None
@@ -395,8 +400,9 @@ class BTWatcherThread(Thread):
         os.mkdir(destdir)
         self.verbose("Adding torrent '%s' as '%s'" % (name, rtorrent))
         ret = self.bt.add_torrent(rtorrent, destdir)
-        self.objs.set_value(hash, "date_started", time.time())
-        self.objs.set_value(hash, "hash", hash)
+        obj = self.objs.get(hash)
+        obj["date_started"] =  time.time()
+        obj["hash"] = hash
         self.debug("add_torrent returned %s" % repr(ret))
         
     def initialize(self):
@@ -440,11 +446,10 @@ class BTWatcherThread(Thread):
         
     def check_finished(self):
         for hash in self.bt.keys():
-            try:
-                seed = self.objs.get_value(hash, "seed")
-            except KeyError:
-                seed = 0
-            if seed == 0 and self.bt[hash]['status'] == 4:
+            obj = self.objs.get(hash)
+            seed = obj["seed"]
+            
+            if seed == 0 and obj['status'] == 4:
                 self.bt[hash].pause()
                 
                 # Set finishing status
@@ -485,11 +490,9 @@ class BTWatcherThread(Thread):
                 
     def check_canceled(self):
         for hash in self.bt.keys():
-            try:
-                cancel = self.objs.get_value(hash, "cancel")
-            except KeyError:
-                cancel = 0
-            if cancel and self.objs.get_value(hash, "status") < 4:
+            obj = self.objs.get(hash)
+            cancel = obj["cancel"]
+            if cancel and obj["status"] < 4:
                 self.bt[hash].pause()
                 self.bt.del_torrent(hash)
                 while hash in self.bt.keys():
@@ -498,6 +501,7 @@ class BTWatcherThread(Thread):
                 os.unlink(os.path.join(rundir, "%s.torrent" % hash))
                 shutil.rmtree(os.path.join(rundir, hash))
                 self.objs.remove_object(hash)
+                self.objs.cache.remove("bt:%s" % hash)
                 self.verbose("Torrent '%s' canceled" % hash)
         
     def domserver_run(self):
