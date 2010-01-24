@@ -420,7 +420,14 @@ class ObjectCache:
         self.size += 1
         
         if self.size % 100 == 0:
-            self.domserver.debug("Object cache size: %d" % self.size)
+            self.domserver.debug("Object cache size above %d" % self.size)
+            
+    def invalidate(self, obj):
+        """Remove ObjectWrapper 'obj' and all its other oids from cache, do not
+        fail on cache miss."""
+        
+        for oid in obj.provider.infer_oids(obj):
+            self.remove("%s:%s" % (obj.owner, oid))
         
     def remove(self, objref):
         """Remove ObjectWrapper with reference 'objref' from cache, do not fail
@@ -431,7 +438,7 @@ class ObjectCache:
             del self.store[owner][oid]
             self.size -= 1
             if self.size % 100 == 0:
-                self.domserver.debug("Object cache size: %d" % self.size)
+                self.domserver.debug("Object cache size below %d" % self.size)
         
            
 class ObjectProvider:
@@ -446,6 +453,7 @@ class ObjectProvider:
     The following methods can also be overriden, but they have a default
     implementation:
     - matching_oids(expr, types)
+    - infer_oids()
     
     """
     
@@ -625,6 +633,22 @@ class ObjectProvider:
         objects = [self.get(oid) for oid in self.get_oids()]
         yes, no = expr.get_matching(objects)
         return [o.oid for o in yes if o.is_oneof(types)]
+        
+    def infer_oids(self, obj):
+        """Return all known object ids for object obj
+        
+        This method should be overriden if either:
+        - several object ids can identify the same object
+        - some foreign objects are known by this provider
+        
+        "all known object ids" must include the original object id if it comes
+        from this provider.
+        """
+    
+        if obj.owner == self.name:
+            return [obj.oid]
+        else:
+            return []
         
         
 class ObjectProcessor:

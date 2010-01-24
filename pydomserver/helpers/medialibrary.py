@@ -93,7 +93,7 @@ class MusicAlbumObj(ObjectWrapper):
             'album':        {'lod': SIC.LOD_BASIC,      'type': 'string'},
             'artist':       {'lod': SIC.LOD_BASIC + 1,  'type': 'string'},
             'album_id':     {'lod': SIC.LOD_BASIC + 1,  'type': 'uint32'},
-            'year':         {'lod': SIC.LOD_MAX,        'type': 'string'},
+            'year':         {'lod': SIC.LOD_BASIC + 1,  'type': 'string'},
             'genre':        {'lod': SIC.LOD_MAX,        'type': 'string'},
             'keywords':     {'lod': SIC.LOD_MAX,        'type': 'string'},
             'path':         {'lod': SIC.LOD_MAX,        'type': 'string'}
@@ -261,7 +261,19 @@ class MLObjectProvider(ObjectProvider):
                 
         if len(types) == 0 or 'mpd-player' in types or 'mpd-item' in types:
             return ObjectProvider.match_oids(self, expr, types)
-
+            
+    def infer_oids(self, obj):
+        oids = []
+        if obj.owner == 'media':
+            oids.append(obj.oid)
+            if obj.oid != "mpd":
+                kind, id = obj.oid.split("|", 1)
+                if kind == 'music-track' and obj["mpd-position"] != -1:
+                    oids.append("mpd-item|%d" % obj["mpd-position"])
+                if kind == 'mpd-item':
+                    oids.append("music-track|%d" % obj["track_id"])
+        return oids
+        
 
 class MLObjectProcessor(ObjectProcessor):
 
@@ -325,7 +337,7 @@ class MLObjectProcessor(ObjectProcessor):
             act.add_param('position', 'uint32', False,
                 len(self.objs.mpd.playlist()))
         elif name == 'mpd-item-move':
-            act.add_param('position', 'uint32', False, obj['pos'])
+            act.add_param('position', 'uint32', False, obj['mpd-position'])
     
     def execute(self, act):
         name = act.name
@@ -373,6 +385,8 @@ class MLObjectProcessor(ObjectProcessor):
             
         # MPD Playlist controls
         elif name == 'mpd-player-clear':
+            for idx in range(len(self.mpd.playlist())):
+                self.objs.cache.remove("media:mpd-item|%d" % idx)
             self.mpd.clear()
         elif name in ('mpd-play', 'mpd-enqueue'):
             mdir = self.domserver.config['media.music_dir']
@@ -382,17 +396,38 @@ class MLObjectProcessor(ObjectProcessor):
                     path = path[1:]
             else:
                 return
+                
+            oldlen = len(self.mpd.playlist())
             if name == 'mpd-play':
                 self.mpd.clear()
+                
             self.mpd.add(path)
+            
             if name == 'mpd-play':
                 self.mpd.play(0)
+                for idx in range(oldlen):
+                    self.objs.cache.remove("media:mpd-item|%d" % idx)
+            elif name == 'mpd-enqueue':
+                dst = act['position']
+                if dst < oldlen:
+                    for offset in range(len(self.mpd.playlist()) - oldlen):
+                        self.mpd.move(oldlen + offset, dst + offset)
+                for idx in range(dst, len(self.mpd.playlist())):
+                    self.objs.cache.remove("media:mpd-item|%d" % idx)
+                
         elif name == 'mpd-item-remove':
-            self.mpd.delete(obj['pos'])
+            src = obj['mpd-position']
+            for idx in range(src, len(self.mpd.playlist())):
+                self.objs.cache.remove("media:mpd-item|%d" % idx)
+            self.mpd.delete(src)
         elif name == 'mpd-item-move':
-            self.mpd.move(obj['pos'], act['position'])
+            src = obj['mpd-position']
+            dst = act['position']
+            for idx in range(min(src, dst), max(src, dst) + 1):
+                self.objs.cache.remove("media:mpd-item|%d" % idx)
+            self.mpd.move(src, dst)
         elif name == 'mpd-item-play':
-            self.mpd.play(obj['pos'])
+            self.mpd.play(obj['mpd-position'])
             
 
 class MPDWrapper:
