@@ -17,9 +17,12 @@ You should have received a copy of the GNU General Public License
 along with domserver.  If not, see <http://www.gnu.org/licenses/>.
 */
 
+define("DOMSERVER_DEBUG_OPCODES", FALSE);
+
 class OutputManager
 {
     private $ops = array();
+    private $debug = array();
     private $scripts = array();
     private $cssheets = array();
     private $elements = array();
@@ -110,6 +113,27 @@ class OutputManager
     function add_op($opcode, $params)
     {
         $this->ops[] = array($opcode, $params);
+        if (DOMSERVER_DEBUG && DOMSERVER_DEBUG_OPCODES)
+        {
+            $dparams = array();
+            
+            foreach ($params as $p)
+            {
+                if ($p instanceof UIElement)
+                {
+                    $dparams[] = "&lt;" . $this->dom_id($p) . "&gt;";
+                }
+                else $dparams[] = $this->json_value($p);
+            }
+            
+            $this->debug[] = "$opcode : " . implode(", ", $dparams);
+        }
+    }
+    
+    /* Add debug message */
+    function debug($element, $message)
+    {
+        if (DOMSERVER_DEBUG) $this->debug[] = "&lt;" . $this->dom_id($element) . "&gt; $message";
     }
     
     /* Render all pending opcodes into a JSON-wrapped JS function */
@@ -187,19 +211,31 @@ class OutputManager
                 break;
                 
             case 'drag_target':
-                $app = $this->json_value($params[1]);
-                $ops[] = "\$drag_targets[\"$id\"]=$app";
+                $handler = $this->dom_id($params[1]);
+                $method = $this->json_value($params[2]);
+                $ops[] = "\$drag_targets[\"$id\"]={handler:\"$handler\",method:$method};";
                 break;
             }
         }
         
         if (count($ops)) $ops[] = "}";
         
+        if (DOMSERVER_DEBUG)
+        {
+            foreach ($this->debug as $d)
+            {
+                $ops[] = "\$debug(" . $this->json_value($d) . ");";
+            }
+        }
+        
         return "{op:function(){" . implode("", $ops) . "}}";
     }
     
     function update_element($id)
     {
+        if (DOMSERVER_DEBUG)
+            $this->debug[] = "*** UPDATE &lt;$id&gt; ***";
+    
         $element = $this->elements[$id];
         $element->update();
         return $this->render_json_opcodes();
@@ -207,12 +243,35 @@ class OutputManager
     
     function call_element_method($id, $method, $arg)
     {
+        if (DOMSERVER_DEBUG)
+            $this->debug[] = "*** METHOD &lt;$id&gt;.$method($arg) ***";
+        
         $element = $this->elements[$id];
         if (method_exists($element, $method))
         {
             call_user_func(array($element, $method), $arg);
             return $this->render_json_opcodes();
         }
+    }
+    
+    function call_drop_handler($handler_id, $method, $target_id, $objref)
+    {
+        if (DOMSERVER_DEBUG)
+            $this->debug[] = "*** DROPPED '$objref' on &lt;$target_id&gt;; calling $handler_id.$method ***";
+            
+        $handler = $this->elements[$handler_id];
+        $target = $this->elements[$target_id];
+        
+        if (method_exists($handler, $method))
+        {
+            call_user_func(array($handler, $method), $target, $objref);
+        }
+        elseif (DOMSERVER_DEBUG)
+        {
+            $this->debug[] = "*** DROP handler method not found ! ***";
+        }
+        
+        return $this->render_json_opcodes();
     }
     
     private function render_htmltree($root, $elems)
@@ -234,6 +293,9 @@ class OutputManager
     
     function render_page($root)
     {
+        if (DOMSERVER_DEBUG)
+            $this->debug[] = "*** PAGE &lt;" . $this->dom_id($root) . "&gt; ***";
+        
         $blank = array(
             "children" => array(),
             "content" => "",
@@ -248,33 +310,32 @@ class OutputManager
         $drag_src = array();
         $drag_targets = array();
         
+        if (DOMSERVER_DEBUG) $js[] = "\$debug_enable();";
+        
         $root->render();
         while ($op = array_shift($this->ops))
         {
             $opcode = $op[0];
             $params = $op[1];
+            $id = $this->dom_id($params[0]);
             
             switch ($opcode)
             {
             case 'style':  
-                $id = $this->dom_id($params[0]);
                 $css[$id][] = "${params[1]}: ${params[2]};";
                 break;
                 
             case 'dom':
-                $id = $this->dom_id($params[0]);
                 $val = $this->json_value($params[2]);
                 $js[] = "if (\$(\"$id\")) \$(\"$id\").${params[1]} = $val;";
                 break;
                 
             case 'content':
-                $id = $this->dom_id($params[0]);
                 $elems[$id]["children"] = array();
                 $elems[$id]["content"] = $params[1];
                 break;
                 
             case 'child':
-                $id = $this->dom_id($params[0]);
                 $child = $params[1];
                 $childid = $this->dom_id($params[1]);
                 $elems[$childid] = $blank;
@@ -284,26 +345,22 @@ class OutputManager
                 break;
                 
             case 'sched_update':
-                $id = $this->dom_id($params[0]);
                 $interval = $params[1];
                 $js[] = "window.setTimeout(function(){\$update(\"$id\");}, $interval);";
                 break;
                 
             case 'class':
-                $id = $this->dom_id($params[0]);
                 $class = $params[1];
                 if (!in_array($class, $elems[$id]["classes"])) $elems[$id]["classes"][] = $class;
                 break;
                 
             case 'unclass':
-                $id = $this->dom_id($params[0]);
                 $class = $params[1];
                 if (($idx = array_search($class, $elems[$id]["classes"])) !== FALSE)
                     array_splice($elems[$id]["classes"], $idx, 1);
                 break;
                 
             case 'event':
-                $id = $this->dom_id($params[0]);
                 $event = $params[1];
                 $tid = $this->dom_id($params[2]);
                 $method = $this->json_value($params[3]);
@@ -313,12 +370,25 @@ class OutputManager
                 
             case 'drag_src':
                 $drag_src[$id] = array("objref" => $params[1], "label" => $params[2]);
-                $js[] = "\$drag.init(\$(\"$id\"));";
+                $js[] = "if (\$(\"$id\")) \$drag.init(\$(\"$id\"));";
                 break;
                 
             case 'drag_target':
-                $drag_targets[$id] = $params[1];
+                $handler = $this->dom_id($params[1]);
+                $method = $params[2];
+                $drag_targets[$id] = array(
+                    "handler" => $handler,
+                    "method" => $method
+                );
                 break;
+            }
+        }
+        
+        if (DOMSERVER_DEBUG)
+        {
+            foreach ($this->debug as $d)
+            {
+                $js[] = "\$debug(" . $this->json_value($d) . ");";
             }
         }
         

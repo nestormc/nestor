@@ -17,28 +17,30 @@ You should have received a copy of the GNU General Public License
 along with domserver.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-require_once "framework/element.php";
-
-class DomserverApplist extends UIElement
+class AlbumCover extends Tool
 {
-    public $workspace = FALSE;
-    
-    public function init()
+    function no_cover()
     {
-        $this->apps = $this->ds->get_applist();
+        header("Location: tools/no-cover.png");
     }
-    
-    public function render() 
+
+    function work($arg)
     {
-        foreach ($this->apps as $id => $app)
+        if (strpos($arg, "/../") !== FALSE || strpos($arg, "../") === 0) return $this->no_cover();
+        
+        $img = $this->config["media.music_dir"] . DIRECTORY_SEPARATOR . $arg . DIRECTORY_SEPARATOR . "cover.jpg";
+        if (!file_exists($img)) return $this->no_cover();
+        
+        $im = imagecreatefromjpeg($img);
+        if ($im)
         {
-            $this->add_child($app);
-            $app->set_class("app_summary");
-            $app->set_handler("onclick", $this->workspace, "set_active_app", $id);
-            
-            if (is_callable(array($app, "drop_callback")))
-                $app->make_drag_target($app, "drop_callback");
+            header("Content-type: image/jpeg");
+            imagejpeg($im, FALSE, 90);
         }
+        else $this->no_cover();
     }
 }
+
+$this->_add_tool('AlbumCover');
+
 ?>

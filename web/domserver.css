@@ -64,15 +64,61 @@ body, html {
 
 }
 
-/********************************************************************/
-/*                           MUSIC layout                           */
-/********************************************************************/
+div.domserver_fatal_error {
+    border: 2px solid red;
+    color: red;
+    background-color: #FFCCCC;
+    padding: 1em;
+    
+    position: absolute;
+    left: 30%;
+    right: 30%;
+    top: 40%;
+    bottom: 40%;
+    
+    overflow: auto;
+}
+
+.progress_bar {
+    border: 1px solid black;
+    padding: 0.1em;
+    height: 0.5em;
+}
+
+.progress_bar_content {
+    background-color: black;
+    overflow: hidden;
+}
+
+.list_title {
+    background-color: #FFFFDD;
+}
 
 .list_header {
-    background-color: #FFFFDD;
+    background-color: #CCFFCC;
+    font-weight: bold;
+    text-align: center;
 }
 
 .selected {
     font-weight: bold;
+}
+
+.drag_label {
+    background-color: #FFFFEE;
+    border: 1px solid black;
+    padding: 0 0.5em 0 0.5em;
+}
+
+.app_summary.drag_hover {
+    background-color: #FFAAFF;
+}
+
+#music_playlist_list > div.drag_hover {
+    border-top: 1px solid black;
+}
+
+#music_playlist_list.drag_hover > div#music_playlist_list_closer {
+    border-top: 1px solid black;
 }
 

@@ -18,10 +18,14 @@ along with domserver.  If not, see <http://www.gnu.org/licenses/>.
 */
 
 set_include_path(get_include_path() . PATH_SEPARATOR . dirname(__FILE__));
+define("DOMSERVER_DEBUG", TRUE);
+
 require_once "socket_interface/si.php";
 require_once "socket_interface/objects.php";
 require_once "framework/app.php";
 require_once "framework/app_element.php";
+require_once "framework/app_objlist.php";
+require_once "framework/tool.php";
 require_once "framework/output_manager.php";
 require_once "ui/ui.php";
 
@@ -32,6 +36,7 @@ class Domserver
     private $db = FALSE;
     private $si = FALSE;
     private $apps = array();
+    private $tools = array();
     
     public $config = array();
     public $obj = FALSE;
@@ -68,12 +73,31 @@ class Domserver
             if (preg_match("/^app_.*\.php$/", $f)) require_once "apps/$f";
         }
         closedir($dir);
+        
+        /* Load tools */
+        $dir = opendir(dirname(__FILE__) . DIRECTORY_SEPARATOR . "tools");
+        while (($f = readdir($dir)) !== FALSE)
+        {
+            if (preg_match("/^tool_.*\.php$/", $f)) require_once "tools/$f";
+        }
+        closedir($dir);
     }
     
     private function _add_app($clsname)
     {
         $app = new $clsname($this);
         $this->apps[$app->id] = $app;
+    }
+    
+    private function _add_tool($clsname)
+    {
+        $tool = new $clsname($this);
+        $this->tools[$clsname] = $tool;
+    }
+    
+    function tool_url($toolname, $arg)
+    {
+        return "?a=tool&t=$toolname&arg=" . urlencode($arg);
     }
     
     private function delete_expired_sessions()
@@ -190,20 +214,30 @@ class Domserver
     }
     
     function render()
-    {
-        $ui = new DomserverUI($this, "ui");
-            
+    {    
         switch ($_GET["a"])
         {
         case "update":
+            $ui = new DomserverUI($this, "ui");
             echo $this->output->update_element($_GET["eid"]);
             break;
             
         case "method":
+            $ui = new DomserverUI($this, "ui");
             echo $this->output->call_element_method($_GET["eid"], $_GET["m"], stripslashes($_GET["arg"]));
             break;
             
+        case "drop":
+            $ui = new DomserverUI($this, "ui");
+            echo $this->output->call_drop_handler($_GET["hid"], $_GET["m"], $_GET["tid"], stripslashes($_GET["o"]));
+            break;
+            
+        case "tool":
+            $this->tools[$_GET["t"]]->work($_GET["arg"]);
+            break;
+            
         default:
+            $ui = new DomserverUI($this, "ui");
             echo $this->output->render_page($ui);
             break;
         }

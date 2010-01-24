@@ -369,7 +369,7 @@ class SocketInterface
     
     function request($packet)
     {
-        if (!$this->connected) $this->connect();        
+        if (!$this->connected) $this->connect();                
         fwrite($this->socket, $packet->get_raw_packet());
         fflush($this->socket);
         return new SIPacket(0, $this->socket);

@@ -236,16 +236,110 @@ function $method(id, method, arg)
     $queue.get(url, $op);   
 }
 
+/* Element drop handler */
+function $drop(handler, method, target, objref)
+{
+    var url = "?a=drop&hid=" + encodeURIComponent(handler) +
+        "&m=" + encodeURIComponent(method) +
+        "&tid=" + encodeURIComponent(target) + 
+        "&o="+ encodeURIComponent(objref);
+    $queue.get(url, $op);
+}
+
+/********************************************************************
+ *                             DEV TOOLS                            *
+ ********************************************************************/
+
 /* Fatal error */
 function $fatal(msg)
 {
     var err = document.createElement("div");
     err.className = "domserver_fatal_error";
-    err.innerHTML = "<b>Fatal error !</b><br>" + msg;
-    document.getElementsByTagName("body")[0].appendChild(err);
+    err.innerHTML = "<b>Fatal error !</b><br>" + msg + "<br>";
+    var lnk = document.createElement("a");
+    lnk.href = "?";
+    lnk.innerHTML = "reload";
+    err.appendChild(lnk);
+    document.documentElement.appendChild(err);
 }
 
+/* Debug window management */
 
+var $debug_window = null;
+var $init_time = null;
+var $debug_pending = [];
+
+function $debug_disable()
+{
+	if ($debug_window) $debug_window.close();
+	$debug_window = null;
+}
+
+function $debug_enable()
+{
+	if ($debug_window) return;
+	$debug_window = window.open("framework/debug_window.php","debug_window","toolbar=no,scrollbars,width=600,height=400");
+
+	var currentTime = new Date();
+	$init_time = currentTime.getTime();
+}
+
+function $debug_datetime()
+{
+	var currentTime = new Date();
+	var offset = (currentTime.getTime() - $init_time) / 1000;
+	var tdata = offset.toString().split(".");
+
+	while (tdata[0].length < 5) tdata[0] = "0" + tdata[0];
+
+	if (tdata.length == 1) return tdata[0] + ".000";
+	else
+	{
+		while (tdata[1].length < 3) tdata[1] += "0";
+		return tdata.join(".");
+	}
+}
+
+function $debug(msg)
+{
+	if (!$debug_window) return;
+	var ddoc = $debug_window.document;
+	var dpause = parseInt($$(ddoc, "debug_pause").value);
+	
+	if (dpause)
+	{
+	    $debug_pending.push(msg);
+	}
+	else
+	{
+	    while ($debug_pending.length > 0)
+	        $debug_msg($debug_pending.shift())
+	        
+	    $debug_msg(msg);
+	}
+}
+
+function $debug_msg(msg)
+{
+	if (!$debug_window) return;
+	var ddoc = $debug_window.document;
+	var ddiv = $$(ddoc, "debug_data");
+
+	var span = ddoc.createElement("span");
+	var b = ddoc.createElement("b");
+	var pre = ddoc.createElement("pre");
+	var br = ddoc.createElement("br");
+
+	b.innerHTML = $debug_datetime() + "&nbsp;";
+	pre.innerHTML = msg;
+
+	span.appendChild(b);
+	span.appendChild(pre);
+	span.appendChild(br);
+
+	ddiv.appendChild(span);
+	span.scrollIntoView();
+}
 
 /********************************************************************
  *                          DRAG AND DROP                           *
@@ -262,12 +356,11 @@ var $drag = {
     labelY : null,
     offX : 16,
     offY : 0,
+    hoverObj : null,
 
     init : function(o)
     {
         o.onmousedown = $drag.start;
-        if (isNaN(parseInt(o.style.left))) o.style.left   = "0px";
-        if (isNaN(parseInt(o.style.top))) o.style.top    = "0px";
         o.onDragStart = new Function();
         o.onDragEnd = new Function();
         o.onDrag = new Function();
@@ -277,10 +370,6 @@ var $drag = {
     {
         var o = $drag.obj = this;
         e = $drag.fixE(e);
-        var y = parseInt(o.style.top);
-        var x = parseInt(o.style.left);
-        
-        o.onDragStart(x, y);
 
         o.lastMouseX = e.clientX;
         o.lastMouseY = e.clientY;
@@ -288,6 +377,20 @@ var $drag = {
         document.onmousemove = $drag.drag;
         document.onmouseup = $drag.end;
         return false;
+    },
+    
+    find_target : function(x, y)
+    {
+        var candidate = document.elementFromPoint(x, y);
+        
+        do
+        {
+            if ($drag_targets[candidate.id]) return candidate;  
+            candidate = candidate.offsetParent;
+        }
+        while (candidate);
+        
+        return null;
     },
 
     drag : function(e)
@@ -324,8 +427,15 @@ var $drag = {
         $drag.label.style.top = ny + "px";
         $drag.obj.lastMouseX = ex;
         $drag.obj.lastMouseY = ey;
-
-        $drag.obj.onDrag(nx, ny);
+        
+        var dx = nx - $drag.offX;
+        var dy = ny - $drag.offY;
+        
+        var target = $drag.find_target(dx, dy);
+        if ($drag.hoverObj && target != $drag.hoverObj) $remC($drag.hoverObj, "drag_hover");
+        if (target) $addC(target, "drag_hover");
+        $drag.hoverObj = target;
+        
         return false;
     },
 
@@ -339,17 +449,23 @@ var $drag = {
             var x = parseInt($drag.label.style.left) - $drag.offX;
             var y = parseInt($drag.label.style.top) - $drag.offY;
             
-            var target = document.elementFromPoint(x, y);
-            if (target && $drag_targets[target.id])
+            var target = $drag.find_target(x, y);
+            if (target)
             {
-                var app = $drag_targets[target.id];
+                var targetinfo = $drag_targets[target.id];
                 var objref = $drag_src[$drag.obj.id]["objref"];
-                window.alert("Objref \"" + objref + "\" dragged to app \"" + app + "\"");
+                
+                $drop(targetinfo["handler"], targetinfo["method"], target.id, objref)
             }
-        
-            $drag.obj.onDragEnd(x, y);
+
             document.documentElement.removeChild($drag.label);
             $drag.label = null;
+            
+            if ($drag.hoverObj)
+            {
+                $remC($drag.hoverObj, "drag_hover");
+                $drag.hoverObj = null;
+            }
         }
         
         $drag.obj = null;

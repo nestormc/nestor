@@ -17,28 +17,16 @@ You should have received a copy of the GNU General Public License
 along with domserver.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-require_once "framework/element.php";
-
-class DomserverApplist extends UIElement
+abstract class Tool
 {
-    public $workspace = FALSE;
-    
-    public function init()
+    function __construct($domserver)
     {
-        $this->apps = $this->ds->get_applist();
+        $this->ds = $domserver;
+        $this->obj = $this->ds->obj;
+        $this->config = $this->ds->config;
     }
     
-    public function render() 
-    {
-        foreach ($this->apps as $id => $app)
-        {
-            $this->add_child($app);
-            $app->set_class("app_summary");
-            $app->set_handler("onclick", $this->workspace, "set_active_app", $id);
-            
-            if (is_callable(array($app, "drop_callback")))
-                $app->make_drag_target($app, "drop_callback");
-        }
-    }
+    abstract function work($arg);
 }
+
 ?>

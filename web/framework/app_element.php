@@ -56,4 +56,37 @@ class ImageElement extends AppElement
     function render() {}
 }
 
+class ProgressBarContentElement extends AppElement
+{    
+    function set_percent($percent)
+    {
+        $this->set_css("width", sprintf("%.3f%%", $percent));
+    }
+    
+    function render()
+    {
+        $this->set_content("&nbsp;");
+        $this->set_class("progress_bar_content");
+    }
+}
+
+class ProgressBarElement extends AppElement
+{
+    function init()
+    {
+        $this->cnt = new ProgressBarContentElement($this->app, "{$this->id}_content");
+    }
+    
+    function set_percent($percent)
+    {
+        $this->cnt->set_percent($percent);
+    }
+    
+    function render()
+    {
+        $this->set_class("progress_bar");
+        $this->add_child($this->cnt);
+    }
+}
+
 ?>

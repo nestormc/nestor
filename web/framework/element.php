@@ -66,6 +66,14 @@ abstract class UIElement
     /* Set CSS property */
     final function set_css($property, $value)
     {
+        if (!$this->output)
+        {
+            $bt = debug_backtrace();
+            echo "<pre>";
+            var_dump($bt[0]);
+            var_dump($bt[1]);
+            die("\n\nbt");
+        }
         $this->output->add_op("style", array($this, $property, $value));
     }
     
@@ -99,20 +107,27 @@ abstract class UIElement
         $this->output->add_op("event", array($this, $event, $target, $method, $arg));
     }
     
-    /* Make element draggable */
+    /* Make element draggable
+        Dragging the element will show a tooltip containing $label; dropping
+        it on a target will send that target the object $objref.
+    */
     final function make_draggable($objref, $label)
     {
-        $this->set_css("position", "relative");
         $this->output->add_op("drag_src", array($this, $objref, $label));
     }
     
-    /* Make element drag target */
-    final function make_drag_target($action_app)
+    /* Make element a drag target
+        Dropping an object on the element will call $handler_element->$method
+        with 2 arguments :
+            - this element (the drag target)
+            - the object reference ("application:object-id")
+    */
+    final function make_drag_target($handler_element, $method)
     {
-        $this->output->add_op("drag_target", array($this, $action_app));
+        $this->output->add_op("drag_target", array($this, $handler_element, $method));
     }
     
-    private function block_layout($blocks, $columns = TRUE)
+    private function block_layout($blocks, $columns=TRUE, $overflow="auto")
     {
         $total = 0.0;
         foreach ($blocks as $b) $total += $b[1];
@@ -125,7 +140,7 @@ abstract class UIElement
             $cnt--;
             
             $element->set_css("position", "absolute");
-            $element->set_css("overflow", "auto");
+            $element->set_css("overflow", $overflow);
             $element->set_css($columns ? "top" : "left", 0);
             $element->set_css($columns ? "bottom" : "right", 0);
             
@@ -154,17 +169,22 @@ abstract class UIElement
         widths computed using column weights (eg. if a column has twice the
         weight of an other, it will be twice as much wide).
     */
-    final function column_layout($columns)
+    final function column_layout($columns, $overflow="auto")
     {
-        $this->block_layout($columns, TRUE);
+        $this->block_layout($columns, TRUE, $overflow);
     }
     
     /* Generate CSS for a flexible row layout
         Works exactly like column_layout(), but horizontally.
     */
-    final function row_layout($rows)
+    final function row_layout($rows, $overflow="auto")
     {
-        $this->block_layout($rows, FALSE);
+        $this->block_layout($rows, FALSE, $overflow);
+    }
+    
+    final function debug($message)
+    {
+        $this->output->debug($this, $message);
     }
     
     final function save_data($key, $value)
