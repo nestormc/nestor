@@ -92,6 +92,9 @@ class BitTorrent:
     def is_active(self):
         return self.s
         
+    def status(self):
+        return self.s.status()
+        
     def start(self, port):
         self.s = lt.session()
         for k in self.options.keys():
@@ -218,13 +221,21 @@ class BitTorrentObj(ObjectWrapper):
     def describe(self):
         self.types = ['bt-app']
         self.prop_desc = {
-            'active': {'lod': SIC.LOD_BASIC, 'type': 'uint32'}
+            'active': {'lod': SIC.LOD_BASIC, 'type': 'uint32'},
+            'speed': {'lod': SIC.LOD_BASIC + 1, 'type': 'uint32'},
+            'num': {'lod': SIC.LOD_BASIC + 1, 'type': 'uint32'}
         }
         
         self.update()
     
     def update(self):
-        self.props['active'] = int(self.provider.bt.is_active() is not None)
+        bt = self.provider.bt
+        self.props['active'] = int(bt.is_active() is not None)
+        self.props['num'] = len(bt.keys())
+        if bt.is_active():
+            self.props['speed'] = int(bt.status().download_rate)
+        else:
+            self.props['speed'] = 0
         
     def set_value(self, key, value):
         raise KeyError("Cannot write to MusicTrackObj['%s']" % key)
