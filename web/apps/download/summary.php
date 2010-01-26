@@ -19,9 +19,28 @@ along with domserver.  If not, see <http://www.gnu.org/licenses/>.
 
 class DownloadSummary extends AppElement
 {
+    function init()
+    {
+        $this->state = new LabelElement($this->app, "{$this->id}_state");
+    }
+
     function render()
     {
+        $this->update();
+    }
+    
+    function update()
+    {
+        $bt = $this->obj->get_object("bt:", 2);
+        $bt = $bt->props;
+        
         $this->set_content("Downloads");
+        $this->add_child($this->state);
+        
+        $speed = DownloadUI::_speed_xform($bt["speed"]);
+        $this->state->set_content(sprintf("%d files @ %s", $bt["num"], $speed));
+        
+        $this->schedule_update(1000);
     }
     
     function drop_callback($target, $objref)
