@@ -48,6 +48,18 @@ abstract class UIElement
         $this->output->add_op("child", array($this, $child));
     }
     
+    /* Remove child element */
+    final function remove_child($child)
+    {
+        $this->output->add_op("unchild", array($this, $child));
+    }
+    
+    /* Swap with sibling element */
+    final function swap_with($sibling)
+    {
+        $this->output->add_op("swap", array($this, $sibling));
+    }
+    
     /* Set HTML content
         Warning: removes all previously added children.  It should it be called
         _before_ any call to add_child if content _and_ children are wanted.

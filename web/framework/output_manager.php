@@ -17,7 +17,7 @@ You should have received a copy of the GNU General Public License
 along with domserver.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-define("DOMSERVER_DEBUG_OPCODES", FALSE);
+$DEBUG_OPCODES = array(/*"child", "unchild", "swap", "content"*/);
 
 class OutputManager
 {
@@ -112,8 +112,10 @@ class OutputManager
     /* Add opcode */
     function add_op($opcode, $params)
     {
+        global $DEBUG_OPCODES;
+        
         $this->ops[] = array($opcode, $params);
-        if (DOMSERVER_DEBUG && DOMSERVER_DEBUG_OPCODES)
+        if (DOMSERVER_DEBUG && in_array($opcode, $DEBUG_OPCODES))
         {
             $dparams = array();
             
@@ -179,6 +181,18 @@ class OutputManager
                 $ops[] = "c.id=\"$childid\";";
                 $ops[] = "\$(\"$id\").appendChild(c);";
                 $child->render();
+                break;
+                
+            case 'unchild':
+                $child = $params[1];
+                $childid = $this->dom_id($child);
+                $ops[] = "if(\$(\"$childid\"))\$(\"$id\").removeChild(\$(\"$childid\"));";
+                break;
+                
+            case 'swap':
+                $sibling = $params[1];
+                $siblingid = $this->dom_id($sibling);
+                $ops[] = "\$swap(\$(\"$id\"),\$(\"$siblingid\"));";
                 break;
                 
             case 'sched_update':
@@ -342,6 +356,18 @@ class OutputManager
                 $elems[$childid]["obj"] = $child;
                 $elems[$id]["children"][] = $childid;
                 $child->render();
+                break;
+                
+            case 'unchild':
+                $child = $params[1];
+                $childid = $this->dom_id($child);
+                $js[] = "if (\$(\"$childid\")) \$(\"$id\").removeChild(\$(\"$childid\"));";
+                break;
+                
+            case 'swap':
+                $sibling = $params[1];
+                $siblingid = $this->dom_id($sibling);
+                $js[] = "\$swap(\$(\"$id\"), \$(\"$siblingid\"));";
                 break;
                 
             case 'sched_update':
