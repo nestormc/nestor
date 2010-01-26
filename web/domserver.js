@@ -64,6 +64,32 @@ function $remC(obj, c)
 	obj.className = classes.join(" ");
 }
 
+/* Swap elements a and b in their parent node */
+function $swap(a, b)
+{
+    if (!a || !b) return;
+    
+    var parent = a.parentNode;
+    if (parent != b.parentNode) return;
+    
+    var next = b.nextSibling;
+    
+    if (next == a)
+    {
+        parent.removeNode(a);
+        parent.insertBefore(a, b);
+    }
+    else
+    {
+        parent.removeNode(b);
+        parent.insertBefore(b, a)
+        parent.removeNode(a);
+        
+        if (next) parent.insertBefore(a, next);
+        else parent.appendChild(a);
+    }
+}
+
 /********************************************************************
  *                           AJAX QUEUES                            *
  ********************************************************************/
