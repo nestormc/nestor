@@ -148,14 +148,134 @@ class ObjectListItem extends AppElement
             $this->make_drag_target($dt["handler"], $dt["method"]);
         }
     }
+    
+    private function set_cell_value($field, $value)
+    {    
+        $fs = $this->s["fields"][$field];
+        if (isset($fs["xform"]))
+            $value = call_user_func($fs["xform"], $value);
+    
+        if ($this->s["main_field"] == $field)
+            $this->label = $value;
+        
+        switch ($fs["display"])
+        {
+        case "progress":
+            $this->cells[$field][0]->set_percent(floatval($value));
+            break;
+        default:
+            $this->cells[$field][0]->set_content($value);
+            break;
+        }
+    }
+    
+    function update_data($updated)
+    {
+        foreach (array_keys($this->cells) as $f)
+        {
+            if (isset($updated[$f]))
+            {
+                $this->set_cell_value($f, $updated[$f]);
+            }
+        }
+    }
 }
 
-class ObjectListBody extends AppElement
+class RefreshObjectListBody extends ObjectListBody
+{
+    protected function fetch($expr)
+    {
+        $objs = $this->obj->match_objects($this->s["app"], $expr, $this->s["lod"], $this->s["otype"]);
+        
+        $removed_ids = array_keys($this->children);
+        $positions = array();
+        foreach ($objs as $o)
+        {
+            $objref = $o->objref;
+            $props = $o->props;
+            $props["__ref__"] = $objref;
+            $id = $props[$this->s["unique_field"]];
+            $positions[] = $id;
+            
+            if (isset($this->children[$id]))
+            {
+                /* Existing item : update properties */
+                $oldprops = $this->children_data[$id];
+                $newprops = array();
+                foreach ($props as $p => $v)
+                    if ($p != "__ref__" && $v != $oldprops[$p]) $newprops[$p] = $v;
+                $this->children[$id]->update_data($newprops);
+                
+                unset($removed_ids[array_search($id, $removed_ids)]);
+            }
+            else
+            {
+                /* New item : create new child */
+                $child = new ObjectListItem($this->app, "{$this->id}_item_$id", $props, $objref, $this->s);
+                $this->add_item($child, $id, $props);
+            }
+        }
+        
+        /* Removed items */
+        foreach ($removed_ids as $id)
+        {
+            $this->remove_item($id);
+        }
+        
+        /* Get current item positions */
+        $cur_positions = array();
+        foreach (array_keys($this->children) as $id) $cur_positions[$id] = count($cur_positions);
+        
+        /* Move to new positions */
+        foreach ($positions as $pos => $id)
+        {
+            if ($cur_positions[$id] > $pos)
+            {
+                $oldpos = $cur_positions[$id];
+                
+                $swapid = array_search($pos, $cur_positions);
+                $this->children[$id]->swap_with($this->children[$swapid]);
+                
+                $cur_positions[$id] = $pos;
+                $cur_positions[$swapid] = $oldpos;
+            }
+        }
+        
+        $this->schedule_update($this->s["refresh"]);
+    }
+}
+
+class FixedObjectListBody extends ObjectListBody
+{
+    protected function fetch($expr)
+    {
+        $offset = $this->count;
+        $limit = isset($this->s["limit"]) ? $this->s["limit"] : -1;
+        $objs = $this->obj->match_objects($this->s["app"], $expr, $this->s["lod"], $this->s["otype"], $offset, $limit);
+        
+        foreach ($objs as $o)
+        {
+            $objref = $o->objref;
+            $props = $o->props;
+            $props["__ref__"] = $objref;
+            $id = $props[$this->s["unique_field"]];
+            
+            $child = new ObjectListItem($this->app, "{$this->id}_item_$id", $props, $objref, $this->s);
+            $this->add_item($child, $id, $props);
+        }
+        
+        /* Schedule new update until there are no more objects */
+        if (isset($this->s["limit"]) && $this->s["limit"] > 0 && count($objs) == $this->s["limit"])
+            $this->schedule_update(0);
+    }
+}
+
+abstract class ObjectListBody extends AppElement
 {
     public $count = 0;
     
-    private $children_data = array();
-    private $children = array();
+    protected $children_data = array();
+    protected $children = array();
     private $selected_id = -1;
     
     function __construct($app, $id, $settings)
@@ -178,86 +298,6 @@ class ObjectListBody extends AppElement
         
         $this->closer = new ObjectListCloser($this->app, "{$this->id}_closer");
     }
-
-    private function fetch($filter)
-    {
-        if (isset($this->s["filter"]))
-        {
-            $this->save_data("filter", $filter);
-            $expr = FALSE;
-            
-            foreach ($this->s["filter"] as $field)
-            {
-                if ($expr)
-                    $expr = _and($expr, _c($field, '==', $filter[$field]));
-                else
-                    $expr = _c($field, '==', $filter[$field]);
-            }
-            
-            if (!$expr->is_expr()) $expr = _e($expr);
-        }
-        else
-        {
-            $expr = _e(FALSE);        
-        }
-        
-        $offset = count($this->children);
-        $limit = isset($this->s["limit"]) ? $this->s["limit"] : -1;
-        $objs = $this->obj->match_objects($this->s["app"], $expr, $this->s["lod"], $this->s["otype"], $offset, $limit);
-        
-        foreach ($objs as $o)
-        {
-            $objref = $o->objref;
-            $props = $o->props;
-            $id = $props[$this->s["unique_field"]];
-            
-            $child = new ObjectListItem($this->app, "{$this->id}_item_$id", $props, $objref, $this->s);
-            $this->add_child($child);
-            if ($id == $this->selected_id) $child->set_class("selected");
-            
-            $this->children[$id] = $child;
-            $this->children_data[$id] = $props;
-            $this->children_data[$id]["__ref__"] = $objref;
-            
-            if (isset($this->s["link"]))
-            {
-                $child->set_handler("onclick", $this, "set_link", $id);
-            }
-            
-            if (isset($this->s["item_events"]))
-            {
-                foreach ($this->s["item_events"] as $ev => $callback)
-                {
-                    $child->set_handler($ev, $this, "item_event", "$ev $id");
-                }
-            }
-        }
-        
-        $this->save_data("children", $this->children_data);
-        $this->count = count($this->children);
-        
-        /* Schedule new update until there are no more objects */
-        if (isset($this->s["limit"]) && $this->s["limit"] > 0 && count($objs) == $this->s["limit"])
-            $this->schedule_update(0);
-        else
-            $this->add_child($this->closer);
-    }
-    
-    private function display_filtered($filter)
-    {
-        $this->count = 0;
-        $this->children = array();
-        $this->children_data = array();
-        $this->set_content("");
-        $this->fetch($filter);
-    } 
-    
-    function set_filter($filter)
-    {
-        if (isset($this->s["filter"]))
-            if ($filter != $this->load_data("filter", ""))
-                $this->display_filtered($filter);
-    }
     
     function item_event($arg)
     {
@@ -268,13 +308,58 @@ class ObjectListBody extends AppElement
         }
     }
     
+    function render()
+    {
+        $this->count = 0;
+        $this->children = array();
+        $this->children_data = array();
+        
+        $this->set_content("");
+        $this->add_child($this->closer);
+        $this->update();
+        
+        if (isset($this->s["drag_target"]))
+        {
+            $dt = $this->s["drag_target"];
+            $this->make_drag_target($dt["handler"], $dt["method"]);
+        }
+    }
+    
+    function update()
+    {
+        $expr = $this->get_filter_expr();
+        
+        if ($expr) $this->fetch($expr);
+        else $this->set_content("no filter...");
+        
+        $this->save_data("children", $this->children_data);
+        
+        /* Move closer to the bottom */
+        $this->remove_child($this->closer);
+        $this->add_child($this->closer);
+    }
+    
+    /* Fetch objects, must call $this->add_item($child_element, $item_id) to add items */
+    abstract protected function fetch($expr);
+    
+    function set_filter($filter)
+    {
+        if (isset($this->s["filter"]) && $filter != $this->load_data("filter", FALSE))
+        {
+            $this->save_data("filter", $filter);
+            $this->render();
+        }
+    }
+    
     function set_link($id)
     {
         if (isset($this->s["link"]))
         {
             $data = array();
+            $this->debug("cdata[$id]: " . str_replace("\n", " ", var_export($this->children_data, TRUE)));
             foreach ($this->s["link_fields"] as $field)
                 $data[$field] = $this->children_data[$id][$field];
+            $this->debug("link: " . str_replace("\n", " ", var_export($data, TRUE)));
             $this->s["link"]->set_filter($data);
         }
         
@@ -284,33 +369,63 @@ class ObjectListBody extends AppElement
         $this->selected_id = $id;
         $this->save_data("selected_id", $id);
     }
-
-    function render() 
-    {
-        if (isset($this->s["drag_target"]))
-        {
-            $dt = $this->s["drag_target"];
-            $this->make_drag_target($dt["handler"], $dt["method"]);
-        }
     
+    private function get_filter_expr()
+    {
         if (isset($this->s["filter"]))
         {
-            $filter = $this->load_data("filter", "");
-            if ($filter) $this->display_filtered($filter);
-            else $this->set_content("no filter...");
+            $filter = $this->load_data("filter", FALSE);
+            if (!$filter) return FALSE;
+            
+            $this->debug("filter: " . str_replace("\n", " ", var_export($filter, TRUE)));
+            
+            $expr = FALSE;
+            foreach ($this->s["filter"] as $field)
+            {
+                if ($expr) $expr = _and($expr, _c($field, '==', $filter[$field]));
+                else $expr = _c($field, '==', $filter[$field]);
+            }
+            
+            return $expr->is_expr() ? $expr : _e($expr);
         }
-        else $this->display_filtered("");
         
-        if (isset($this->s["refresh"]))
-            $this->schedule_update($this->s["refresh"]);
+        return _e(FALSE);
     }
     
-    function update()
+    protected function add_item($child, $id, $data)
     {
-        if (isset($this->s["refresh"]))
-            $this->render();
-        else
-            $this->fetch($this->load_data("filter", ""));
+        $this->children[$id] = $child;
+        $this->children_data[$id] = $data;
+        $this->count++;
+        
+        $this->add_child($child);
+        
+        if ($id == $this->selected_id) $child->set_class("selected");
+        
+        if (isset($this->s["link"]))
+        {
+            $child->set_handler("onclick", $this, "set_link", $id);
+        }
+        
+        if (isset($this->s["item_events"]))
+        {
+            foreach ($this->s["item_events"] as $ev => $callback)
+            {
+                $child->set_handler($ev, $this, "item_event", "$ev $id");
+            }
+        }
+    }
+    
+    protected function remove_item($id)
+    {
+        if (isset($this->children[$id]))
+        {
+            $this->remove_child($this->children[$id]);
+            
+            unset($this->children[$id]);
+            unset($this->children_data[$id]);
+            $this->count--;
+        }
     }
 }
 
@@ -322,7 +437,91 @@ class ObjectListTitle extends AppElement
     }
 }
 
-class ObjectList extends AppElement
+/* Auto-refreshed ObjectList element.
+    Can be used for lists with objects that change often. When the list is created, all objects
+    are fetched, but updates are then incremental. The "refresh" $settings key specifies the
+    refresh rate in milliseconds.
+*/
+class RefreshObjectList extends ObjectList
+{
+    function get_list_body()
+    {
+        return new RefreshObjectListBody($this->app, "{$this->id}_list", $this->s);
+    }
+}
+
+/* Fixed ObjectList element
+    Can be used for lists of objects that don't change very often. Adds an optional "limit" key
+    to $settings: when specified, objects will be fetched in several chunks of size "limit",
+    which prevents huge loading times for lists with a lot of objects. A nice limit value is 50.
+    
+    Also implements an additional reload() method to reload the entire list.
+*/
+class FixedObjectList extends ObjectList
+{
+    function get_list_body()
+    {
+        return new FixedObjectListBody($this->app, "{$this->id}_list", $this->s);
+    }
+    
+    function reload()
+    {
+        $this->lst->render();
+    }
+}
+
+/* ObjectList element
+    Generic object list element with many features :
+    - multi-column display with optional column title and CSS
+    - DOM events on objects
+    - draggable objects
+    - links between lists (i.e. what B displays depends on what is selected in A)
+    - objects and the list itself can be made drop targets
+    
+    The constructor $settings parameter is an array with the following keys (keys marked with *
+    are optional):
+    
+      "title" => displayed list title
+      "app"   => source app for objects
+      "otype" => type of objects to display
+      "lod"   => LOD to fetch objects with
+      
+      "fields" => array(
+          "fieldname" => array(
+              "title"  => displayed field title (1)
+              "weight" => field column weight
+    *         "xform"  => callback to transform the field value before displaying
+    *         "style" => array(
+                  "style-property" => "style-value"
+                  ...
+              )
+          ...
+          )
+      )
+        
+      "unique_field" => name of a field used to identify each object (should be a valid DOM id)
+      "main_field" => name of a field used to describe objects when dragging
+      
+    * "item_events" => array(
+          "oneventname" => callback (will be passed the AppElement on which the event happened)
+          ...
+      )
+      
+    * "filter" => array("fieldname", ...) fields used for filtering
+      
+    * "link" => linked ObjectList
+    * "link-fields" => array("fieldname", ...) fields passed to linked ObjectList (2)
+    
+    * "item_drag_handler" => callback called when an object is dropped on an item; will be passed
+                             the item AppElement and the dropped object objref
+    * "drag_handler" => same as "item_drag_handler", except it is called when an object is dropped
+                        on the list itself, and the ObjectList element is passed as first argument
+    
+    (1) field titles will only be displayed if the "main_field" has a "title" attribute
+    (2) "link-fields" is mandatory when "link" is specified; the specified fields values are
+        matched against the linked ObjectList "filter" fields, in the same order
+*/
+abstract class ObjectList extends AppElement
 {
     function __construct($app, $id, $settings)
     {
@@ -330,9 +529,11 @@ class ObjectList extends AppElement
         parent::__construct($app, $id);
     }
     
+    abstract function get_list_body();
+    
     function init()
     {
-        $this->lst = new ObjectListBody($this->app, "{$this->id}_list", $this->s);
+        $this->lst = $this->get_list_body();
         $this->title = new ObjectListTitle($this->app, "{$this->id}_title");
         
         if (isset($this->s["fields"][$this->s["main_field"]]["title"]))
@@ -365,11 +566,6 @@ class ObjectList extends AppElement
         $this->lst->set_css("bottom", 0);
         $this->lst->set_css("left", 0);
         $this->lst->set_css("right", 0);
-    }
-    
-    function reload()
-    {
-        $this->lst->render();
     }
 }
 

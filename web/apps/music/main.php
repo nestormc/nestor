@@ -72,7 +72,7 @@ class MusicUI extends AppElement
             
             "filter" => array("artist", "album")
         );
-        $this->lists["tracks"] = new ObjectList($this->app, "tracks", $trksetup);
+        $this->lists["tracks"] = new FixedObjectList($this->app, "tracks", $trksetup);
         
         $albsetup = array(
             "title" => "Albums",
@@ -100,7 +100,7 @@ class MusicUI extends AppElement
             "link" => $this->lists["tracks"],
             "link_fields" => array("artist", "album")
         );
-        $this->lists["albums"] = new ObjectList($this->app, "albums", $albsetup);
+        $this->lists["albums"] = new FixedObjectList($this->app, "albums", $albsetup);
     
         $artsetup = array(
             "title" => "Artists",
@@ -124,7 +124,7 @@ class MusicUI extends AppElement
             "link" => $this->lists["albums"],
             "link_fields" => array("artist")
         );
-        $this->lists["artists"] = new ObjectList($this->app, "artists", $artsetup);
+        $this->lists["artists"] = new FixedObjectList($this->app, "artists", $artsetup);
         
         $this->lists["player"] = new MusicPlayerColumn($this->app, "player_column");
     }

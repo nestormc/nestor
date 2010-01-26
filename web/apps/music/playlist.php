@@ -79,7 +79,7 @@ class MusicPlayerColumn extends AppElement
         );
     
         $this->player = new MusicPlayerblock($this->app, "player");
-        $this->playlist = new ObjectList($this->app, "playlist", $plsetup);
+        $this->playlist = new FixedObjectList($this->app, "playlist", $plsetup);
     }
     
     function render() {

@@ -21,10 +21,12 @@ class DownloadUI extends AppElement
 {
     static function _speed_xform($v)
     {
+        if ($v == 0) return "-";
+    
         $suffixes = array(0 => "", 1 => "k", 2 => "M", 3 => "G", 4 => "T");
         $val = floatval($v);
         $mult = 0;
-        while ($val > 1024)
+        while ($val > 1000)
         {
             $val /= 1024;
             $mult++;
@@ -38,7 +40,7 @@ class DownloadUI extends AppElement
         $suffixes = array(0 => "", 1 => "k", 2 => "M", 3 => "G", 4 => "T");
         $val = floatval($v);
         $mult = 1;
-        while ($val > 1024)
+        while ($val > 1000)
         {
             $val /= 1024;
             $mult++;
@@ -94,7 +96,8 @@ class DownloadUI extends AppElement
                 ),
                 "progress" => array(
                     "title" => "Progress",
-                    "weight" => 3
+                    "weight" => 2,
+                    "display" => "progress"
                 ),
                 "speed" => array(
                     "title" => "Speed",
@@ -115,7 +118,7 @@ class DownloadUI extends AppElement
             "unique_field" => "hash",
             "main_field" => "name"
         );
-        $this->list = new ObjectList($this->app, "list", $dlsetup);
+        $this->list = new RefreshObjectList($this->app, "list", $dlsetup);
     }
 
     function render()
