@@ -111,6 +111,7 @@ class MediaImporterThread(Thread):
             ext = ''
     
         start = None        
+        # FIXME remove cache when finished with the folder
         if dirname in self.cache['file_start']:
             if ext in self.cache['file_start'][dirname]:
                 start = self.cache['file_start'][dirname][ext]
@@ -170,8 +171,9 @@ class MediaImporterThread(Thread):
             unknown_titles = ['unknown', 'unknown track', 'piste inconnue']
             if not md['title'] or md['title'].lower() in unknown_titles:
                 title = os.path.basename(path).rsplit('.', 1)[0]
-                if title.lstrip('0123456789') != '':
-                    title = title.lstrip('0123456789')
+                striptitle = re.sub("^\d+[ _-]+", "", title)
+                if striptitle != '':
+                    title = striptitle
             else:
                 title = md['title']
                     
