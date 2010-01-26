@@ -99,10 +99,17 @@ class ObjectListItem extends AppElement
                 $this->label = $value;
                 
             $fid = str_replace("-", "_", $f);
-            $this->cells[$f] = array(
-                new ObjectListCell($this->app, "{$this->id}_$fid", $value),
-                $fs["weight"]
-            );
+            
+            switch ($fs["display"])
+            {
+            case "progress":
+                $cell = new ProgressBarElement($this->app, "{$this->id}_$fid");
+                break;
+            default:
+                $cell = new ObjectListCell($this->app, "{$this->id}_$fid", $value);
+                break;
+            }
+            $this->cells[$f] = array($cell, $fs["weight"]);
         }
     }
 
@@ -117,6 +124,13 @@ class ObjectListItem extends AppElement
             {
                 foreach ($fs["style"] as $prop => $val)
                     $c[0]->set_css($prop, $val);
+            }
+            
+            switch ($fs["display"])
+            {
+            case "progress":
+                $c[0]->set_percent(floatval($this->data[$f]));
+                break;
             }
         }
             
