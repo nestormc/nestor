@@ -279,7 +279,11 @@ class SIServerThread(Thread):
                     address,
                     self._handlers
                 )
-                self.domserver.add_thread(clithread)
+                try:
+                    self.domserver.add_thread(clithread)
+                except RuntimeError:
+                    # Raised when adding threads while stopping
+                    break
         self._sock.close()
         self._reset()
             
