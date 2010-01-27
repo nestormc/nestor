@@ -43,11 +43,12 @@ class LabelElement extends UIElement
 
 class ImageElement extends AppElement
 {
+    public $tagname = "img";
+
     function __construct($app, $id, $src)
     {
         parent::__construct($app, $id);
         $this->src = $src;
-        $this->rendered = FALSE;
     }
     
     function render_html($id, $classes, $contents)
@@ -59,16 +60,12 @@ class ImageElement extends AppElement
         return "<img id=\"$id\" src=\"{$this->src}\"$classes>\n";
     }
     
+    function render() {}
+    
     function set_src($src)
     {
-        if ($this->rendered) $this->set_dom("src", $src);
-        else $this->src = $src;
-    }
-    
-    function render()
-    {
-        $this->rendered = TRUE;
-        $this->set_src($this->src);
+        $this->src = $src;
+        $this->set_dom("src", $this->src);
     }
 }
 
@@ -82,8 +79,7 @@ class ProgressBarContentElement extends AppElement
 
     function set_percent($percent)
     {
-        if (!$this->rendered) $this->percent = $percent;
-        else $this->set_css("width", sprintf("%.3f%%", $percent));
+        $this->set_css("width", sprintf("%F%%", $percent));
     }
     
     function render()
@@ -91,7 +87,6 @@ class ProgressBarContentElement extends AppElement
         $this->rendered = TRUE;
         $this->set_content("&nbsp;");
         $this->set_class("progress_bar_content");
-        if ($this->percent !== FAlSE) $this->set_percent($this->percent);
     }
 }
 

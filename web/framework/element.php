@@ -19,6 +19,8 @@ along with domserver.  If not, see <http://www.gnu.org/licenses/>.
 
 abstract class UIElement
 {
+    public $tagname = "div";
+
     function __construct($domserver, $id)
     {
         $this->id = $id;
@@ -216,6 +218,8 @@ abstract class UIElement
 
 class UIImageElement extends UIElement
 {
+    public $tagname = "img";
+
     function __construct($domserver, $id, $src)
     {
         parent::__construct($domserver, $id);
@@ -232,6 +236,12 @@ class UIImageElement extends UIElement
     }
     
     function render() {}
+    
+    function set_src($src)
+    {
+        $this->src = $src;
+        $this->set_dom("src", $this->src);
+    }
 }
 
 ?>
