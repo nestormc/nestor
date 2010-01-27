@@ -768,34 +768,45 @@ class ObjectAccessor:
             except AttributeError:
                 limit = -1
                 
-            owner = tag.value
-            try:
-                if owner not in self.providers:
-                    raise ObjectError("invalid-provider:%s" % owner)
-                    
-                exprtag = tag.get_subtag(SIC.TAG_OBJ_EXPRESSION)
-                expr = OExpression.from_sitag(exprtag)
-                
+            owners = tag.value.split(',')
+            oids = []
+            for owner in owners:            
                 try:
-                    types = tag.get_subtag(SIC.TAG_OBJ_TYPE).value
-                except AttributeError:
-                    types = ''
-                if types == '':
-                    types = None
-                else:
-                    types = types.split(',')
+                    if owner not in self.providers:
+                        raise ObjectError("invalid-provider:%s" % owner)
+                        
+                    exprtag = tag.get_subtag(SIC.TAG_OBJ_EXPRESSION)
+                    expr = OExpression.from_sitag(exprtag)
+                    
+                    try:
+                        types = tag.get_subtag(SIC.TAG_OBJ_TYPE).value
+                    except AttributeError:
+                        types = ''
+                    if types == '':
+                        types = None
+                    else:
+                        types = types.split(',')
+                    
+                    oids.extend([[owner, oid]
+                      for oid in self.providers[owner].match_oids(expr, types)])
+                except ObjectError, e:
+                    client.answer_failure(e)
+                    return
+                    
+            self.domserver.perf("Matching oids retrieved")
+            
+            if limit == -1:
+                oids = oids[offset:]
+            else:
+                oids = oids[offset:offset + limit]
                 
-                oids = self.providers[owner].match_oids(expr, types)
-                if limit == -1:
-                    oids = oids[offset:]
-                else:
-                    oids = oids[offset:offset + limit]
-                objs = [self.providers[owner].get(oid) for oid in oids]
+            try:
+                objs = [self.providers[owner].get(oid) for owner, oid in oids]
             except ObjectError, e:
                 client.answer_failure(e)
                 return
                 
-            self.domserver.perf("Matching objects retrieved")
+            self.domserver.perf("Matching objects wrapped")
                 
             resp = SIPacket(opcode=SIC.OP_OBJECTS)
             resp.tags.extend([o.to_sitag(lod) for o in objs])
