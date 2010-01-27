@@ -94,7 +94,7 @@ function $swap(a, b)
  *                           AJAX QUEUES                            *
  ********************************************************************/
 
-/* Création d'un XMLHttpRequest */
+/* XMLHttpRequest creation */
 function $ajax_xhr() {
 	if (window.XMLHttpRequest)
 		return new XMLHttpRequest();
@@ -114,7 +114,7 @@ function $ajax_xhr() {
 		return false;
 }
 
-/* Traitement de la queue */
+/* Queue processing */
 function $ajax_mk_process(queue)
 {
 	return function() {
@@ -137,7 +137,7 @@ function $ajax_mk_process(queue)
 	}
 }
 
-/* Changement d'etat du XHR */
+/* XHR state change callback */
 function $ajax_mk_statechange(queue)
 {
 	return function() {
@@ -150,30 +150,14 @@ function $ajax_mk_statechange(queue)
 	}
 }
 
-/* Recherche d'une requete dans la queue */
-function $ajax_mk_queued(queue)
-{
-	return function(reqid) {
-		var i;
-		for (i = 0; i < queue._queue.length; i++) {
-			if (queue._queue[i]['reqid'] == reqid) return true;
-		}
-
-		return false;
-	}
-}
-
-/* Ajout d'une requete GET */
+/* Enqueue GET request*/
 function $ajax_mk_get(queue)
 {
-	return function(url, callback, reqid) {
-		if (queue._no_dup && reqid && queue._queued(reqid)) return false;
-
+	return function(url, callback) {
 		queue._queue.push({
 			'url': url,
 			'callback': callback,
-			'post': null,
-			'reqid': reqid
+			'post': null
 		});
 
 		if (!queue._working) queue._process();
@@ -181,17 +165,14 @@ function $ajax_mk_get(queue)
 	}
 }
 
-/* Ajout d'une requete POST */
+/* Enqueue POST request */
 function $ajax_mk_post(queue)
 {
-	return function(url, postdata, callback, reqid) {
-		if (queue._no_dup && reqid && queue._queued(reqid)) return false;
-
+	return function(url, postdata, callback) {
 		queue._queue.push({
 			'url': url,
 			'callback': callback,
-			'post': postdata,
-			'reqid': reqid
+			'post': postdata
 		});
 
 		if (!queue._working) queue._process();
@@ -200,30 +181,25 @@ function $ajax_mk_post(queue)
 }
 
 
-/* Classe ajaxQueue
-	q.get(url, callback, [id requete])
-	q.post(url, postdata, callback, [id requete])
-
-	no_duplicates (faux par defaut) : si vrai, une requete n'est
-	pas enqueuée quand l'id requete est deja present dans la queue.
+/* $ajaxqueue class
+	q.get(url, callback)
+	q.post(url, postdata, callback)
 */
-function $ajaxqueue(qname, no_duplicates) {
-	/* Creation du XHR */
+function $ajaxqueue(qname) {
+	/* Create XHR */
 	this._xhr = $ajax_xhr();
 
-	/* Creation de la queue */
+	/* Setup queue */
 	this._queue = new Array();
 	this._working = false;
 	this._callback = null;
-	this._no_dup = no_duplicates;
 	this._name = qname;
 
-	/* Méthodes privées */
+	/* Private */
 	this._process = $ajax_mk_process(this);
 	this._statechange = $ajax_mk_statechange(this);
-	this._queued = $ajax_mk_queued(this);
 
-	/* Méthodes publiques */
+	/* Public */
 	this.get = $ajax_mk_get(this);
 	this.post = $ajax_mk_post(this);
 }
