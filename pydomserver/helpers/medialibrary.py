@@ -454,7 +454,10 @@ class MPDWrapper:
         'add',
         'clear',
         'move',
-        'delete'
+        'delete',
+        
+        # DB control
+        'update'
     ]
     
     def __init__(self, domserver):
@@ -464,7 +467,7 @@ class MPDWrapper:
     def _connect(self):
         try:
             self.client.ping()
-        except mpd.ConnectionError, mpd.ProtocolError:
+        except (mpd.ConnectionError, mpd.ProtocolError):
             try:
                 self.client.disconnect()
             except mpd.ConnectionError:
