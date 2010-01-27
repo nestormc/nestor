@@ -39,7 +39,7 @@ class MusicUI extends AppElement
         
         $trksetup = array(
             "title" => "Tracks",
-            "app" => "media",
+            "apps" => "media",
             "otype" => "music-track",
             "lod" => 2,
             
@@ -76,7 +76,7 @@ class MusicUI extends AppElement
         
         $albsetup = array(
             "title" => "Albums",
-            "app" => "media",
+            "apps" => "media",
             "otype" => "music-album",
             "lod" => 2,
             
@@ -104,7 +104,7 @@ class MusicUI extends AppElement
     
         $artsetup = array(
             "title" => "Artists",
-            "app" => "media",
+            "apps" => "media",
             "otype" => "music-artist",
             "lod" => 2,
             "limit" => 50,

@@ -41,6 +41,24 @@ class MusicPlayerText extends AppElement
     }
 }
 
+class MusicPlayerSeekbar extends ProgressBarElement
+{
+    function __construct($app, $id, $player)
+    {
+        parent::__construct($app, $id);
+        $this->player = $player;
+    }
+    
+    function update()
+    {
+        $total = $this->player->cur_song["len"];
+        $time = $this->player->mpd["time"];
+        $percent = $total ? 100.0 * $time / $total : 0;
+        
+        $this->set_percent($percent);
+    }
+}
+
 class MusicCover extends ImageElement
 {
     function __construct($app, $id, $player)
@@ -49,13 +67,11 @@ class MusicCover extends ImageElement
         $this->player = $player;
     }
     
-    function render() {}
-    
     function update()
     {
         $path = $this->player->cur_song["artist"] . DIRECTORY_SEPARATOR . $this->player->cur_song["album"];
         $url = $this->ds->tool_url("AlbumCover", $path);
-        $this->set_dom("src", $url);
+        $this->set_src($url);
     }
 }
 
@@ -77,7 +93,7 @@ class MusicPlayerblock extends AppElement
             "cover" => new MusicCover($this->app, "{$this->id}_cover", $this),
             "title" => new MusicPlayerText($this->app, "{$this->id}_title", $this, "title"),
             "artist" => new MusicPlayerText($this->app, "{$this->id}_artist", $this, "artist"),
-            "seekbar" => new ProgressBarElement($this->app, "{$this->id}_seekbar")
+            "seekbar" => new MusicPlayerSeekbar($this->app, "{$this->id}_seekbar", $this)
         );
     }
 
@@ -98,16 +114,7 @@ class MusicPlayerblock extends AppElement
     
     function update()
     {
-        foreach ($this->elems as $n => $e)
-        {
-            if ($n == "seekbar")
-            {
-                $total = $this->cur_song["len"];
-                $time = $this->mpd["time"];
-                $e->set_percent($total ? 100.0 * $time / $total : 0);
-            }
-            else $e->update();
-        }
+        foreach ($this->elems as $e) $e->update();
         $this->schedule_update(1000);
     }
 }

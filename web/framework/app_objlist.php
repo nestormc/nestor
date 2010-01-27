@@ -142,9 +142,9 @@ class ObjectListItem extends AppElement
         if ($this->objref)
             $this->make_draggable($this->objref, $this->data[$this->s["main_field"]]);
             
-        if (isset($this->s["item_drag_target"]))
+        if (isset($this->s["item_drop_handler"]))
         {
-            $dt = $this->s["item_drag_target"];
+            $dt = $this->s["item_drop_handler"];
             $this->make_drag_target($dt["handler"], $dt["method"]);
         }
     }
@@ -185,7 +185,7 @@ class RefreshObjectListBody extends ObjectListBody
 {
     protected function fetch($expr)
     {
-        $objs = $this->obj->match_objects($this->s["app"], $expr, $this->s["lod"], $this->s["otype"]);
+        $objs = $this->obj->match_objects($this->s["apps"], $expr, $this->s["lod"], $this->s["otype"]);
         
         $removed_ids = array_keys($this->children);
         $positions = array();
@@ -193,7 +193,6 @@ class RefreshObjectListBody extends ObjectListBody
         {
             $objref = $o->objref;
             $props = $o->props;
-            $props["__ref__"] = $objref;
             $id = $props[$this->s["unique_field"]];
             $positions[] = $id;
             
@@ -251,13 +250,12 @@ class FixedObjectListBody extends ObjectListBody
     {
         $offset = $this->count;
         $limit = isset($this->s["limit"]) ? $this->s["limit"] : -1;
-        $objs = $this->obj->match_objects($this->s["app"], $expr, $this->s["lod"], $this->s["otype"], $offset, $limit);
+        $objs = $this->obj->match_objects($this->s["apps"], $expr, $this->s["lod"], $this->s["otype"], $offset, $limit);
         
         foreach ($objs as $o)
         {
             $objref = $o->objref;
             $props = $o->props;
-            $props["__ref__"] = $objref;
             $id = $props[$this->s["unique_field"]];
             
             $child = new ObjectListItem($this->app, "{$this->id}_item_$id", $props, $objref, $this->s);
@@ -318,9 +316,9 @@ abstract class ObjectListBody extends AppElement
         $this->add_child($this->closer);
         $this->update();
         
-        if (isset($this->s["drag_target"]))
+        if (isset($this->s["drop_handler"]))
         {
-            $dt = $this->s["drag_target"];
+            $dt = $this->s["drop_handler"];
             $this->make_drag_target($dt["handler"], $dt["method"]);
         }
     }
@@ -356,10 +354,8 @@ abstract class ObjectListBody extends AppElement
         if (isset($this->s["link"]))
         {
             $data = array();
-            $this->debug("cdata[$id]: " . str_replace("\n", " ", var_export($this->children_data, TRUE)));
             foreach ($this->s["link_fields"] as $field)
                 $data[$field] = $this->children_data[$id][$field];
-            $this->debug("link: " . str_replace("\n", " ", var_export($data, TRUE)));
             $this->s["link"]->set_filter($data);
         }
         
@@ -376,8 +372,6 @@ abstract class ObjectListBody extends AppElement
         {
             $filter = $this->load_data("filter", FALSE);
             if (!$filter) return FALSE;
-            
-            $this->debug("filter: " . str_replace("\n", " ", var_export($filter, TRUE)));
             
             $expr = FALSE;
             foreach ($this->s["filter"] as $field)
@@ -439,7 +433,7 @@ class ObjectListTitle extends AppElement
 
 /* Auto-refreshed ObjectList element.
     Can be used for lists with objects that change often. When the list is created, all objects
-    are fetched, but updates are then incremental. The "refresh" $settings key specifies the
+    are fetched, and updates are then incremental. The "refresh" $settings key specifies the
     refresh rate in milliseconds.
 */
 class RefreshObjectList extends ObjectList
@@ -452,8 +446,8 @@ class RefreshObjectList extends ObjectList
 
 /* Fixed ObjectList element
     Can be used for lists of objects that don't change very often. Adds an optional "limit" key
-    to $settings: when specified, objects will be fetched in several chunks of size "limit",
-    which prevents huge loading times for lists with a lot of objects. A nice limit value is 50.
+    to $settings: when specified, objects will be fetched in chunks of size "limit", which
+    prevents huge loading times for lists with a lot of objects.
     
     Also implements an additional reload() method to reload the entire list.
 */
@@ -482,13 +476,13 @@ class FixedObjectList extends ObjectList
     are optional):
     
       "title" => displayed list title
-      "app"   => source app for objects
-      "otype" => type of objects to display
+      "apps"  => list of source apps for objects (1)
+      "otype" => list of object types to display (1)
       "lod"   => LOD to fetch objects with
       
       "fields" => array(
           "fieldname" => array(
-              "title"  => displayed field title (1)
+              "title"  => displayed field title (2)
               "weight" => field column weight
     *         "xform"  => callback to transform the field value before displaying
     *         "style" => array(
@@ -510,16 +504,30 @@ class FixedObjectList extends ObjectList
     * "filter" => array("fieldname", ...) fields used for filtering
       
     * "link" => linked ObjectList
-    * "link-fields" => array("fieldname", ...) fields passed to linked ObjectList (2)
+    * "link-fields" => array("fieldname", ...) fields passed to linked ObjectList (3)
     
-    * "item_drag_handler" => callback called when an object is dropped on an item; will be passed
-                             the item AppElement and the dropped object objref
-    * "drag_handler" => same as "item_drag_handler", except it is called when an object is dropped
-                        on the list itself, and the ObjectList element is passed as first argument
+    * "item_drop_handler" => array(
+          "handler" => object drop handler element
+          "method" => object drop handler method
+      )
+      Enable dropping objects on list items. The callback will be passed the item AppElement and
+      the dropped object objref
+      
+    * "drop_handler" => array(
+          "handler" => object drop handler element
+          "method" => object drop handler method
+      )
+      Same as "item_drop_handler", except it is called when an object is dropped on the list
+      itself, and the ObjectList element is passed as first argument
     
-    (1) field titles will only be displayed if the "main_field" has a "title" attribute
-    (2) "link-fields" is mandatory when "link" is specified; the specified fields values are
+    (1) can also be a comma-separated list
+    (2) field titles will only be displayed if the "main_field" has a "title" attribute
+    (3) "link-fields" is mandatory when "link" is specified; the specified fields values are
         matched against the linked ObjectList "filter" fields, in the same order
+        
+    The following "special" fields are available for all objects:
+        "__app__": name of owner application
+        "__ref__": complete object reference
 */
 abstract class ObjectList extends AppElement
 {

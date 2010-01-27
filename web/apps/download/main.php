@@ -19,34 +19,34 @@ along with domserver.  If not, see <http://www.gnu.org/licenses/>.
 
 class DownloadUI extends AppElement
 {
-    static function _speed_xform($v)
+    static function _byte_xform($v, $start=0, $suffix="")
     {
         if ($v == 0) return "-";
     
         $suffixes = array(0 => "", 1 => "k", 2 => "M", 3 => "G", 4 => "T");
         $val = floatval($v);
-        $mult = 0;
+        $mult = $start;
         while ($val > 1000)
         {
             $val /= 1024;
             $mult++;
         }
         
-        return sprintf("%.2f %sB/s", $val, $suffixes[$mult]);
+        if ($val < 10) $prec = 2;
+        elseif ($val < 100) $prec = 1;
+        else $prec = 0;
+        
+        return sprintf("%.{$prec}F %sB$suffix", $val, $suffixes[$mult]);
+    }
+
+    static function _speed_xform($v)
+    {
+        return DownloadUI::_byte_xform($v, 0, "/s");
     }
     
     static function _size_xform($v)
     {
-        $suffixes = array(0 => "", 1 => "k", 2 => "M", 3 => "G", 4 => "T");
-        $val = floatval($v);
-        $mult = 1;
-        while ($val > 1000)
-        {
-            $val /= 1024;
-            $mult++;
-        }
-        
-        return sprintf("%.2f %sB", $val, $suffixes[$mult]);
+        return DownloadUI::_byte_xform($v, 1);
     }
 
     static function _status_xform($v)
@@ -68,12 +68,19 @@ class DownloadUI extends AppElement
     {
         $dlsetup = array(
             "title" => "Downloads",
-            "app" => "bt",
+            "apps" => array("bt"),
             "otype" => "download",
             "lod" => 2,
             "refresh" => 1000,
             
             "fields" => array(
+                "__app__" => array(
+                    "title" => "App",
+                    "weight" => 0.5,
+                    "style" => array(
+                        "text-align" => "center"
+                    )
+                ),
                 "name" => array(
                     "title" => "Name",
                     "weight" => 6

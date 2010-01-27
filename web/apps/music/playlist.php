@@ -32,7 +32,7 @@ class MusicPlayerColumn extends AppElement
     {
         $plsetup = array(
             "title" => "Playlist",
-            "app" => "media",
+            "apps" => "media",
             "otype" => "mpd-item",
             "lod" => 2,
             "limit" => 50,
@@ -64,11 +64,11 @@ class MusicPlayerColumn extends AppElement
             "unique_field" => "mpd-position",
             "main_field" => "title",
             
-            "item_drag_target" => array(
+            "item_drop_handler" => array(
                 "handler" => $this,
                 "method" => "playlist_drop_handler"
             ),
-            "drag_target" => array(
+            "drop_handler" => array(
                 "handler" => $this,
                 "method" => "playlist_drop_handler"
             ),

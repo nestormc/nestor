@@ -17,7 +17,8 @@ You should have received a copy of the GNU General Public License
 along with domserver.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-$DEBUG_OPCODES = array(/*"child", "unchild", "swap", "content"*/);
+$DEBUG_OPCODES = array();
+$DEBUG_IDS = array();
 
 class OutputManager
 {
@@ -112,10 +113,10 @@ class OutputManager
     /* Add opcode */
     function add_op($opcode, $params)
     {
-        global $DEBUG_OPCODES;
+        global $DEBUG_OPCODES, $DEBUG_IDS;
         
         $this->ops[] = array($opcode, $params);
-        if (DOMSERVER_DEBUG && in_array($opcode, $DEBUG_OPCODES))
+        if (DOMSERVER_DEBUG && in_array($opcode, $DEBUG_OPCODES) && in_array($this->dom_id($params[0]), $DEBUG_IDS))
         {
             $dparams = array();
             
@@ -177,7 +178,7 @@ class OutputManager
             case 'child':
                 $child = $params[1];
                 $childid = $this->dom_id($child);
-                $ops[] = "var c=document.createElement(\"div\");";
+                $ops[] = "var c=document.createElement(\"{$child->tagname}\");";
                 $ops[] = "c.id=\"$childid\";";
                 $ops[] = "\$(\"$id\").appendChild(c);";
                 $child->render();
