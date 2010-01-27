@@ -522,7 +522,7 @@ class MusicLibrary:
             
         track_id = self.write_track_metadata(meta)
         self.write_file_tags(meta)
-        return track_id
+        return [track_id, mlpath]
         
     def match(self, expr, typ=0, offset=0, limit=-1):
         """Match music library objects.
