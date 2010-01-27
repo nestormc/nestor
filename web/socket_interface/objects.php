@@ -171,6 +171,10 @@ class ObjectDescriptor
             $this->objref = $tag->value;
             $this->props = $this->parse_properties($tag->subtags);
             $this->types = $this->parse_types($tag->subtags);
+            
+            $objref_s = split(':', $this->objref);
+            $this->props["__ref__"] = $this->objref;
+            $this->props["__app__"] = $objref_s[0];
         }
     }
 }
@@ -218,12 +222,17 @@ class ObjectAccess
         return $ret;
     }
 
-    function match_objects($app, $expr, $detail_level = 0, $types = FALSE, $offset = 0, $limit = -1)
+    function match_objects($apps, $expr, $detail_level = 0, $types = FALSE, $offset = 0, $limit = -1)
     {
         $ret = array();
         $req = new SIPacket(SIC('OP_OBJECTS'));
-        $tag = new SIStringTag($app, SIC('TAG_OBJ_MATCHQUERY'));
-        if ($types) $tag->subtags[] = new SIStringTag($types, SIC('TAG_OBJ_TYPE'));
+        if (is_array($apps)) $apps = implode(',', $apps);
+        $tag = new SIStringTag($apps, SIC('TAG_OBJ_MATCHQUERY'));
+        if ($types)
+        {
+            if (is_array($type)) $types = implode(',', $types);
+            $tag->subtags[] = new SIStringTag($types, SIC('TAG_OBJ_TYPE'));
+        }
         $tag->subtags[] = new SIUInt8Tag($detail_level, SIC('TAG_OBJ_DETAIL_LEVEL'));
         if ($offset > 0) $tag->subtags[] = new SIUInt32Tag($offset, SIC('TAG_OBJ_LIST_OFFSET'));
         if ($limit > 0) $tag->subtags[] = new SIUInt32Tag($limit, SIC('TAG_OBJ_LIST_LIMIT'));
