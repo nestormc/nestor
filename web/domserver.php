@@ -97,7 +97,7 @@ class Domserver
     
     function tool_url($toolname, $arg)
     {
-        return "?a=tool&t=$toolname&arg=" . urlencode($arg);
+        return "?a=tool&t=$toolname&arg=$arg";
     }
     
     private function delete_expired_sessions()
