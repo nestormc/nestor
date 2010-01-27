@@ -59,9 +59,9 @@ class MediaImporterThread(Thread):
     
     """
     
-    def __init__(self, domserver, logger, music, path, delete=False):
+    def __init__(self, domserver, logger, helper, path, delete=False):
         Thread.__init__(self, domserver, logger)
-        self.music = music
+        self.helper = helper
         self.path = path
         self.running = False
         self.delete = delete
@@ -148,7 +148,7 @@ class MediaImporterThread(Thread):
             if not md['artist']:
                 artist = '_unknown_'
             else:
-                artist = self.music.match_artist(md['artist'])
+                artist = self.helper.music.match_artist(md['artist'])
         
             try:
                 year = int(md['year'])
@@ -199,12 +199,18 @@ class MediaImporterThread(Thread):
         
         if mtype == Metadata.MEDIA_MUSIC:
             try:
-                track_id = self.music.import_track(path, meta, self.delete)
+                track_id, path = self.helper.music.import_track(path, meta, self.delete)
             except MediaImportError, e:
                 self.verbose("Import error: %s" % e)
                 track_id = None
                 
             if track_id:
+                mdir = self.domserver.config["media.music_dir"]
+                off = 0 if mdir.endswith('/') else 1
+                rpath = path[len(mdir)+off:]
+                
+                self.debug("Updating MPD (%s)" % rpath)
+                self.helper.mpd.update(rpath)
                 return True
                 
         return False
@@ -293,7 +299,7 @@ class LobbyWatcherThread(Thread):
         Thread.__init__(self, domserver, logger)
         self.running = False
         self.lobby = self.domserver.config["media.lobby_dir"]
-        self.music = helper['music']
+        self.helper = helper
         self._jobs = []
         self._lock = threading.Condition(threading.Lock())
         self._threads = []
@@ -349,7 +355,7 @@ class LobbyWatcherThread(Thread):
             self._lock.release()
         
     def _process(self, path):
-        t = MediaImporterThread(self.domserver, self.logger, self.music,
+        t = MediaImporterThread(self.domserver, self.logger, self.helper,
             os.path.join(self.lobby, path), True)
         self.domserver.add_thread(t)
         return t
