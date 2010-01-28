@@ -20,7 +20,7 @@ import time
 from .thread import Thread
 
 domserver_RUNWATCHER_INTERVAL = 1
-TERM_KILL_WAIT_CYCLES = 2
+TERM_KILL_WAIT_CYCLES = 10
 
 class RunWatcherThread(Thread):
     """Command watcher thread
