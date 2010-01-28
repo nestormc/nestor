@@ -281,9 +281,10 @@ class Domserver:
     def run(self):
         try:
             self._tm.run()
+        except UnexpectedStopError, e:
+            self.info("Exiting: %s" % e)
         except Exception, e:
             self.info(traceback.format_exc())
             raise
 
-    
-    
+
