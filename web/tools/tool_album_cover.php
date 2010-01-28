@@ -21,6 +21,7 @@ class AlbumCover extends Tool
 {
     function no_cover()
     {
+        header("Content-type: image/png");
         header("Location: tools/no-cover.png");
     }
 
