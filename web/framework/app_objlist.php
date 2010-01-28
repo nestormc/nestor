@@ -17,6 +17,97 @@ You should have received a copy of the GNU General Public License
 along with domserver.  If not, see <http://www.gnu.org/licenses/>.
 */
 
+class ObjectListActionIcon extends ImageElement
+{
+    function __construct($app, $id, $icon_name)
+    {
+        $icon = "skins/default/icons/$icon_name.png";
+        parent::__construct($app, $id, $icon);
+    }
+}
+
+class ObjectListActionCell extends AppElement
+{
+    function __construct($app, $id, $settings, $data)
+    {
+        $this->s = $settings;
+        $this->data = $data;
+        $this->objref = $data["__ref__"];
+        
+        if (!isset($this->s["actions"])) $this->s["actions"] = array();
+        
+        parent::__construct($app, $id);
+    }
+    
+    function init()
+    {
+        $this->icons = array();
+        foreach ($this->s["actions"] as $action => $desc)
+        {
+            $aid = str_replace("-", "", $action);
+            $this->icons[$action] = new ObjectListActionIcon($this->app, "{$this->id}_$aid", $desc["icon"]);
+        }
+        
+        $this->displayed = $this->load_data("displayed", array());
+    }
+    
+    function render()
+    {
+        $this->set_css("text-overflow", "ellipsis");
+        $this->displayed = array();
+        $this->update();
+    }
+    
+    function update()
+    {
+        $displayed = array();
+        foreach ($this->s["actions"] as $action => $desc)
+        {
+            if (isset($this->s["action_filter"]))
+            {
+                $display = call_user_func($this->s["action_filter"], $action, $this->objref, $this->data);
+                
+                $this->debug("filter $action ({$this->objref}) => " . ($display ? "yes" : "no"));
+            }
+            else
+                $display = TRUE;
+                
+            $icon = $this->icons[$action];
+            
+            if ($display)
+            {
+                $displayed[] = $action;
+                if (!in_array($action, $this->displayed))
+                {
+                    $this->add_child($icon);
+                    $icon->set_dom("title", $desc["title"]);
+                    $icon->set_css("cursor", "hand");
+                    $icon->set_handler("onclick", $this, "click_action", $action);
+                }
+            }
+            else
+            {
+                if (in_array($action, $this->displayed))
+                    $this->remove_child($icon);
+            }
+        }
+        $this->save_data("displayed", $displayed);
+    }
+    
+    function click_action($action)
+    {
+        $desc = $this->s["actions"][$action];
+        $this->debug("clicked action $action on objref {$this->objref}");
+        call_user_func($desc["handler"], $action, $this->objref);
+    }
+    
+    function update_data($data)
+    {
+        $this->data = $data;
+        if (isset($this->s["action_filter"])) $this->update();
+    }
+}
+
 class ObjectListCell extends AppElement
 {
     function __construct($app, $id, $label)
@@ -70,9 +161,7 @@ class ObjectListHeader extends AppElement
 
 class ObjectListCloser extends AppElement
 {
-    function render()
-    {
-    }
+    function render() {}
 }
 
 class ObjectListItem extends AppElement
@@ -88,6 +177,7 @@ class ObjectListItem extends AppElement
     function init()
     {
         $this->cells = array();
+        $this->actioncell = FALSE;
         
         foreach ($this->s["fields"] as $f => $fs)
         {
@@ -100,15 +190,16 @@ class ObjectListItem extends AppElement
                 
             $fid = str_replace("-", "_", $f);
             
-            switch ($fs["display"])
+            if ($f == "__act__")
             {
-            case "progress":
-                $cell = new ProgressBarElement($this->app, "{$this->id}_$fid");
-                break;
-            default:
-                $cell = new ObjectListCell($this->app, "{$this->id}_$fid", $value);
-                break;
+                $cell = new ObjectListActionCell($this->app, "{$this->id}_$fid", $this->s, $this->data);
+                $this->actioncell = $cell;
             }
+            elseif ($fs["display"] == "progress")
+                $cell = new ProgressBarElement($this->app, "{$this->id}_$fid");
+            else
+                $cell = new ObjectListCell($this->app, "{$this->id}_$fid", $value);
+                
             $this->cells[$f] = array($cell, $fs["weight"]);
         }
     }
@@ -136,11 +227,8 @@ class ObjectListItem extends AppElement
             
         $this->set_css("position", "relative");
         $this->set_css("height", "1.2em");
-        
-        $this->column_layout($this->cells, "hidden");        
-        
-        if ($this->objref)
-            $this->make_draggable($this->objref, $this->data[$this->s["main_field"]]);
+        $this->column_layout($this->cells, "hidden");   
+        $this->make_draggable($this->objref, $this->data[$this->s["main_field"]]);
             
         if (isset($this->s["item_drop_handler"]))
         {
@@ -171,12 +259,15 @@ class ObjectListItem extends AppElement
     
     function update_data($updated)
     {
-        foreach (array_keys($this->cells) as $f)
+        if (count($updated))
         {
-            if (isset($updated[$f]))
+            foreach ($updated as $f => $v)
             {
-                $this->set_cell_value($f, $updated[$f]);
+                $this->data[$f] = $v;
+                $this->set_cell_value($f, $v);
             }
+            
+            if ($this->actioncell) $this->actioncell->update_data($this->data);
         }
     }
 }
@@ -519,6 +610,19 @@ class FixedObjectList extends ObjectList
       )
       Same as "item_drop_handler", except it is called when an object is dropped on the list
       itself, and the ObjectList element is passed as first argument
+      
+    * "actions" => array(
+          "action-name" => array(
+              "title" => readable action description
+              "handler" => callback to launch the action, receives (action-name, objref) as parameters
+              "icon" => action icon name
+          )
+          ...
+      )
+      Enable action buttons for each item. Actions will be displayed in the "__act__" column.
+      
+    * "action_filter" => callback receving (action-name, objref, object-properties), must return
+                         a boolean telling if the action must be displayed or not.
     
     (1) can also be a comma-separated list
     (2) field titles will only be displayed if the "main_field" has a "title" attribute
@@ -528,6 +632,7 @@ class FixedObjectList extends ObjectList
     The following "special" fields are available for all objects:
         "__app__": name of owner application
         "__ref__": complete object reference
+        "__act__": column holding action buttons
 */
 abstract class ObjectList extends AppElement
 {
