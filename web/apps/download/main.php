@@ -121,11 +121,70 @@ class DownloadUI extends AppElement
                         "text-align" => "center"
                     )
                 ),
+                "__act__" => array(
+                    "title" => "-",
+                    "weight" => 1,
+                    "style" => array(
+                        "text-align" => "center"
+                    )
+                ),
             ),
             "unique_field" => "hash",
-            "main_field" => "name"
+            "main_field" => "name",
+            
+            "actions" => array(
+                "torrent-pause" => array(
+                    "title" => "Pause",
+                    "handler" => array($this, "action_execute"),
+                    "icon" => "pause"
+                ),
+                "torrent-resume" => array(
+                    "title" => "Resume",
+                    "handler" => array($this, "action_execute"),
+                    "icon" => "play"
+                ),
+                "partfile-pause" => array(
+                    "title" => "Pause",
+                    "handler" => array($this, "action_execute"),
+                    "icon" => "pause"
+                ),
+                "partfile-resume" => array(
+                    "title" => "Resume",
+                    "handler" => array($this, "action_execute"),
+                    "icon" => "play"
+                ),
+            ),
+            "action_filter" => array($this, "action_filter")
         );
         $this->list = new RefreshObjectList($this->app, "list", $dlsetup);
+    }
+    
+    function action_filter($action, $objref, $data)
+    {
+        $amule = array("partfile-pause", "partfile-resume");
+        $bt = array("torrent-pause", "torrent-resume");
+        
+        if (strpos($objref, "amule:") === 0)
+        {
+            if (!in_array($action, $amule)) return FALSE;
+            if ($action == "partfile-resume" && $data["status"] != 2) return FALSE;
+            if ($action == "partfile-pause" && in_array($data["status"], array(0, 2, 6))) return FALSE;
+        }
+        elseif (strpos($objref, "bt:") === 0)
+        {
+            if (!in_array($action, $bt)) return FALSE;
+            if ($action == "torrent-resume" && $data["status"] != 2) return FALSE;
+            if ($action == "torrent-pause" && in_array($data["status"], array(0, 2, 6))) return FALSE;
+        }
+        return TRUE;
+    }
+    
+    function action_execute($action, $objref)
+    {
+        if (strpos($action, "torrent-") === 0)
+            $this->obj->do_action("bt", $action, $objref);
+        elseif (strpos($action, "partfile-") === 0)
+            $this->obj->do_action("amule", $action, $objref);
     }
 
     function render()
