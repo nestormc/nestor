@@ -18,19 +18,21 @@ import os
 import os.path
 from pyinotify import WatchManager, ThreadedNotifier, ProcessEvent, EventsCodes
 import shutil
+import tempfile
 import time
+import urllib
 
 from ..errors import ObjectError
 from ..thread import Thread
 from ..objects import ObjectProvider, ObjectProcessor, ObjectWrapper
-from ..socketinterface import SIPacket, SIStringTag, SIUInt32Tag, SIUInt8Tag
 from ..socketinterfacecodes import SIC
 from ..utils import fileIsOpen
 
 class DictTorrent:
-    def __init__(self, logger, handle):
+    def __init__(self, logger, handle, bt):
         self.log = logger
         self.h = handle
+        self.bt = bt
         
     def pause(self):
         self.h.auto_managed(False)
@@ -50,7 +52,10 @@ class DictTorrent:
         elif key == 'progress':
             size = self.h.status().total_wanted
             done = self.h.status().total_wanted_done
-            return float(done) / float(size) * 100.0
+            if size == 0:
+                return 0.0
+            else:
+                return float(done) / float(size) * 100.0
         elif key == 'speed':
             return self.h.status().download_rate
         elif key == 'status':
@@ -61,7 +66,7 @@ class DictTorrent:
             elif state in ('queued_for_checking',
                            'checking_files',
                            'downloading_metadata',
-                           'allocating'):
+                           'allocating', '2'):
                 return 1
             elif state == 'downloading':
                 return 3
@@ -70,16 +75,23 @@ class DictTorrent:
             else:
                 self.log.debug("Unknown status : %s, %s" % (repr(pause), state))
         elif key == 'files':
-            info = self.h.get_torrent_info()
+            try:
+                info = self.h.get_torrent_info()
+            except RuntimeError:
+                # Torrent metadata not yet downloaded
+                return []
             ret = {}
             for f in info.files():
                 ret[f.path] = f.size
             return ret
+        elif key == 'magnet-uri':
+            return self.bt.get_magnet_uri(self.h)
         else:
             raise KeyError("DictTorrent has no item named '%s'" % key)
             
     def keys(self):
-        return ['name', 'size', 'seeds', 'progress', 'speed', 'status', 'files']
+        return ['name', 'size', 'seeds', 'progress', 'speed', 'status', 'files',
+            'magnet-uri']
             
         
 class BitTorrent:
@@ -96,6 +108,7 @@ class BitTorrent:
         return self.s.status()
         
     def start(self, port):
+        self.set_option("port", port)
         self.s = lt.session()
         for k in self.options.keys():
             self.set_option(k, self.options[k])
@@ -111,19 +124,53 @@ class BitTorrent:
     def set_option(self, key, value):
         if self.is_active():
             if key == 'max_upload':
-                self.s.set_upload_rate_limit(value)
+                self.s.set_upload_rate_limit(int(value))
             elif key == 'max_download':
-                self.s.set_download_rate_limit(value)
+                self.s.set_download_rate_limit(int(value))
             elif key == 'port':
-                self.s.listen_on(value, value)
+                self.s.listen_on(int(value), int(value))
         else:
             self.options[key] = value
+            
+    def add_magnet(self, magnet, destdir, destdir_hash=None):
+        """Add magnet URI 'magnet' for download.
+        
+        'destdir' is used as the save path. If 'destdir' is None, start
+        downloading in a temporary folder, get the torrent hash and then move
+        the save path to 'destdir_hash' % hash."""
+        
+        if self.is_active():
+            dest = destdir or tempfile.mkdtemp('magnet')
+            
+            self.log.debug("Adding magnet %s, store in %s" % (magnet, dest))
+            
+            options = {
+                'save_path': dest.encode('utf-8'),
+                'storage_mode': lt.storage_mode_t.storage_mode_sparse,
+                'paused': True,
+                'auto_managed': True,
+                'duplicate_is_error': True
+            }
+            handle = lt.add_magnet_uri(self.s, magnet.encode('utf-8'), options)
+            
+            if handle and not destdir:
+                dest = destdir_hash % (str(handle.info_hash()))
+                self.log.debug("Moving download to %s" % dest)
+                handle.move_storage(dest.encode('utf-8'))
         
     def add_torrent(self, torrent, destdir):
         if self.is_active():
             info = lt.torrent_info(lt.bdecode(open(torrent, 'rb').read()))
             ret = self.s.add_torrent(info, destdir)
-            return str(info.info_hash())
+            if ret:
+                return str(ret.info_hash())
+                
+    def get_magnet_uri(self, handle):
+        magnet = "magnet:?xt=urn:btih:%s" % handle.info_hash()
+        magnet += "&" + urllib.urlencode([("dn", handle.name())])
+        for tr in handle.trackers():
+            magnet += "&" + urllib.urlencode([("tr", tr.url)])
+        return magnet
             
     def del_torrent(self, hash):
         h = self._get(hash)
@@ -138,7 +185,7 @@ class BitTorrent:
         raise KeyError("Torrent hash '%s' not found" % hash)
         
     def __getitem__(self, hash):
-        return DictTorrent(self.log, self._get(hash))
+        return DictTorrent(self.log, self._get(hash), self)
     
     def keys(self):
         if self.is_active():
@@ -162,7 +209,8 @@ class BTDownloadObj(ObjectWrapper):
             'cancel':       {'lod': SIC.LOD_BASIC + 1,  'type': 'uint32'},
             'date_started': {'lod': SIC.LOD_BASIC + 1,  'type': 'uint32'},
             'size':         {'lod': SIC.LOD_BASIC + 1,  'type': 'uint32'},
-            'progress':     {'lod': SIC.LOD_BASIC + 1,  'type': 'string'}
+            'progress':     {'lod': SIC.LOD_BASIC + 1,  'type': 'string'},
+            'magnet-uri':   {'lod': SIC.LOD_MAX,        'type': 'string'}
         }
         
         self.prop_desc['size']['conv'] = lambda x: int(x / 1024)
@@ -195,7 +243,12 @@ class BTDownloadObj(ObjectWrapper):
         except KeyError:
             found_active = 0
         
-        for p in ('speed', 'seeds', 'status', 'cancel', 'progress'):
+        proplist = ['speed', 'seeds', 'status', 'cancel', 'seed', 'progress']
+        if len(self.props["files"]) == 0:
+            # Torrent metadata was not available last time, retry now
+            proplist.extend(['files', 'size', 'name'])
+            
+        for p in proplist:
             if found_active and p in self.provider.bt[self.oid].keys():
                 self.props[p] = self.provider.bt[self.oid][p]
             else:
@@ -213,7 +266,7 @@ class BTDownloadObj(ObjectWrapper):
             self.props[key] = value
             self.provider.save_object_property(self.oid, key, value)
         else:
-            raise KeyError("Cannot write to MusicTrackObj['%s']" % key)
+            raise KeyError("Cannot write to BTDownloadObj['%s']" % key)
             
             
 class BitTorrentObj(ObjectWrapper):
@@ -222,8 +275,9 @@ class BitTorrentObj(ObjectWrapper):
         self.types = ['bt-app']
         self.prop_desc = {
             'active': {'lod': SIC.LOD_BASIC, 'type': 'uint32'},
-            'speed': {'lod': SIC.LOD_BASIC + 1, 'type': 'uint32'},
-            'num': {'lod': SIC.LOD_BASIC + 1, 'type': 'uint32'}
+            'dl_speed': {'lod': SIC.LOD_BASIC + 1, 'type': 'uint32'},
+            'dl_files': {'lod': SIC.LOD_BASIC + 1, 'type': 'uint32'},
+            'ul_speed': {'lod': SIC.LOD_BASIC + 1, 'type': 'uint32'},
         }
         
         self.update()
@@ -231,14 +285,16 @@ class BitTorrentObj(ObjectWrapper):
     def update(self):
         bt = self.provider.bt
         self.props['active'] = int(bt.is_active() is not None)
-        self.props['num'] = len(bt.keys())
+        self.props['dl_files'] = len(bt.keys())
         if bt.is_active():
-            self.props['speed'] = int(bt.status().download_rate)
+            self.props['dl_speed'] = int(bt.status().download_rate)
+            self.props['ul_speed'] = int(bt.status().upload_rate)
         else:
-            self.props['speed'] = 0
+            self.props['dl_speed'] = 0
+            self.props['ul_speed'] = 0
         
     def set_value(self, key, value):
-        raise KeyError("Cannot write to MusicTrackObj['%s']" % key)
+        raise KeyError("Cannot write to BittorrentObj['%s']" % key)
         
             
 class BTObjectProvider(ObjectProvider):
@@ -250,6 +306,7 @@ class BTObjectProvider(ObjectProvider):
     def save_on_stop(self, bt):
         for hash in bt.keys():
             tdata = {
+                "magnet-uri": bt[hash]["magnet-uri"],
                 "name": bt[hash]["name"],
                 "size": bt[hash]["size"],
                 "seeds": 0,
@@ -283,7 +340,7 @@ class BTObjectProcessor(ObjectProcessor):
         names = []
         
         if obj.is_a("bt-app"):
-            names.append('bt-clear-finished')
+            names.extend(['bt-clear-finished', 'bt-download-magnet'])
             
         if obj.is_a("download") and obj.is_a("torrent"):
             status = obj["status"]
@@ -316,8 +373,8 @@ class BTObjectProcessor(ObjectProcessor):
         if name in noparam:
             return
         else:
-            # Call act.add_param
-            pass
+            if name == 'bt-download-magnet':
+                act.add_param('magnet-link', 'string')
             
     def execute(self, act):
         name = act.name
@@ -342,7 +399,9 @@ class BTObjectProcessor(ObjectProcessor):
                 if self.objs.load_object_property(h, 'status') == 6:
                     self.objs.cache.remove(h)
                     self.objs.remove_object(h)
-            
+        elif name == 'bt-download-magnet':
+            ddir = os.path.join(self.domserver.config['bt.run_dir'], '%s')
+            self.objs.bt.add_magnet(act['magnet-link'], None, ddir)
         return None
         
             
@@ -409,12 +468,17 @@ class BTWatcherThread(Thread):
             return
             
         os.mkdir(destdir)
-        self.verbose("Adding torrent '%s' as '%s'" % (name, rtorrent))
+        self.verbose("Adding torrent '%s'" % name)
         ret = self.bt.add_torrent(rtorrent, destdir)
-        obj = self.objs.get(hash)
-        obj["date_started"] =  time.time()
-        obj["hash"] = hash
-        self.debug("add_torrent returned %s" % repr(ret))
+        if ret:
+            self.debug("add_torrent returned %r" % ret)
+            obj = self.objs.get(ret)
+            obj["date_started"] =  time.time()
+            obj["hash"] = ret
+            os.unlink(rtorrent)
+        else:
+            self.debug("add_torrent failed")
+            
         
     def initialize(self):
         self.verbose("Starting BitTorrent watcher thread")
@@ -422,15 +486,24 @@ class BTWatcherThread(Thread):
         
         # Restart previously running torrents
         rundir = self.domserver.config["bt.run_dir"]
-        for r, d, files in os.walk(rundir):
-            for f in files:
-                if f.endswith(".torrent"):
-                    hash = f.split(".", 1)[0]
-                    destdir = os.path.join(rundir, hash)
-                    if os.path.isdir(destdir):
-                        self.verbose("Restarting torrent '%s'" % hash)
-                        self.bt.add_torrent(os.path.join(rundir, f), destdir)
-            d[0:len(d)] = []
+        for o in self.objs.list_objects():
+            op = self.objs.load_object(o)
+            if op['status'] == 0:
+                destdir = os.path.join(rundir, op['hash'])
+                self.verbose("Restarting torrent '%s' with magnet %s" % (op['hash'], op['magnet-uri']))
+                self.bt.add_magnet(op['magnet-uri'], destdir)
+        
+        # Restart previously running torrents
+        #rundir = self.domserver.config["bt.run_dir"]
+        #for r, d, files in os.walk(rundir):
+        #    for f in files:
+        #        if f.endswith(".torrent"):
+        #            hash = f.split(".", 1)[0]
+        #            destdir = os.path.join(rundir, hash)
+        #            if os.path.isdir(destdir):
+        #                self.verbose("Restarting torrent '%s'" % hash)
+        #                self.bt.add_torrent(os.path.join(rundir, f), destdir)
+        #    d[0:len(d)] = []
             
         # Add existing torrents in DROP directory
         dropdir = self.domserver.config["bt.drop_dir"]
@@ -479,12 +552,8 @@ class BTWatcherThread(Thread):
                 # Remove torrent
                 self.bt.del_torrent(hash)
                 
-                # Remove .torrent file
-                rundir = self.domserver.config['bt.run_dir']
-                tfile = os.path.join(rundir, "%s.torrent" % hash)
-                os.unlink(tfile)
-                
                 # Move to lobby
+                rundir = self.domserver.config['bt.run_dir']
                 dldir = os.path.join(rundir, hash)
                 lobby = self.domserver.config['media.lobby_dir']
                 for r, dirs, files in os.walk(dldir):
@@ -509,7 +578,6 @@ class BTWatcherThread(Thread):
                 while hash in self.bt.keys():
                     time.sleep(0.2)
                 rundir = self.domserver.config['bt.run_dir']
-                os.unlink(os.path.join(rundir, "%s.torrent" % hash))
                 shutil.rmtree(os.path.join(rundir, hash))
                 self.objs.remove_object(hash)
                 self.objs.cache.remove("bt:%s" % hash)
