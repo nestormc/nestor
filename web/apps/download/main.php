@@ -68,7 +68,7 @@ class DownloadUI extends AppElement
     {
         $dlsetup = array(
             "title" => "Downloads",
-            "apps" => array("bt"),
+            "apps" => array("bt", "amule"),
             "otype" => "download",
             "lod" => 2,
             "refresh" => 1000,
@@ -76,7 +76,7 @@ class DownloadUI extends AppElement
             "fields" => array(
                 "__app__" => array(
                     "title" => "App",
-                    "weight" => 0.5,
+                    "weight" => 1,
                     "style" => array(
                         "text-align" => "center"
                     )
