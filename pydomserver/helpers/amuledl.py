@@ -20,7 +20,7 @@ import time
 from amule import AmuleClient, ECConnectionError
 
 from ..errors import ObjectError
-from ..objects import ObjectProvider, ObjectProcessor
+from ..objects import ObjectProvider, ObjectProcessor, ObjectWrapper
 from ..runwatcherthread import RunWatcherThread
 from ..socketinterfacecodes import SIC
 
@@ -81,6 +81,9 @@ class DictDownload:
         else:
             raise KeyError("DictDownload has no item named '%s'" % key)
             
+    def keys(self):
+        return ['name', 'size', 'speed', 'status', 'seeds', 'progress', 'hash']
+            
             
 class DictResult:
 
@@ -113,6 +116,9 @@ class DictResult:
         else:
             raise KeyError("DictResult has no item named '%s'" % key)
             
+    def keys(self):
+        return ['name', 'size', 'seeds', 'downloading', 'hash']
+            
             
 class Amule:
 
@@ -125,6 +131,7 @@ class Amule:
         self.last_updated = 0
         self.downloads = {}
         self.results = {}
+        self.status = {}
         
     def register_object_provider(self, objs):
         self.objs = objs
@@ -161,9 +168,9 @@ class Amule:
     def _update(self):
         interval = int(self.domserver.config['amule.update_interval'])
         if self.last_updated + interval < time.time():
-            self.domserver.debug("dbg:: amule._update refetch")
             self.downloads = self.client.get_download_list()
             self.results = self.client.get_search_results()
+            self.status = self.client.get_server_status()
             self.last_updated = time.time()
             
     def keys(self):
@@ -174,6 +181,133 @@ class Amule:
             return d + r
         else:
             return []
+            
+            
+class AmuleDownloadObj(ObjectWrapper):
+
+    def describe(self):
+        self.types = ['download', 'amule-partfile']
+        self.prop_desc = {
+            'name':         {'lod': SIC.LOD_BASIC,      'type': 'string'},
+            'hash':         {'lod': SIC.LOD_BASIC + 1,  'type': 'string'},
+            'speed':        {'lod': SIC.LOD_BASIC + 1,  'type': 'uint32'},
+            'seeds':        {'lod': SIC.LOD_BASIC + 1,  'type': 'uint32'},
+            'status':       {'lod': SIC.LOD_BASIC + 1,  'type': 'uint32'},
+            'size':         {'lod': SIC.LOD_BASIC + 1,  'type': 'uint32'},
+            'progress':     {'lod': SIC.LOD_BASIC + 1,  'type': 'string'},
+            'date_started': {'lod': SIC.LOD_BASIC + 1,  'type': 'uint32'}
+        }
+        
+        self.prop_desc['size']['conv'] = lambda x: int(x / 1024)
+        self.prop_desc['progress']['conv'] = lambda x: "%.2f%%" % x
+        
+        am = self.provider.am
+        try:
+            am[self.oid]
+            found_active = 1
+        except KeyError:
+            found_active = 0
+        
+        for p in self.prop_desc:
+            if found_active and p in am[self.oid].keys():
+                self.props[p] = am[self.oid][p]
+            else:
+                try:
+                    val = self.provider.load_object_property(self.oid, p)
+                except KeyError:
+                    if p in ('date_started'):
+                        val = 0
+                    else:
+                        val = ''
+                self.props[p] = val
+    
+    def update(self):
+        am = self.provider.am
+        try:
+            am[self.oid]
+            found_active = 1
+        except KeyError:
+            found_active = 0
+        
+        for p in ('speed', 'seeds', 'status', 'progress'):
+            if found_active and p in am[self.oid].keys():
+                self.props[p] = am[self.oid][p]
+            else:
+                try:
+                    val = self.provider.load_object_property(self.oid, p)
+                except KeyError:
+                    if p in ('date_started'):
+                        val = 0
+                    else:
+                        val = ''
+                self.props[p] = val
+                
+    def set_value(self, key, value):
+        raise KeyError("Cannot write to AmuleDownloadObj['%s']" % key)
+        
+        
+class AmuleResultObj(ObjectWrapper):
+
+    def describe(self):
+        self.types = ['result', 'amule-result']
+        self.prop_desc = {
+            'name': {'lod': SIC.LOD_BASIC, 'type': 'string'},
+            'hash': {'lod': SIC.LOD_BASIC, 'type': 'string'},
+            'size': {'lod': SIC.LOD_BASIC + 1, 'type': 'uint32'},
+            'seeds': {'lod': SIC.LOD_BASIC + 1, 'type': 'uint32'},
+            'downloading': {'lod': SIC.LOD_BASIC + 1, 'type': 'uint32'}
+        }
+        
+        self.prop_desc['size']['conv'] = lambda x: int(x / 1024)
+        self.prop_desc['downloading']['conv'] = lambda x: {0:0}.get(x, 1)
+    
+        for p in self.prop_desc:
+            self.props[p] = self.provider.am[self.oid][p]
+    
+    def update(self):
+        for p in ('size', 'seeds', 'downloading'):
+            self.props[p] = self.provider.am[self.oid][p]
+    
+    def set_value(self, key, value):
+        raise KeyError("Cannot write to AmuleResultObj['%s']" % key)
+            
+            
+class AmuleObj(ObjectWrapper):
+
+    def describe(self):
+        self.types = ['amule-app']
+        self.prop_desc = {
+            'active': {'lod': SIC.LOD_BASIC, 'type': 'uint32'},
+            'dl_speed': {'lod': SIC.LOD_BASIC + 1, 'type': 'uint32'},
+            'dl_files': {'lod': SIC.LOD_BASIC + 1, 'type': 'uint32'},
+            'ul_speed': {'lod': SIC.LOD_BASIC + 1, 'type': 'uint32'},
+            'ed2k_users': {'lod': SIC.LOD_MAX, 'type': 'uint32'},
+            'ed2k_files': {'lod': SIC.LOD_MAX, 'type': 'uint32'},
+            'kad_users': {'lod': SIC.LOD_MAX, 'type': 'uint32'},
+            'kad_files': {'lod': SIC.LOD_MAX, 'type': 'uint32'}
+        }
+        self.update()
+    
+    def update(self):
+        am = self.provider.am
+        
+        for p in self.prop_desc:
+            if am.connected:
+                if p == 'active':
+                    self.props[p] = 1
+                elif p == 'dl_files':
+                    self.props[p] = len(am.downloads.keys())
+                else:
+                    try:
+                        self.props[p] = int(am.status[p])
+                    except KeyError:
+                        self.domserver.debug("Warning: missing amule status key '%s'" % p)
+                        self.props[p] = 0
+            else:
+                self.props[p] = 0
+        
+    def set_value(self, key, value):
+        raise KeyError("Cannot write to AmuleObj['%s']" % key)
         
         
 class AmuleObjectProvider(ObjectProvider):
@@ -206,91 +340,15 @@ class AmuleObjectProvider(ObjectProvider):
         oids.extend([h for h in self.list_objects() if h not in oids])
         return oids
         
-    def valid_oid(self, hash):
-        return hash in self.get_oids()
-            
-    def get_types(self, oid):
+    def get_object(self, oid):
         if oid == '':
-            return ['amule-app']
-    
-        try:
-            kind, hash = oid.split('/', 1)
-        except ValueError:
-            raise ObjectError('invalid-oid:%s' % oid)
-
-        if kind == 'download':
-            return ['download', 'amule-partfile']
-        elif kind == 'result':
-            return ['result', 'amule-result']
-            
-    def get_value(self, oid, prop):
-        if oid == '':
-            if prop == 'active':
-                return int(self.am.connected)
-            else:
-                raise KeyError("No property '%s' for '%s'" % (prop, oid))
-            
-        obj_exists = False
-        if oid in self.am.keys():
-            obj_exists = True
-            try:
-                return self.am[oid][prop]
-            except KeyError:
-                pass
-        
-        try:
-            return self.load_object_property(oid, prop)
-        except ObjectError:
-            if obj_exists:
-                raise KeyError("No property '%s' for '%s'" % (prop, oid))
-            else:
-                raise
-            
-    def set_value(self, oid, prop, val):
-        if prop not in ('date_started', 'hash') or not oid.startswith('download/'):
-            raise KeyError("Invalid or readonly property '%s'" % prop)
-        self.save_object_property(oid, prop, val)
-        
-    def describe_props(self, oid, lod):
-        if oid == '':
-            desc = {}
-            if lod >= SIC.LOD_BASIC:
-                desc['active'] = {'type': 'uint32'}
-            return desc
-            
-        kind, hash = oid.split('/', 1)
-        
-        props = []
-        if kind == 'download':
-            if lod >= SIC.LOD_BASIC:
-                props.extend(['name'])
-            if lod == SIC.LOD_MAX:
-                props.extend(['hash', 'size', 'speed', 'seeds', 'status',
-                    'progress'])
-                
-        if kind == 'result':
-            if lod >= SIC.LOD_BASIC:
-                props.extend(['name'])
-            if lod == SIC.LOD_MAX:
-                props.extend(['hash', 'size', 'seeds'])
-        
-        desc = {}
-        for k in props:
-            if k in ('name', 'hash'):
-                desc[k] = {'type':'string'}
-            elif k == 'size':
-                desc[k] = {
-                    'type':'uint32',
-                    'conv':(lambda x: int(x / 1024))
-                }
-            elif k in ('speed', 'seeds', 'status'):
-                desc[k] = {'type':'uint32'}
-            elif k == 'progress':
-                desc[k] = {
-                    'type':'string',
-                    'conv':(lambda x: "%.2f%%" % x)
-                }            
-        return desc
+            return AmuleObj(self.domserver, self, '')
+        else:
+            kind, desc = oid.split('/', 1)
+            if kind == 'download':
+                return AmuleDownloadObj(self.domserver, self, oid)
+            elif kind == 'result':
+                return AmuleResultObj(self.domserver, self, oid)
         
         
 class AmuleObjectProcessor(ObjectProcessor):
@@ -299,7 +357,7 @@ class AmuleObjectProcessor(ObjectProcessor):
         ObjectProcessor.__init__(self, domserver, name)
         self.objs = objs
         
-    def get_action_names(self, obj=None):
+    def get_actions(self, obj=None):
         names = []
         
         if obj.is_a("amule-partfile"):
@@ -321,41 +379,47 @@ class AmuleObjectProcessor(ObjectProcessor):
             
         return names
         
-    def describe_action(self, act):
+    def describe(self, act):
         name = act.name
         obj = act.obj
         
         if name == 'amule-search':
-            act.add_param('query', SIC.APFLAG_TYPE_STRING)
-            act.add_param('search-type', SIC.APFLAG_TYPE_NUMBER)
-            act.add_param('file-type', SIC.APFLAG_TYPE_STRING)
-            act.add_param('min-size', SIC.APFLAG_TYPE_NUMBER | SIC.APFLAG_OPTION_OPTIONAL)
-            act.add_param('max-size', SIC.APFLAG_TYPE_NUMBER | SIC.APFLAG_OPTION_OPTIONAL)
-            act.add_param('avail', SIC.APFLAG_TYPE_NUMBER | SIC.APFLAG_OPTION_OPTIONAL)
-            act.add_param('file-ext', SIC.APFLAG_TYPE_STRING | SIC.APFLAG_OPTION_OPTIONAL)
+            act.add_param('query', 'string')
+            act.add_param('search-type', 'uint32')
+            act.add_param('file-type', 'string')
+            act.add_param('min-size', 'uint32', True)
+            act.add_param('max-size', 'uint32', True)
+            act.add_param('avail', 'uint32', True)
+            act.add_param('file-ext', 'string', True)
         if name == 'amule-download-ed2k':
-            act.add_param('ed2k-link', SIC.APFLAG_TYPE_STRING)
+            act.add_param('ed2k-link', 'string')
         
-    def execute_action(self, act):
+    def execute(self, act):
         name = act.name
         obj = act.obj
         
         if name.startswith("partfile-"):
-            pf = self.objs.am["download/%s" % obj['hash']]
+            pf = self.objs.am[obj.oid]
             if name == 'partfile-cancel':
                 pf.cancel()
-                self.objs.remove_object("download/%s" % obj['hash'])
+                self.objs.remove_object(obj.oid)
+                self.objs.cache.invalidate(obj)
             elif name == 'partfile-pause':
                 pf.pause()
             elif name == 'partfile-resume':
                 pf.resume()
             elif name == 'partfile-clear':
-                self.objs.remove_object("download/%s" % obj['hash'])
+                self.objs.remove_object(obj.oid)
+                self.objs.cache.invalidate(obj)
         elif name == 'result-download':
-            rs = self.objs.am["result/%s" % obj['hash']]
+            rs = self.objs.am[obj.oid]
             rs.download()
         elif name == 'amule-search':
-            ac = self.objs.am.client
+            ors = ["amule:result/%s" % h for h in self.objs.am.results.keys()]
+            for objref in ors:
+                self.objs.cache.remove(objref)
+                
+            ac = self.objs.am.client            
             ac.search_start(act['query'], act['search-type'], act['min-size'],
                 act['max-size'], act['file-type'], act['avail'],
                 act['file-ext'])
@@ -371,7 +435,7 @@ class AmuleRunWatcherThread(RunWatcherThread):
         self.am = am
         
     def on_start(self):
-        delay = self.domserver.config['amule.ec_delay']
+        delay = int(self.domserver.config['amule.ec_delay'])
         self.verbose("RunWatcher: waiting %d seconds before connecting..." % delay)
         time.sleep(delay)
         self.am.connect()
