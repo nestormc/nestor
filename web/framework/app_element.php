@@ -60,7 +60,9 @@ class ImageElement extends AppElement
         return "<img id=\"$id\" src=\"{$this->src}\"$classes>\n";
     }
     
-    function render() {}
+    function render() {
+        $this->set_dom("src", $this->src);
+    }
     
     function set_src($src)
     {
