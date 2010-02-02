@@ -99,61 +99,18 @@ class MediaImporterThread(Thread):
             rec = True
         )
         
-    def guess_tracknum(self, path):
-        if 'file_start' not in self.cache:
-            self.cache['file_start'] = {}
-    
-        basename = os.path.basename(path)
-        dirname = os.path.dirname(path)
-        try:
-            ext = '.' + basename.rsplit('.', 1)[1]
-        except IndexError:
-            ext = ''
-    
-        start = None        
-        # FIXME remove cache when finished with the folder
-        if dirname in self.cache['file_start']:
-            if ext in self.cache['file_start'][dirname]:
-                start = self.cache['file_start'][dirname][ext]
-    
-        if start is None:
-            for r, dirs, files in os.walk(dirname):
-                fnames = [f for f in files if f.endswith(ext)]
-                dirs[0:len(dirs)] = []
-            
-            # Find common filename start
-            start = basename + ' '
-            starting = False
-            while not starting and len(start) > 0:
-                start = start[0:len(start) - 1]
-                starting = True
-                for f in fnames:
-                    if not f.startswith(start):
-                        starting = False
-                        break
-                        
-            start = start.rstrip('0')
-            self.cache['file_start'][dirname] = {ext: start}
-                    
-        basename = basename[len(start):len(basename)]
-        match = re.search("^(\d+)", basename)
-        if match:
-            return int(match.group(1))
-        else:
-            return -1
-        
     def guess_metadata(self, path):
         md = Metadata(path)
         if md['media'] == Metadata.MEDIA_MUSIC:
-            if not md['artist']:
-                artist = '_unknown_'
-            else:
+            if md['artist']:
                 artist = self.helper.music.match_artist(md['artist'])
+            else:
+                artist = None
         
             try:
                 year = int(md['year'])
             except (ValueError, TypeError):
-                year = -1
+                year = None
                 
             tracknum = None
             if md['trackno']:
@@ -165,25 +122,19 @@ class MediaImporterThread(Thread):
                     except (ValueError, TypeError):
                         pass
                         
-            if not tracknum:
-                tracknum = self.guess_tracknum(path)
-                    
             unknown_titles = ['unknown', 'unknown track', 'piste inconnue']
-            if not md['title'] or md['title'].lower() in unknown_titles:
-                title = os.path.basename(path).rsplit('.', 1)[0]
-                striptitle = re.sub("^\d+[ _-]+", "", title)
-                if striptitle != '':
-                    title = striptitle
+            if md['title'].lower() in unknown_titles:
+                title = None
             else:
                 title = md['title']
                     
             return Metadata.MEDIA_MUSIC, {
                 'artist':   artist,
                 'year':     year,
-                'album':    md['album'] or '_unknown_',
+                'album':    md['album'] or None,
                 'num':      tracknum,
                 'title':    title,
-                'genre':    md['genre'] or '',
+                'genre':    md['genre'] or None,
                 'len':      md['length'],
                 'fmt':      md['ext']
             }
@@ -191,86 +142,154 @@ class MediaImporterThread(Thread):
             self.verbose("Unsupported media '%s' in '%s'" % (md['media'], path))
             if md['media'] == Metadata.MEDIA_UNKNOWN:
                 self.debug("Metadata err = %s in '%s'" % (md.err_msg, path))
+            return None, None
+    
+        
+    def coalesce_metadata(self, mtype, files):
+        """Coalesce metadata for files in a single directory"""
+        
+        if mtype == Metadata.MEDIA_MUSIC:
+            def_values = {
+                'artist': '_unknown_',
+                'album': os.path.basename(os.path.dirname(files.keys()[0])),
+                'year': -1,
+                'genre': ''
+            }
+        
+            # Try to find missing tags in other files from the same directory,
+            # or assign fallback values
+            for k in ('artist', 'year', 'album', 'genre'):
+                values = [files[f][k] for f in files if files[f][k] is not None]
+                values = list(set(values))
             
-        return None, None
+                self.debug("Values found for %s: %r" % (k, values))
+            
+                if len(values) == 0:
+                    values = [def_values[k]]
+                if len(values) == 1:
+                    for f in files:
+                        files[f][k] = values[0]
+                else:
+                    for f in files:
+                        if not files[f][k]:
+                            files[f][k] = values[0]
+                            
+            # Try to compute track number and track title from filenames, and
+            # assign the results to files that don't have those tags
+            ftags = self.find_filename_tags(files.keys())
+            for f in files:
+                bname = os.path.basename(f).rsplit('.', 1)[0]
+                for k in ('num', 'title'):
+                    if not files[f][k]:
+                        self.debug("set %s to %s for %s" % (k, ftags[bname][k], f))
+                        files[f][k] = ftags[bname][k]
+        
+    def find_filename_tags(self, fnames):
+        # Get basenames without extension
+        basenames = [os.path.basename(f).rsplit('.', 1)[0] for f in fnames]
+        
+        # Find common filename start
+        start = basenames[0] + ' '
+        starting = False
+        while not starting and len(start) > 0:
+            start = start[0:len(start) - 1]
+            starting = True
+            for f in basenames:
+                if not f.startswith(start):
+                    starting = False
+                    break
+                    
+        # Remove 0's from  start (useful for albums with <10 tracks)
+        start = start.rstrip('0')
+        
+        # Try to find track number and track title
+        results = {}
+        for f in basenames:
+            fdiff = f[len(start):len(f)]
+            match = re.search("^(\d*)[ _-]*(.*)$", fdiff)
+            try:
+                trknum = int(match.group(1))
+            except ValueError:
+                trknum = -1
+            results[f] = {'num': trknum, 'title': match.group(2)}
+        return results
+            
+    def import_music_file(self, path, metadata):
+        try:
+            track_id, path = self.helper.music.import_track(path, metadata, self.delete)
+        except MediaImportError, e:
+            self.verbose("Error while importing '%s': %s" % (path, e))
+            track_id = None
+            
+        if track_id:
+            mdir = self.domserver.config["media.music_dir"]
+            off = 0 if mdir.endswith('/') else 1
+            rpath = path[len(mdir)+off:]
+            
+            self.debug("Updating MPD (%s)" % rpath)
+            self.helper.mpd.update(rpath)
+        
+    def import_directory(self, path):
+        self.debug("Importing directory %s" % path)
+        dfiles = []
+        for r, dirs, files in os.walk(path):
+            for d in dirs:
+                self.import_directory(os.path.join(r, d))
+            dfiles.extend(files)
+            dirs[0:len(dirs)] = []
+        
+        dfiles.sort()
+        if len(dfiles):
+            self.verbose("%s: %d files" % (path, len(dfiles)))
+            metas = {}
+            
+            count = 0
+            for f in dfiles:
+                fpath = os.path.join(path, f)
+                mtype, meta = self.guess_metadata(fpath)
+                if meta:
+                    if mtype not in metas:
+                        metas[mtype] = {}
+                    metas[mtype][fpath] = meta
+                    count += 1
+                    
+            self.verbose("%s: %d files to import" % (path, count))
+                    
+            for mtype in metas:
+                files = metas[mtype]
+                self.coalesce_metadata(mtype, files)
+                
+                if mtype == Metadata.MEDIA_MUSIC:
+                    for f in files:
+                        self.import_music_file(f, files[f])
+                        
+        if self.delete:
+            try:
+                os.rmdir(path)
+            except:
+                pass
                 
     def import_file(self, path):
+        self.debug("Importing file %s" % path)
         mtype, meta = self.guess_metadata(path)
         
         if mtype == Metadata.MEDIA_MUSIC:
-            try:
-                track_id, path = self.helper.music.import_track(path, meta, self.delete)
-            except MediaImportError, e:
-                self.verbose("Import error: %s" % e)
-                track_id = None
-                
-            if track_id:
-                mdir = self.domserver.config["media.music_dir"]
-                off = 0 if mdir.endswith('/') else 1
-                rpath = path[len(mdir)+off:]
-                
-                self.debug("Updating MPD (%s)" % rpath)
-                self.helper.mpd.update(rpath)
-                return True
-                
-        return False
-    
-    def import_media(self, path):
-        if os.path.isdir(path):
-            fpaths = []
-            roots = []
+            if not meta[title]:
+                meta[title] = os.path.basename(path).rsplit('.', 1)[0]
+            self.import_music_file(path, meta)
             
-            for r, dirs, files in os.walk(path, False):
-                roots.append(r)
-                for f in files:
-                    fpaths.append(os.path.join(r, f))
-                    
-            # self.debug("filelist: \n%s" % "\n".join(sorted(fpaths)))
-                    
-            failed = 0
-            for f in sorted(fpaths):
-                try:
-                    ret = self.import_file(f)
-                except:
-                    self.info("Exception importing %s" % f)
-                    raise
-                
-                if not ret:
-                    failed += 1
-                    
-            if self.delete:
-                # Like os.removedirs, but stops at dirname(path)
-                for r in roots:
-                    while r != path:
-                        try:
-                            os.rmdir(r)
-                        except:
-                            break
-                        r = os.path.dirname(r)
-                    try:
-                        os.rmdir(r)
-                    except:
-                        pass
-                
-            return len(fpaths), len(fpaths) - failed
-        else:
-            try:
-                ret = self.import_file(path)
-            except:
-                self.info("Exception importing %s" % path)
-                raise
-                
-            return 1, 1 if ret else 0
                 
     def process(self):
         self.verbose("Processing %s" % self.path)
         try:
-            count, success = self.import_media(self.path)
+            if os.path.isdir(self.path):
+                self.import_directory(self.path)
+            else:
+                self.import_file(self.path)
         except Exception, e:
             self.log_exception(e)
         else:
-            self.verbose("Finished processing %s, %d/%d files imported" %
-                (self.path, success, count))
+            self.verbose("Finished processing %s" % self.path)
         
         
 class LobbyEventCatcher(ProcessEvent):

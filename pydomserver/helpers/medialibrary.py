@@ -21,7 +21,7 @@ from ..errors import ObjectError
 from ..objects import ObjectProvider, ObjectProcessor, ObjectWrapper
 from ..socketinterfacecodes import SIC
 from .media.importer import LobbyWatcherThread
-from .media.music import MusicLibrary, MusicTypes
+from .media.music import MusicLibrary, MusicTypes, MediaUpdateError
 
 
 class MPDPlayerObj(ObjectWrapper):
@@ -41,7 +41,7 @@ class MPDPlayerObj(ObjectWrapper):
         self.update()
         
     def update(self):
-        status = self.provider.mpd.status()
+        status = self.provider.mpd_status
         self.props = {
             'state': status.get('state', ''),
             'time': int(status.get('time', '0:0').split(':', 1)[0]),
@@ -142,27 +142,28 @@ class MusicTrackObj(ObjectWrapper):
         }
         
         music = self.provider.music
-        mpd = self.provider.mpd
+        playlist = self.provider.mpd_playlist
         
         if kind == 'music-track':
             meta = music.get_track_metadata(id)
-            path = music.meta_to_filename(meta, MusicTypes.TRACK)
+            rpath = music.meta_to_filename(meta, MusicTypes.TRACK, True)
             track_id = id
             
-            plist = [os.path.join(self.domserver.config['media.music_dir'],
-                rel.decode('utf-8')) for rel in mpd.playlist()]
             try:
-                mpd_pos = plist.index(path)
+                mpd_pos = playlist.index(rpath)
                 self.types.append('mpd-item')
             except ValueError:
                 mpd_pos = -1
                 
         elif kind == 'mpd-item':
             self.types.append('mpd-item')
-            rel = mpd.playlist()[id].decode('utf-8')
-            meta, mtype = music.filename_to_meta(rel)
-            path = os.path.join(self.domserver.config['media.music_dir'], rel)
+            rpath = playlist[id].decode('utf-8')
+            meta, mtype = music.filename_to_meta(rpath)
             mpd_pos = id
+            if not meta:
+                self.provider.log.debug("Could not find metadata for %s (path=%s)" % (self.oid, rpath))
+                raise ObjectError("invalid-object:%s" % self.oid)
+            
             track_id = music.get_track_id(meta['artist'], meta['album'],
                 meta['title'])
             
@@ -179,7 +180,7 @@ class MusicTrackObj(ObjectWrapper):
             'genre': meta['genre'],
             'keywords': "%s %s %s " % (meta['artist'], meta['album'], 
                 meta['title']),
-            'path': path,
+            'path': os.path.join(self.domserver.config['media.music_dir'], rpath),
             
             # Not transmitted - just there to avoid re-fetching metadata
             'meta': meta
@@ -189,15 +190,13 @@ class MusicTrackObj(ObjectWrapper):
         kind, id = self.oid.split('|', 1)
         id = int(id)
         music = self.provider.music
-        mpd = self.provider.mpd
-        
+        playlist = self.provider.mpd_playlist
+                
         # Only update mpd-position (cleared from cache on metadata change)
         if kind == 'music-track':
-            path = music.meta_to_filename(self.props['meta'], MusicTypes.TRACK)
-            plist = [os.path.join(self.domserver.config['media.music_dir'],
-                rel.decode('utf-8')) for rel in mpd.playlist()]
+            rpath = music.meta_to_filename(self.props['meta'], MusicTypes.TRACK, True)
             try:
-                mpd_pos = plist.index(path)
+                mpd_pos = playlist.index(rpath)
                 self.types.append('mpd-item')
             except ValueError:
                 mpd_pos = -1
@@ -228,6 +227,13 @@ class MLObjectProvider(ObjectProvider):
         self.music = helper['music']
         self.mpd = helper['mpd']
         
+    def on_query_start(self):
+        self.mpd_playlist = self.mpd.playlist()
+        self.mpd_status = self.mpd.status()
+    
+    def on_query_end(self):
+        pass
+        
     def get_object(self, oid):
         if oid == 'mpd':
             return MPDPlayerObj(self.domserver, self, 'mpd')
@@ -240,7 +246,7 @@ class MLObjectProvider(ObjectProvider):
             return MusicTrackObj(self.domserver, self, oid)
         
     def get_oids(self):
-        mpd_oids = ['mpd-item|%d' % i for i in range(len(self.mpd.playlist()))]
+        mpd_oids = ['mpd-item|%d' % i for i in range(len(self.mpd_playlist))]
         return ['mpd'] + mpd_oids
         
     def match_oids(self, expr, types):
@@ -295,7 +301,7 @@ class MLObjectProcessor(ObjectProcessor):
         if obj.is_a('mpd-item'):
             names.extend(['mpd-item-remove', 'mpd-item-move', 'mpd-item-play'])
         if obj.is_a('mpd-player'):
-            status = self.mpd.status()
+            status = self.objs.mpd_status
             names.extend(['mpd-player-random', 'mpd-player-repeat',
                 'mpd-player-clear', 'mpd-player-volume'])
             if status['state'] in ('stop', 'pause'):
@@ -335,7 +341,7 @@ class MLObjectProcessor(ObjectProcessor):
         # MPD Playlist controls
         elif name == 'mpd-enqueue':
             act.add_param('position', 'uint32', False,
-                len(self.objs.mpd.playlist()))
+                len(self.objs.mpd_playlist))
         elif name == 'mpd-item-move':
             act.add_param('position', 'uint32', False, obj['mpd-position'])
     
@@ -344,27 +350,51 @@ class MLObjectProcessor(ObjectProcessor):
         obj = act.obj
         
         # Metadata edition
-        if name == 'edit-artist':
-            meta = self.music.get_artist_metadata(obj['artist_id'])
-            meta['artist'] = act['artist']
-            self.music.update_artist(meta, obj['artist_id'])
-        elif name == 'edit-album':
-            meta = self.music.get_album_metadata(obj['artist_id'])
-            meta['artist'] = act['artist']
-            meta['album'] = act['album']
-            meta['year'] = act['year']
-            meta['genre'] = act['genre']
-            self.music.update_album(meta, obj['artitst_id'])
-        elif name == 'edit-track':
-            metaa = self.music.get_track_metadata(obj['track_id'])
-            meta['artist'] = act['artist']
-            meta['album'] = act['album']
-            meta['num'] = act['num']
-            meta['title'] = act['title']
-            self.music.update_track(meta, obj['track_id'])
+        try:
+            if name == 'edit-artist':
+                self.objs.cache.invalidate(obj)
+                for album_id in self.music.get_artist_albumids(obj['artist_id']):
+                    o = self.objs.get("media:music-album|%d" % album_id)
+                    if o:
+                        self.objs.cache.invalidate(o)
+                        for track_id in self.music.get_album_trackids(o['album_id']):
+                            o = self.objs.get("media:music-track|%d" % track_id)
+                            if o: self.objs.cache.invalidate(o)
+                        
+                meta = self.music.get_artist_metadata(obj['artist_id'])
+                meta['artist'] = act['name']
+                self.music.update_artist(meta, obj['artist_id'])
+                return
+
+            elif name == 'edit-album':
+                self.objs.cache.invalidate(obj)
+                for track_id in self.music.get_album_trackids(obj['album_id']):
+                    o = self.objs.get("media:music-track|%d" % track_id)
+                    if o: self.objs.cache.invalidate(o)
+                    
+                meta = self.music.get_album_metadata(obj['album_id'])
+                meta['artist'] = act['artist']
+                meta['album'] = act['title']
+                meta['year'] = act['year']
+                meta['genre'] = act['genre']
+                self.music.update_album(meta, obj['album_id'])
+                return
+            
+            elif name == 'edit-track':
+                self.objs.cache.invalidate(obj)
+                meta = self.music.get_track_metadata(obj['track_id'])
+                meta['artist'] = act['artist']
+                meta['album'] = act['album']
+                meta['num'] = act['num']
+                meta['title'] = act['title']
+                self.music.update_track(meta, obj['track_id'])
+                return
+            
+        except MediaUpdateError, e:
+            raise ObjectError("update-error:%s" % e)
             
         # MPD Player controls
-        elif name == 'mpd-player-play':
+        if name == 'mpd-player-play':
             self.mpd.play()
         elif name == 'mpd-player-pause':
             self.mpd.pause()
@@ -375,17 +405,17 @@ class MLObjectProcessor(ObjectProcessor):
         elif name == 'mpd-player-stop':
             self.mpd.stop()
         elif name == 'mpd-player-seek':
-            self.mpd.seek(self.mpd.status()['song'], act['position'])
+            self.mpd.seek(self.objs.mpd_status['song'], act['position'])
         elif name == 'mpd-player-random':
-            self.mpd.random(1 - int(self.mpd.status()['random']))
+            self.mpd.random(1 - int(self.objs.mpd_status['random']))
         elif name == 'mpd-player-repeat':
-            self.mpd.repeat(1 - int(self.mpd.status()['repeat']))
+            self.mpd.repeat(1 - int(self.objs.mpd_status['repeat']))
         elif name == 'mpd-player-volume':
             self.mpd.setvol(act['volume'])
             
         # MPD Playlist controls
         elif name == 'mpd-player-clear':
-            for idx in range(len(self.mpd.playlist())):
+            for idx in range(len(self.objs.mpd_playlist)):
                 self.objs.cache.remove("media:mpd-item|%d" % idx)
             self.mpd.clear()
         elif name in ('mpd-play', 'mpd-enqueue'):
@@ -397,7 +427,7 @@ class MLObjectProcessor(ObjectProcessor):
             else:
                 return
                 
-            oldlen = len(self.mpd.playlist())
+            oldlen = len(self.objs.mpd_playlist)
             if name == 'mpd-play':
                 self.mpd.clear()
                 
@@ -410,14 +440,14 @@ class MLObjectProcessor(ObjectProcessor):
             elif name == 'mpd-enqueue':
                 dst = act['position']
                 if dst < oldlen:
-                    for offset in range(len(self.mpd.playlist()) - oldlen):
+                    for offset in range(len(self.objs.mpd_playlist) - oldlen):
                         self.mpd.move(oldlen + offset, dst + offset)
-                for idx in range(dst, len(self.mpd.playlist())):
+                for idx in range(dst, len(self.objs.mpd_playlist)):
                     self.objs.cache.remove("media:mpd-item|%d" % idx)
                 
         elif name == 'mpd-item-remove':
             src = obj['mpd-position']
-            for idx in range(src, len(self.mpd.playlist())):
+            for idx in range(src, len(self.objs.mpd_playlist)):
                 self.objs.cache.remove("media:mpd-item|%d" % idx)
             self.mpd.delete(src)
         elif name == 'mpd-item-move':
@@ -480,7 +510,13 @@ class MPDWrapper:
         
     def _command(self, cmd, *args):
         self._connect()
-        ret = eval("self.client.%s(*args)" % cmd)
+        args_str = []
+        for a in args:
+            if isinstance(a, unicode):
+                args_str.append(a.encode('utf-8'))
+            else:
+                args_str.append(a)
+        ret = eval("self.client.%s(*args_str)" % cmd)
         return ret
         
     def __getattr__(self, attr):

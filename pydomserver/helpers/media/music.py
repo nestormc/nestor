@@ -17,6 +17,7 @@ import os
 import os.path
 import re
 import shutil
+import time
 import urllib
 import urllib2
 
@@ -57,9 +58,18 @@ class MusicLibrary:
     def __init__(self, domserver, logger=None):
         self.domserver = domserver
         self.log = logger if logger else domserver
-            
-    def __del__(self):
-        self.close_mdb()
+        self.cleanup_database()
+        
+    def fetch_missing_covers(self):
+        db = self.domserver.get_media_db()
+        aids = [r[0] for r in db.execute("SELECT id FROM music_albums").fetchall()]
+        db.close()
+        
+        self.log.debug("Refetching album covers...")
+        for aid in aids:
+            if not self.has_album_cover(aid):
+                self.search_album_cover(aid)
+        self.log.debug("Finished fetching album covers")
         
     def cleanup_database(self):
         """Cleanup obsolete data in database (eg. albums w/o tracks or artists
@@ -68,10 +78,10 @@ class MusicLibrary:
         db = self.domserver.get_media_db()
         
         script = """
-            DELETE FROM music_albums al WHERE NOT EXISTS
-                (SELECT * FROM music_tracks tr WHERE tr.album_id = al.id);
-            DELETE FROM music_artists ar WHERE NOT EXISTS
-                (SELECT * FROM music_albums al WHERE al.artist_id = ar.id);
+            DELETE FROM music_albums WHERE NOT EXISTS (SELECT *
+                FROM music_tracks tr WHERE tr.album_id = music_albums.id);
+            DELETE FROM music_artists WHERE NOT EXISTS (SELECT *
+                FROM music_albums al WHERE al.artist_id = music_artists.id);
         """
             
         db.executescript(script)
@@ -128,30 +138,46 @@ class MusicLibrary:
             'cover.jpg'
         )
         
-    def meta_to_filename(self, meta, typ=MusicTypes.TRACK):
+    def meta_to_filename(self, meta, typ=MusicTypes.TRACK, relative=False):
         if typ == MusicTypes.ARTIST:
-            return os.path.join(
-                self.domserver.config['media.music_dir'],
-                self.fnchars(meta['artist'])
-            )
+            if relative:
+                return self.fnchars(meta['artist'])
+            else:
+                return os.path.join(
+                    self.domserver.config['media.music_dir'],
+                    self.fnchars(meta['artist'])
+                )
         elif typ == MusicTypes.ALBUM:
-            return os.path.join(
-                self.domserver.config['media.music_dir'],
-                self.fnchars(meta['artist']),
-                self.fnchars(meta['album'])
-            )
+            if relative:
+                return os.path.join(
+                    self.fnchars(meta['artist']),
+                    self.fnchars(meta['album'])
+                )
+            else:
+                return os.path.join(
+                    self.domserver.config['media.music_dir'],
+                    self.fnchars(meta['artist']),
+                    self.fnchars(meta['album'])
+                )
         elif typ == MusicTypes.TRACK:
             if meta['num'] != -1:
                 fname = "%02d - %s" % (meta['num'],self.fnchars(meta['title']))
             else:
                 fname = self.fnchars(meta['title'])
         
-            return os.path.join(
-                self.domserver.config['media.music_dir'],
-                self.fnchars(meta['artist']),
-                self.fnchars(meta['album']),
-                "%s.%s" % (fname, meta['fmt'])
-            )
+            if relative:
+                return os.path.join(
+                    self.fnchars(meta['artist']),
+                    self.fnchars(meta['album']),
+                    "%s.%s" % (fname, meta['fmt'])
+                )
+            else:
+                return os.path.join(
+                    self.domserver.config['media.music_dir'],
+                    self.fnchars(meta['artist']),
+                    self.fnchars(meta['album']),
+                    "%s.%s" % (fname, meta['fmt'])
+                )
             
     def filename_to_meta(self, path):
         spath = path.split('/')
@@ -371,6 +397,8 @@ class MusicLibrary:
                 fimg.write(img.read())
                 fimg.close()
                 img.close()
+                # Avoid too frequent queries
+                time.sleep(0.5)
             
     def has_album_cover(self, album_id):
         meta = self.get_album_metadata(album_id)
@@ -521,6 +549,14 @@ class MusicLibrary:
             self.search_album_cover(album_id)
             
         track_id = self.write_track_metadata(meta)
+        
+        # FIXME do this better
+        db = self.domserver.get_media_db()
+        db.execute("UPDATE music_tracks SET import_filename=? WHERE id=?",
+            (path, track_id))
+        db.commit()
+        db.close()
+        
         self.write_file_tags(meta)
         return [track_id, mlpath]
         
@@ -595,7 +631,14 @@ class AlbumartOrgCoverFinder(CoverFinder):
     _SEARCH_URL=("http://www.albumart.org/index.php"
         "?srchkey=%s&itempage=1&newsearch=1&searchindex=Music")
     _RESULT_FILTER_RE="http://www\.albumart\.org/images/zoom-icon\.jpg"
-    _IMAGE_MATCH_RE='<img src="([^"]+)" border="0" class="image_border"'
+    
+    # Large image (~400x400)
+    _IMAGE_MATCH_RE='href="javascript:largeImagePopup\\(\'([^\']+)\','
+    
+    # Small image (160x160)
+    #_IMAGE_MATCH_RE='<img src="([^"]+)" border="0" class="image_border"'
+    
+    _NOT_FOUND_URL = "http://ecx.images-amazon.com/images/I/11J2DMYABHL.jpg"
         
     def search_cover(self, artist, album):
         op = urllib2.build_opener()
@@ -613,7 +656,7 @@ class AlbumartOrgCoverFinder(CoverFinder):
         for line in results.splitlines():
             if re.search(self._RESULT_FILTER_RE, line):
                 match = re.search(self._IMAGE_MATCH_RE, line)
-                if match:
+                if match and match.group(1) != self._NOT_FOUND_URL:
                     imgurls.append(match.group(1))
                     
         return imgurls
