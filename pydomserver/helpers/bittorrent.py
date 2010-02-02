@@ -387,7 +387,7 @@ class BTObjectProcessor(ObjectProcessor):
         elif name == 'torrent-cancel':
             obj["cancel"] = 1
         elif name == 'torrent-clear':
-            self.objs.cache.remove(obj.oid)
+            self.objs.cache.remove("bt:%s" % obj.oid)
             self.objs.remove_object(obj.oid)
         elif name == 'torrent-pause':
             self.objs.bt[obj['hash']].pause()
