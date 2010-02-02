@@ -338,6 +338,7 @@ class SIClientThread(Thread):
         self._wfile = sock.makefile("wb")
         self._handlers = handlers
         self.disconnected = False
+        self.stop_request = False
         
     def read_packet(self):
         return SIPacket(buffer = self._rfile)
@@ -388,7 +389,7 @@ class SIClientThread(Thread):
     def domserver_run(self):
         raise_exc = True
         try:
-            while not self.disconnected:
+            while not self.disconnected and not self.stop_request:
                 try:
                     packet = self.read_packet()
                 except SIVersionMismatch:
@@ -414,3 +415,6 @@ class SIClientThread(Thread):
         	    self.verbose("Warning: client %s closed connection unexpectedly"
         	        % repr(self.address))
 
+    def stop(self):
+        self.stop_request = True
+        
