@@ -82,7 +82,11 @@ class DictDownload:
             raise KeyError("DictDownload has no item named '%s'" % key)
             
     def keys(self):
-        return ['name', 'size', 'speed', 'status', 'seeds', 'progress', 'hash']
+        if self.am.connected:
+            return ['name', 'size', 'speed', 'status', 'seeds', 'progress',
+                    'hash']
+        else:
+            return []
             
             
 class DictResult:
@@ -117,7 +121,10 @@ class DictResult:
             raise KeyError("DictResult has no item named '%s'" % key)
             
     def keys(self):
-        return ['name', 'size', 'seeds', 'downloading', 'hash']
+        if self.am.connected:
+            return ['name', 'size', 'seeds', 'downloading', 'hash']
+        else:
+            return []
             
             
 class Amule:
@@ -159,11 +166,15 @@ class Amule:
             self.connected = False
             
     def __getitem__(self, key):
+        self._update()
         kind, hash = key.split("/", 1)
         if kind == 'download':
-            return DictDownload(self.domserver, self, hash)
+            if hash in self.downloads:
+                return DictDownload(self.domserver, self, hash)
         elif kind == 'result':
-            return DictResult(self.domserver, self, hash)
+            if hash in self.results:
+                return DictResult(self.domserver, self, hash)
+        raise KeyError(key)
             
     def _update(self):
         interval = int(self.domserver.config['amule.update_interval'])
@@ -176,8 +187,8 @@ class Amule:
     def keys(self):
         if self.connected:
             self._update()
-            d = ["download/%s" % h for h in self.downloads.keys()]
-            r = ["result/%s" % h for h in self.results.keys()]
+            d = ["download/%s" % h for h in self.downloads]
+            r = ["result/%s" % h for h in self.results]
             return d + r
         else:
             return []
@@ -203,19 +214,19 @@ class AmuleDownloadObj(ObjectWrapper):
         
         am = self.provider.am
         try:
-            am[self.oid]
-            found_active = 1
+            amdl = am[self.oid]
         except KeyError:
-            found_active = 0
+            amdl = None
         
         for p in self.prop_desc:
-            if found_active and p in am[self.oid].keys():
-                self.props[p] = am[self.oid][p]
+            if amdl and p in amdl.keys():
+                self.props[p] = amdl[p]
             else:
                 try:
                     val = self.provider.load_object_property(self.oid, p)
                 except KeyError:
-                    if p in ('date_started'):
+                    if p in ('date_started', 'seeds', 'status', 'size',
+                        'progress', 'speed'):
                         val = 0
                     else:
                         val = ''
@@ -224,19 +235,19 @@ class AmuleDownloadObj(ObjectWrapper):
     def update(self):
         am = self.provider.am
         try:
-            am[self.oid]
-            found_active = 1
+            amdl = am[self.oid]
         except KeyError:
-            found_active = 0
+            amdl = None
         
         for p in ('speed', 'seeds', 'status', 'progress'):
-            if found_active and p in am[self.oid].keys():
-                self.props[p] = am[self.oid][p]
+            if amdl and p in amdl.keys():
+                self.props[p] = amdl[p]
             else:
                 try:
                     val = self.provider.load_object_property(self.oid, p)
                 except KeyError:
-                    if p in ('date_started'):
+                    if p in ('date_started', 'seeds', 'status', 'size',
+                        'progress', 'speed'):
                         val = 0
                     else:
                         val = ''
