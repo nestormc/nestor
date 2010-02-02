@@ -27,6 +27,9 @@ class OCriterion:
         self.oper = oper
         self.val = val
         
+    def dump(self):
+        return "[%s %s %r]" % (self.prop, self.oper, self.val)
+        
     def is_true(self, obj):
         if self.prop == 'oid':
             val = obj.oid
@@ -98,6 +101,16 @@ class OExpression:
         self.oper = oper
         self.crit_a = crit_a
         self.crit_b = crit_b
+        
+    def dump(self):
+        if self.oper == '':
+            if self.crit_a:
+                return self.crit_a.dump()
+            else:
+                return "empty"
+        else:
+            return "(%s %s %s)" % (self.crit_a.dump(), self.oper,
+                self.crit_b.dump())
         
     def is_true(self, obj):
         yes, no = self.get_matching([obj])
@@ -599,8 +612,11 @@ class ObjectProvider:
             return self.cache.get("%s:%s" % (self.name, oid))
         except ObjectCacheMiss:
             obj = self.get_object(oid)
-            self.cache.put(obj)
-            return obj
+            if obj:
+                self.cache.put(obj)
+                return obj
+            else:
+                raise ObjectErrpr("object-not-found:%s" % oid)
         
     def get_object(self, oid):
         """Return an ObjectWrapper corresponding to object oid.
@@ -649,6 +665,12 @@ class ObjectProvider:
             return [obj.oid]
         else:
             return []
+            
+    def on_query_start(self):
+        pass
+        
+    def on_query_end(self):
+        pass
         
         
 class ObjectProcessor:
@@ -775,6 +797,7 @@ class ObjectAccessor:
                     if owner not in self.providers:
                         raise ObjectError("invalid-provider:%s" % owner)
                         
+                        
                     exprtag = tag.get_subtag(SIC.TAG_OBJ_EXPRESSION)
                     expr = OExpression.from_sitag(exprtag)
                     
@@ -786,7 +809,11 @@ class ObjectAccessor:
                         types = None
                     else:
                         types = types.split(',')
+                        
+                    self.domserver.perf("Owner %s, types %r, expression %s" %
+                            (owner, types, expr.dump()))
                     
+                    self.providers[owner].on_query_start()
                     oids.extend([[owner, oid]
                       for oid in self.providers[owner].match_oids(expr, types)])
                 except ObjectError, e:
@@ -817,9 +844,13 @@ class ObjectAccessor:
             client.answer(resp)
             
             self.domserver.perf("Packet sent")
+            for owner in owners:
+                self.providers[owner].on_query_end()
             return
             
         elif found == SIC.TAG_OBJ_REFERENCE:
+            self.providers[tag.value.split(":", 1)[0]].on_query_start()
+        
             try:
                 obj, source = self.get(tag.value)
             except ObjectError, e:
@@ -835,6 +866,7 @@ class ObjectAccessor:
             resp.tags.append(obj.to_sitag(lod))
             resp.set_flag(SIC.FLAGS_USE_ZLIB)
             client.answer(resp)
+            self.providers[tag.value.split(":", 1)[0]].on_query_end()
             return
             
         elif found == SIC.TAG_ACTION_QUERY:
@@ -843,7 +875,9 @@ class ObjectAccessor:
                     proc = self.processors[tag.value]
                 except KeyError:
                     raise ObjectError("invalid-processor:%s" % tag.value)
-                    
+                
+                self.providers[tag.value].on_query_start()
+                
                 try:
                     objref = tag.get_subtag(SIC.TAG_OBJ_REFERENCE).value
                 except AttributeError:
@@ -863,6 +897,7 @@ class ObjectAccessor:
             resp.tags.extend([a.to_sitag() for a in actions])
             resp.set_flag(SIC.FLAGS_USE_ZLIB)
             client.answer(resp)
+            self.providers[tag.value].on_query_end()
             return
                 
         elif found == SIC.TAG_ACTION_EXECUTE:
@@ -872,6 +907,7 @@ class ObjectAccessor:
                 except KeyError:
                     raise ObjectError("invalid-processor:%s" % tag.value)
                     
+                self.providers[tag.value].on_query_start()
                 try:
                     actiontag = tag.get_subtag(SIC.TAG_ACTION_ID)
                     action = actiontag.value
@@ -900,5 +936,6 @@ class ObjectAccessor:
                 client.answer_progress(ret)
             else:
                 client.answer_success()
+            self.providers[tag.value].on_query_end()
             return
             
