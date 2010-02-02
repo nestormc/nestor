@@ -4,7 +4,7 @@
 
 body, html {    
     font-family: sans-serif;
-    font-size: 10pt;
+    font-size: 9pt;
     
     /* Give full space to the document */
     width: 100%;
@@ -25,12 +25,10 @@ body, html {
     left: 0;
     right: 0;
     top: 0;
-    
-    background-color: #FFEEEE;
 }
 
 #domserver_applist {
-    width: 15em;
+    width: 19em;
     
     position: absolute;
     top: 3em; 
@@ -38,14 +36,16 @@ body, html {
     left: 0;
     right: 0;
     overflow: auto;
-    background-color: #EEEEFF;
+    
+    margin-left: 1em;
+    margin-right: 1em;
 }
 
 #domserver_workspace {
     position: absolute;
     top: 3em; 
-    bottom: 0;
-    left: 15em;
+    bottom: 1em;
+    left: 21em;
     right: 0;
     
     overflow: auto;
@@ -60,8 +60,29 @@ body, html {
     overflow: auto;
 }
 
-.app_summary {
+.app_icon {
+    float: left;
+    width: 2.5em;
+    height: 2.5em;
+    margin-left: 0.5em;
+}
 
+.active .app_icon, .app_summary_container:hover .app_icon {
+    width: 3em;
+    height: 3em;
+    margin-left: 0;
+}
+
+.first > .app_summary {
+    border-top: 1px solid;
+}
+
+.app_summary {
+    border-bottom: 1px solid;
+    padding: 1em 0 1em 0;
+    
+    width: 15em;
+    margin-left: 4em;
 }
 
 div.domserver_fatal_error {
@@ -80,30 +101,17 @@ div.domserver_fatal_error {
 }
 
 .progress_bar {
+    margin: 0.35em 0 0.35em 0;
     border: 1px solid black;
-    padding: 0.1em;
-    height: 0.5em;
+    height: 0.3em;
+    overflow: hidden;
 }
 
 .progress_bar_content {
     background-color: black;
+    height: 0.3em;
     overflow: hidden;
 }
-
-.list_title {
-    background-color: #FFFFDD;
-}
-
-.list_header {
-    background-color: #CCFFCC;
-    font-weight: bold;
-    text-align: center;
-}
-
-.selected {
-    font-weight: bold;
-}
-
 .drag_label {
     background-color: #FFFFEE;
     border: 1px solid black;
@@ -113,12 +121,51 @@ div.domserver_fatal_error {
 .app_summary.drag_hover {
     background-color: #FFAAFF;
 }
+.list_title {
+    border-top: 1px solid;
+    border-bottom: 1px solid;
+    text-transform: uppercase;
+}
 
-#music_playlist_list > div.drag_hover {
+.list_header {
+    background-color: #CCFFCC;
+    font-weight: bold;
+    text-align: center;
+}
+
+.list_item {
+    cursor: hand;
+}
+
+.list_item:hover {
+    background-color: #EEEEEE;
+}
+
+.list_item .icon {
+    visibility: hidden;
+    margin-right: 0.1em;
+}
+
+.list_item:hover .icon {
+    visibility: visible;
+}
+
+.selected, .selected:hover {
+    background-color: #DDDDDD;
+}
+
+#music_playlistcol_playlist_body > div.drag_hover {
     border-top: 1px solid black;
 }
 
-#music_playlist_list.drag_hover > div#music_playlist_list_closer {
+#music_playlistcol_playlist_body.drag_hover > div#music_playlistcol_playlist_body_closer {
     border-top: 1px solid black;
 }
 
+#music_summary_art {
+    font-size: 0.8em;
+}
+
+:focus {
+    background-color: green;
+}

@@ -30,6 +30,7 @@ abstract class AppElement extends UIElement
         $this->obj = $this->app->obj;
         $this->config = $this->app->config;
         $this->output = $this->app->output;
+        $this->skin = $this->app->skin;
         
         $this->output->register_element($this);
         $this->init();
@@ -71,11 +72,31 @@ class ImageElement extends AppElement
     }
 }
 
+class IconElement extends ImageElement
+{
+    function __construct($app, $id, $icon, $invert=FALSE)
+    {
+        $this->icon = $icon;
+        $this->invert = $invert;
+        parent::__construct($app, $id, $app->skin->icon("empty"));
+    }
+    
+    function render()
+    {
+        parent::render();
+        $icon = $this->skin->icon($this->icon, $this->invert);
+        $hicon = $this->skin->icon($this->icon, !$this->invert);
+        $this->set_css("background-image", "url('$icon')");
+        $this->set_css("background-image", "url('$hicon')", "hover");
+        $this->set_class("icon");
+    }
+}
+
+
 class ProgressBarContentElement extends AppElement
 {    
     function init()
     {
-        $this->percent = FALSE;
         $this->rendered = FALSE;
     }
 

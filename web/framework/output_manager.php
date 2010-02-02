@@ -18,12 +18,14 @@ along with domserver.  If not, see <http://www.gnu.org/licenses/>.
 */
 
 $DEBUG_OPCODES = array();
-$DEBUG_IDS = array();
+
+class MissingElementException extends Exception {}
 
 class OutputManager
 {
     private $ops = array();
     private $debug = array();
+    private $fatal = FALSE;
     private $scripts = array();
     private $cssheets = array();
     private $elements = array();
@@ -89,7 +91,17 @@ class OutputManager
     private function js_cssprop($prop)
     {
         $s = explode("-", $prop);
-        return "style.$s[0]" . implode("", array_map("ucfirst", array_slice($s, 1)));
+        return $s[0] . implode("", array_map("ucfirst", array_slice($s, 1)));
+    }
+    
+    /* Wrapper for child rendering (catching exceptions) */
+    private function render_child($child)
+    {
+        try {
+            $child->render();
+        } catch (ConnectionError $e) {
+            $this->fatal = "Could not connect to domserver: " . $e->getMessage();
+        }
     }
     
     /* Register element */
@@ -116,7 +128,7 @@ class OutputManager
         global $DEBUG_OPCODES, $DEBUG_IDS;
         
         $this->ops[] = array($opcode, $params);
-        if (DOMSERVER_DEBUG && in_array($opcode, $DEBUG_OPCODES) && in_array($this->dom_id($params[0]), $DEBUG_IDS))
+        if (DOMSERVER_DEBUG && in_array($opcode, $DEBUG_OPCODES))
         {
             $dparams = array();
             
@@ -163,7 +175,13 @@ class OutputManager
             case 'style':
                 $prop = $this->js_cssprop($params[1]);
                 $val = $this->json_value($params[2]);
-                $ops[] = "\$(\"$id\").$prop=$val;";
+                $pseudo = $params[3];
+                if ($pseudo)
+                    $ops[] = "\$cssrule(\"#$id:$pseudo\",\"$prop\",$val);";
+                else
+                {
+                    $ops[] = "\$(\"$id\").style.$prop=$val;";
+                }
                 break;
                 
             case 'content':
@@ -181,7 +199,7 @@ class OutputManager
                 $ops[] = "var c=document.createElement(\"{$child->tagname}\");";
                 $ops[] = "c.id=\"$childid\";";
                 $ops[] = "\$(\"$id\").appendChild(c);";
-                $child->render();
+                $this->render_child($child);
                 break;
                 
             case 'unchild':
@@ -216,7 +234,13 @@ class OutputManager
                 $tid = $this->dom_id($params[2]);
                 $method = $this->json_value($params[3]);
                 $arg = $this->json_value($params[4]);
-                $ops[] = "\$(\"$id\").$event=function(){\$method(\"$tid\",$method,$arg);};";
+                $ops[] = "\$(\"$id\").$event=function(e){\$method(\"$tid\",$method,$arg);e.stopPropagation();};";
+                break;
+                
+            case 'jsevent':
+                $event = $params[1];
+                $handler = $params[2];
+                $ops[] = "\$(\"$id\").$event=$handler;";
                 break;
                 
             case 'drag_src':
@@ -235,6 +259,9 @@ class OutputManager
         
         if (count($ops)) $ops[] = "}";
         
+        if ($this->fatal !== FALSE)
+            $ops[] = "\$fatal(" . $this->json_value($this->fatal) . ");";
+        
         if (DOMSERVER_DEBUG)
         {
             foreach ($this->debug as $d)
@@ -252,7 +279,11 @@ class OutputManager
             $this->debug[] = "*** UPDATE &lt;$id&gt; ***";
     
         $element = $this->elements[$id];
-        $element->update();
+        try {
+            $element->update();
+        } catch (ConnectionError $e) {
+            $this->fatal = "Could not connect to domserver: " . $e->getMessage();
+        }
         return $this->render_json_opcodes();
     }
     
@@ -264,7 +295,11 @@ class OutputManager
         $element = $this->elements[$id];
         if (method_exists($element, $method))
         {
-            call_user_func(array($element, $method), $arg);
+            try {
+                call_user_func(array($element, $method), $arg);
+            } catch (ConnectionError $e) {
+                $this->fatal = "Could not connect to domserver: " . $e->getMessage();
+            }
             return $this->render_json_opcodes();
         }
     }
@@ -279,7 +314,11 @@ class OutputManager
         
         if (method_exists($handler, $method))
         {
-            call_user_func(array($handler, $method), $target, $objref);
+            try {
+                call_user_func(array($handler, $method), $target, $objref);
+            } catch (ConnectionError $e) {
+                $this->fatal = "Could not connect to domserver: " . $e->getMessage();
+            }
         }
         elseif (DOMSERVER_DEBUG)
         {
@@ -337,7 +376,10 @@ class OutputManager
             switch ($opcode)
             {
             case 'style':  
-                $css[$id][] = "${params[1]}: ${params[2]};";
+                $pseudo = $params[3];
+                if ($pseudo) $selector = "#$id:$pseudo";
+                else $selector = "#$id";
+                $css[$selector][] = "${params[1]}: ${params[2]};";
                 break;
                 
             case 'dom':
@@ -356,7 +398,7 @@ class OutputManager
                 $elems[$childid] = $blank;
                 $elems[$childid]["obj"] = $child;
                 $elems[$id]["children"][] = $childid;
-                $child->render();
+                $this->render_child($child);
                 break;
                 
             case 'unchild':
@@ -392,7 +434,13 @@ class OutputManager
                 $tid = $this->dom_id($params[2]);
                 $method = $this->json_value($params[3]);
                 $arg = $this->json_value($params[4]);
-                $js[] = "if (\$(\"$id\")) \$(\"$id\").$event = function() {\$method(\"$tid\", $method, $arg);};";
+                $js[] = "if (\$(\"$id\")) \$(\"$id\").$event = function(e) {\$method(\"$tid\", $method, $arg); e.stopPropagation();};";
+                break;
+                
+            case 'jsevent':
+                $event = $params[1];
+                $handler = $params[2];
+                $js[] = "if (\$(\"$id\")) \$(\"$id\").$event = $handler;";
                 break;
                 
             case 'drag_src':
@@ -410,6 +458,9 @@ class OutputManager
                 break;
             }
         }
+        
+        if ($this->fatal !== FALSE)
+            $js[] = "\$fatal(" . $this->json_value($this->fatal) . ");";
         
         if (DOMSERVER_DEBUG)
         {
@@ -439,9 +490,9 @@ class OutputManager
             $css_out .= "<link rel=\"stylesheet\" type=\"text/css\" href=\"$href\">\n";
         }
         $css_out .= "<style type=\"text/css\">\n";
-        foreach ($css as $id => $stmts)
+        foreach ($css as $selector => $stmts)
         {
-            $css_out .= "#$id {\n" . $this->indent(implode("\n", $stmts)) . "\n}\n";
+            $css_out .= "$selector {\n" . $this->indent(implode("\n", $stmts)) . "\n}\n";
         }
         $css_out .= "</style>\n";
         $css_block = $this->indent($css_out);

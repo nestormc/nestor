@@ -38,10 +38,11 @@ class MusicUI extends AppElement
         $this->lists = array();
         
         $trksetup = array(
-            "title" => "Tracks",
+            "title" => _("Tracks"),
             "apps" => "media",
             "otype" => "music-track",
             "lod" => 2,
+            "limit" => 50,
             
             "fields" => array(
                 "num" => array(
@@ -75,10 +76,11 @@ class MusicUI extends AppElement
         $this->lists["tracks"] = new FixedObjectList($this->app, "tracks", $trksetup);
         
         $albsetup = array(
-            "title" => "Albums",
+            "title" => _("Albums"),
             "apps" => "media",
             "otype" => "music-album",
             "lod" => 2,
+            "limit" => 50,
             
             "fields" => array(
                 "year" => array(
@@ -103,7 +105,7 @@ class MusicUI extends AppElement
         $this->lists["albums"] = new FixedObjectList($this->app, "albums", $albsetup);
     
         $artsetup = array(
-            "title" => "Artists",
+            "title" => _("Artists"),
             "apps" => "media",
             "otype" => "music-artist",
             "lod" => 2,
@@ -126,18 +128,18 @@ class MusicUI extends AppElement
         );
         $this->lists["artists"] = new FixedObjectList($this->app, "artists", $artsetup);
         
-        $this->lists["player"] = new MusicPlayerColumn($this->app, "player_column");
+        $this->lists["playlist"] = new MusicPlayerColumn($this->app, "playlistcol");
     }
 
     function render()
     {
-        $this->add_child($this->lists["player"]);
+        $this->add_child($this->lists["playlist"]);
         $this->add_child($this->lists["artists"]);
         $this->add_child($this->lists["albums"]);
         $this->add_child($this->lists["tracks"]);
         
         $this->column_layout(array(
-            array($this->lists["player"], 2),
+            array($this->lists["playlist"], 2),
             array($this->lists["artists"], 1),
             array($this->lists["albums"], 1),
             array($this->lists["tracks"], 1)
@@ -149,7 +151,7 @@ class MusicUI extends AppElement
         if ($element instanceof ObjectListItem)
         {
             $this->obj->do_action("media", "mpd-play", $element->objref);
-            $this->lists["player"]->playlist->reload();
+            $this->lists["playlist"]->playlist->reload();
         }
     }
 }

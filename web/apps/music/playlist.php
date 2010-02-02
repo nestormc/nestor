@@ -21,7 +21,7 @@ require_once "apps/music/player.php";
 
 class MusicPlayerColumn extends AppElement
 {
-    private $player_height = "10em";
+    private $player_height = "21em";
     
     static function _plnum_xform($v)
     {
@@ -31,21 +31,13 @@ class MusicPlayerColumn extends AppElement
     function init()
     {
         $plsetup = array(
-            "title" => "Playlist",
+            "title" => _("Playlist"),
             "apps" => "media",
             "otype" => "mpd-item",
             "lod" => 2,
             "limit" => 50,
             
             "fields" => array(
-                "mpd-position" => array(
-                    "weight" => 1,
-                    "xform" => array("MusicPlayerColumn", "_plnum_xform"),
-                    "style" => array(
-                        "text-align" => "right",
-                        "padding-right" => "0.5em"
-                    )
-                ),
                 "artist" => array(
                     "weight" => 3
                 ),
@@ -56,10 +48,15 @@ class MusicPlayerColumn extends AppElement
                     "weight" => 1,
                     "xform" => array("MusicUI", "_seconds_xform"),
                     "style" => array(
-                        "text-align" => "right",
-                        "padding-right" => "0.5em"
+                        "text-align" => "right"
                     )
                 ),
+                "0act" => array(
+                    "weight" => 1,
+                    "style" => array(
+                        "text-align" => "center"
+                    )
+                )
             ),
             "unique_field" => "mpd-position",
             "main_field" => "title",
@@ -75,14 +72,24 @@ class MusicPlayerColumn extends AppElement
             
             "item_events" => array(
                 "ondblclick" => array($this, "playlist_dblclick_handler")
+            ),
+            
+            "actions" => array(
+                "mpd-item-remove" => array(
+                    "title" => _("Remove"),
+                    "handler" => array($this, "playlist_remove_handler"),
+                    "icon" => "delete"
+                )
             )
         );
     
-        $this->player = new MusicPlayerblock($this->app, "player");
-        $this->playlist = new FixedObjectList($this->app, "playlist", $plsetup);
+        $this->player = new MusicPlayerblock($this->app, "{$this->id}_player");
+        $this->playlist = new FixedObjectList($this->app, "{$this->id}_playlist", $plsetup);
     }
     
     function render() {
+        $this->set_css("overflow", "hidden");
+    
         $this->add_child($this->player);
         $this->player->set_css("height", $this->player_height);
         
@@ -93,6 +100,12 @@ class MusicPlayerColumn extends AppElement
         $this->playlist->set_css("bottom", 0);
         $this->playlist->set_css("left", 0);
         $this->playlist->set_css("right", 0);
+    }
+    
+    function playlist_remove_handler($action, $objref)
+    {
+        $this->obj->do_action("media", "mpd-item-remove", $objref);
+        $this->playlist->reload();
     }
     
     function playlist_dblclick_handler($element)

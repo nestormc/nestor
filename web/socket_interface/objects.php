@@ -20,6 +20,9 @@ along with domserver.  If not, see <http://www.gnu.org/licenses/>.
 require_once "socket_interface/si_codes.php";
 require_once "socket_interface/si.php";
 
+class ObjectError extends Exception {}
+
+
 class __Criterion
 {
     function __construct($prop, $oper, $val)
@@ -173,8 +176,8 @@ class ObjectDescriptor
             $this->types = $this->parse_types($tag->subtags);
             
             $objref_s = split(':', $this->objref);
-            $this->props["__ref__"] = $this->objref;
-            $this->props["__app__"] = $objref_s[0];
+            $this->props["0ref"] = $this->objref;
+            $this->props["0app"] = $objref_s[0];
         }
     }
 }
@@ -188,17 +191,15 @@ class ObjectAccess
         $this->si = $si;
     }
 
-    private function get_failure($packet)
+    private function handle_failure($packet)
     {
         if ($packet && $packet->opcode = SIC('OP_FAILURE'))
         {
             if ($rt = $packet->get_tag(SIC('TAG_FAILURE_REASON')))
             {
-                return $rt->value;
+                throw new ObjectError($rt->value);
             }
         }
-        
-        return FALSE;
     }
 
     function get_object($objref, $detail_level = 0)
@@ -218,7 +219,7 @@ class ObjectAccess
                 $ret->from_sitag($tag);
             }
         }
-        if ($r = $this->get_failure($resp)) die("QUERY FAILED: &lt;$r&gt;");
+        $this->handle_failure($resp);
         return $ret;
     }
 
@@ -230,7 +231,7 @@ class ObjectAccess
         $tag = new SIStringTag($apps, SIC('TAG_OBJ_MATCHQUERY'));
         if ($types)
         {
-            if (is_array($type)) $types = implode(',', $types);
+            if (is_array($types)) $types = implode(',', $types);
             $tag->subtags[] = new SIStringTag($types, SIC('TAG_OBJ_TYPE'));
         }
         $tag->subtags[] = new SIUInt8Tag($detail_level, SIC('TAG_OBJ_DETAIL_LEVEL'));
@@ -251,7 +252,7 @@ class ObjectAccess
                 }
             }
         }
-        if ($r = $this->get_failure($resp)) die("QUERY FAILED: &lt;$r&gt;");
+        $this->handle_failure($resp);
         return $ret;
     }
 
@@ -287,7 +288,7 @@ class ObjectAccess
                 }
             }
         }
-        if ($r = $this->get_failure($resp)) die("QUERY FAILED: &lt;$r&gt;");
+        $this->handle_failure($resp);
         return $ret;
     }
 
@@ -333,7 +334,7 @@ class ObjectAccess
                 if ($t->name == SIC('TAG_ACTION_PROGRESS')) $ret = "progressid: " . $t->value;
             }
         }
-        if ($r = $this->get_failure($resp)) die("QUERY FAILED: &lt;$r&gt;");
+        $this->handle_failure($resp);
         
         return $ret;
     }

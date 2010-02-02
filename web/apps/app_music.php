@@ -29,6 +29,7 @@ class MusicApp extends App
             "workspace" => new MusicUI($this, "workspace"),
             "summary" => new MusicSummary($this, "summary")
         );
+        $this->output->add_js("apps/music/music.js");
     }
     
     function get_workspace_element()

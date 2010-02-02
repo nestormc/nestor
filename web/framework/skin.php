@@ -17,22 +17,27 @@ You should have received a copy of the GNU General Public License
 along with domserver.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-abstract class App
+class Skin
 {
-    function __construct($domserver, $id, $title)
+    function __construct($domserver, $skinname)
     {
-        $this->id = $id;
-        $this->title = $title;
-        
+        $this->name = $skinname;
+        $this->dir = "skins/$skinname";
         $this->ds = $domserver;
-        $this->obj = $this->ds->obj;
         $this->config = $this->ds->config;
-        $this->output = $this->ds->output;
-        $this->skin = $this->ds->skin;
     }
     
-    abstract function get_summary_element();
-    abstract function get_workspace_element();
+    function icon($name, $active=FALSE)
+    {
+        $act = $active ? "_active" : "";
+        return "{$this->dir}/icons/$name$act.svg";
+    }
+    
+    function app_icon($name, $active=FALSE)
+    {
+        $act = $active ? "_active" : "";
+        return "{$this->dir}/apps/$name$act.svg";
+    }
 }
 
 ?>

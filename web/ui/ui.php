@@ -32,7 +32,7 @@ class DomserverUI extends UIElement
         $this->applist->workspace = $this->workspace;
     }
 
-    public function render() 
+    function render() 
     {
         $this->add_child($this->header);
         $this->add_child($this->applist);

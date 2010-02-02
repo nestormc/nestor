@@ -17,22 +17,30 @@ You should have received a copy of the GNU General Public License
 along with domserver.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-abstract class App
-{
-    function __construct($domserver, $id, $title)
-    {
-        $this->id = $id;
-        $this->title = $title;
-        
-        $this->ds = $domserver;
-        $this->obj = $this->ds->obj;
-        $this->config = $this->ds->config;
-        $this->output = $this->ds->output;
-        $this->skin = $this->ds->skin;
-    }
+$skin = array(
+
+    /* Generic information about the skin */
+    "info" => array(
+        "name" => "domserver default skin",
+        "author" => "Nicolas Joyard"
+    ),
     
-    abstract function get_summary_element();
-    abstract function get_workspace_element();
-}
+    /* Layout */
+    "layout" => array(
+        
+        /* General layout */
+        "domserver" => array(
+            "header_height" => 3,
+            "applist_width" => 15
+        ),
+        
+        /* Music */
+        "music" => array(
+            
+        
+        )
+    
+    ),
+);
 
 ?>

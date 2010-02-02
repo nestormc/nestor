@@ -21,8 +21,7 @@ class ObjectListActionIcon extends ImageElement
 {
     function __construct($app, $id, $icon_name)
     {
-        $icon = "skins/default/icons/$icon_name.png";
-        parent::__construct($app, $id, $icon);
+        parent::__construct($app, $id, $app->skin->icon($icon_name));
     }
 }
 
@@ -32,7 +31,7 @@ class ObjectListActionCell extends AppElement
     {
         $this->s = $settings;
         $this->data = $data;
-        $this->objref = $data["__ref__"];
+        $this->objref = $data["0ref"];
         
         if (!isset($this->s["actions"])) $this->s["actions"] = array();
         
@@ -42,33 +41,42 @@ class ObjectListActionCell extends AppElement
     function init()
     {
         $this->icons = array();
+        
+        $this->displayed = $this->load_data("displayed", array());
+        
         foreach ($this->s["actions"] as $action => $desc)
         {
             $aid = str_replace("-", "", $action);
-            $this->icons[$action] = new ObjectListActionIcon($this->app, "{$this->id}_$aid", $desc["icon"]);
+            $this->icons[$action] = new IconElement($this->app, "{$this->id}_$aid", $desc["icon"]);
         }
         
-        $this->displayed = $this->load_data("displayed", array());
     }
     
     function render()
     {
         $this->set_css("text-overflow", "ellipsis");
+        
         $this->displayed = array();
-        $this->update();
+        
+        foreach ($this->icons as $action => $icon)
+        {
+            $this->add_child($icon);
+            $icon->set_dom("title", $this->s["actions"][$action]["title"]);
+            $icon->set_css("cursor", "hand");
+            $icon->set_handler("onclick", $this, "click_action", $action);
+        }
+        
+        $this->update(TRUE);
     }
     
-    function update()
+    function update($first=FALSE)
     {
         $displayed = array();
+        
         foreach ($this->s["actions"] as $action => $desc)
         {
             if (isset($this->s["action_filter"]))
-            {
                 $display = call_user_func($this->s["action_filter"], $action, $this->objref, $this->data);
-                
-                $this->debug("filter $action ({$this->objref}) => " . ($display ? "yes" : "no"));
-            }
             else
                 $display = TRUE;
                 
@@ -79,18 +87,16 @@ class ObjectListActionCell extends AppElement
                 $displayed[] = $action;
                 if (!in_array($action, $this->displayed))
                 {
-                    $this->add_child($icon);
-                    $icon->set_dom("title", $desc["title"]);
-                    $icon->set_css("cursor", "hand");
-                    $icon->set_handler("onclick", $this, "click_action", $action);
+                    $icon->set_css("display", "inline");
                 }
             }
             else
             {
-                if (in_array($action, $this->displayed))
-                    $this->remove_child($icon);
+                if (in_array($action, $this->displayed) || $first)
+                    $icon->set_css("display", "none");
             }
         }
+        
         $this->save_data("displayed", $displayed);
     }
     
@@ -137,7 +143,7 @@ class ObjectListHeader extends AppElement
         
         foreach ($this->s["fields"] as $f => $fs)
         {
-            $fid = str_replace("-", "_", $f);
+            $fid = str_replace("-", "", $f);
             $this->cells[$f] = array(
                 new ObjectListCell($this->app, "{$this->id}_$fid", $fs["title"]),
                 $fs["weight"]
@@ -188,9 +194,9 @@ class ObjectListItem extends AppElement
             if ($this->s["main_field"] == $f)
                 $this->label = $value;
                 
-            $fid = str_replace("-", "_", $f);
+            $fid = str_replace("-", "", $f);
             
-            if ($f == "__act__")
+            if ($f == "0act")
             {
                 $cell = new ObjectListActionCell($this->app, "{$this->id}_$fid", $this->s, $this->data);
                 $this->actioncell = $cell;
@@ -224,9 +230,12 @@ class ObjectListItem extends AppElement
                 break;
             }
         }
+        
+        $this->set_class("list_item");
             
         $this->set_css("position", "relative");
-        $this->set_css("height", "1.2em");
+        $this->set_css("height", "1.3em");
+        $this->set_dom("title", $this->data[$this->s["main_field"]]);
         $this->column_layout($this->cells, "hidden");   
         $this->make_draggable($this->objref, $this->data[$this->s["main_field"]]);
             
@@ -245,7 +254,7 @@ class ObjectListItem extends AppElement
     
         if ($this->s["main_field"] == $field)
             $this->label = $value;
-        
+                
         switch ($fs["display"])
         {
         case "progress":
@@ -264,7 +273,7 @@ class ObjectListItem extends AppElement
             foreach ($updated as $f => $v)
             {
                 $this->data[$f] = $v;
-                $this->set_cell_value($f, $v);
+                if (isset($this->s["fields"][$f])) $this->set_cell_value($f, $v);
             }
             
             if ($this->actioncell) $this->actioncell->update_data($this->data);
@@ -293,7 +302,7 @@ class RefreshObjectListBody extends ObjectListBody
                 $oldprops = $this->children_data[$id];
                 $newprops = array();
                 foreach ($props as $p => $v)
-                    if ($p != "__ref__" && $v != $oldprops[$p]) $newprops[$p] = $v;
+                    if ($p != "0ref" && $v != $oldprops[$p]) $newprops[$p] = $v;
                 $this->children[$id]->update_data($newprops);
                 
                 unset($removed_ids[array_search($id, $removed_ids)]);
@@ -301,7 +310,7 @@ class RefreshObjectListBody extends ObjectListBody
             else
             {
                 /* New item : create new child */
-                $child = new ObjectListItem($this->app, "{$this->id}_item_$id", $props, $objref, $this->s);
+                $child = new ObjectListItem($this->app, "{$this->id}_item$id", $props, $objref, $this->s);
                 $this->add_item($child, $id, $props);
             }
         }
@@ -312,24 +321,8 @@ class RefreshObjectListBody extends ObjectListBody
             $this->remove_item($id);
         }
         
-        /* Get current item positions */
-        $cur_positions = array();
-        foreach (array_keys($this->children) as $id) $cur_positions[$id] = count($cur_positions);
-        
         /* Move to new positions */
-        foreach ($positions as $pos => $id)
-        {
-            if ($cur_positions[$id] > $pos)
-            {
-                $oldpos = $cur_positions[$id];
-                
-                $swapid = array_search($pos, $cur_positions);
-                $this->children[$id]->swap_with($this->children[$swapid]);
-                
-                $cur_positions[$id] = $pos;
-                $cur_positions[$swapid] = $oldpos;
-            }
-        }
+        $this->change_item_positions($positions);
         
         $this->schedule_update($this->s["refresh"]);
     }
@@ -339,23 +332,36 @@ class FixedObjectListBody extends ObjectListBody
 {
     protected function fetch($expr)
     {
-        $offset = $this->count;
-        $limit = isset($this->s["limit"]) ? $this->s["limit"] : -1;
-        $objs = $this->obj->match_objects($this->s["apps"], $expr, $this->s["lod"], $this->s["otype"], $offset, $limit);
-        
-        foreach ($objs as $o)
+        if ($this->first && $this->s["delay_fetch"])
         {
-            $objref = $o->objref;
-            $props = $o->props;
-            $id = $props[$this->s["unique_field"]];
-            
-            $child = new ObjectListItem($this->app, "{$this->id}_item_$id", $props, $objref, $this->s);
-            $this->add_item($child, $id, $props);
-        }
-        
-        /* Schedule new update until there are no more objects */
-        if (isset($this->s["limit"]) && $this->s["limit"] > 0 && count($objs) == $this->s["limit"])
             $this->schedule_update(0);
+        }
+        else
+        {
+            $offset = $this->count;
+            $limit = isset($this->s["limit"]) ? $this->s["limit"] : -1;
+            $objs = $this->obj->match_objects($this->s["apps"], $expr, $this->s["lod"], $this->s["otype"], $offset, $limit);
+            
+            foreach ($objs as $o)
+            {
+                $objref = $o->objref;
+                $props = $o->props;
+                $id = $props[$this->s["unique_field"]];
+                
+                $child = new ObjectListItem($this->app, "{$this->id}_item$id", $props, $objref, $this->s);
+                $this->add_item($child, $id, $props);
+            }
+        
+            /* Schedule new update until there are no more objects */
+            if (isset($this->s["limit"]) && $this->s["limit"] > 0 && count($objs) == $this->s["limit"])
+                $this->schedule_update(0);
+        }
+    }
+    
+    function render()
+    {
+        $this->first = TRUE;
+        parent::render();
     }
 }
 
@@ -379,7 +385,7 @@ abstract class ObjectListBody extends AppElement
         $this->children_data = $this->load_data("children", array());
         foreach ($this->children_data as $id => $data)
         {
-            $this->children[$id] = new ObjectListItem($this->app, "{$this->id}_item_$id", $data, $data["__ref__"], $this->s);
+            $this->children[$id] = new ObjectListItem($this->app, "{$this->id}_item$id", $data, $data["0ref"], $this->s);
         }
         
         $this->selected_id = intval($this->load_data("selected_id", -1));
@@ -512,6 +518,39 @@ abstract class ObjectListBody extends AppElement
             $this->count--;
         }
     }
+    
+    /* Change item positions to match $positions, which is array( position => item id) */
+    protected function change_item_positions($positions)
+    {
+        $new_children = array();
+        $new_children_data = array();
+    
+        /* Get current item positions */
+        $cur_positions = array();
+        foreach (array_keys($this->children) as $id) $cur_positions[$id] = count($cur_positions);
+        
+        /* Move items to new positions */
+        foreach ($positions as $pos => $id)
+        {
+            $new_children[$id] = $this->children[$id];
+            $new_children_data[$id] = $this->children_data[$id];
+            
+            if ($cur_positions[$id] > $pos)
+            {
+                $oldpos = $cur_positions[$id];
+                
+                $swapid = array_search($pos, $cur_positions);
+                $this->children[$id]->swap_with($this->children[$swapid]);
+                
+                $cur_positions[$id] = $pos;
+                $cur_positions[$swapid] = $oldpos;
+            }
+        }
+        
+        /* Save children in new order */
+        $this->children = $new_children;
+        $this->children_data = $new_children_data;
+    }
 }
 
 class ObjectListTitle extends AppElement
@@ -531,14 +570,16 @@ class RefreshObjectList extends ObjectList
 {
     function get_list_body()
     {
-        return new RefreshObjectListBody($this->app, "{$this->id}_list", $this->s);
+        return new RefreshObjectListBody($this->app, "{$this->id}_body", $this->s);
     }
 }
 
 /* Fixed ObjectList element
     Can be used for lists of objects that don't change very often. Adds an optional "limit" key
     to $settings: when specified, objects will be fetched in chunks of size "limit", which
-    prevents huge loading times for lists with a lot of objects.
+    prevents huge loading times for lists with a lot of objects. Also adds an optional
+    "delay_fetch" settings key; when present and set to 1, objects will not be fetched on
+    initial rendering but on next update.
     
     Also implements an additional reload() method to reload the entire list.
 */
@@ -546,7 +587,7 @@ class FixedObjectList extends ObjectList
 {
     function get_list_body()
     {
-        return new FixedObjectListBody($this->app, "{$this->id}_list", $this->s);
+        return new FixedObjectListBody($this->app, "{$this->id}_body", $this->s);
     }
     
     function reload()
@@ -619,7 +660,7 @@ class FixedObjectList extends ObjectList
           )
           ...
       )
-      Enable action buttons for each item. Actions will be displayed in the "__act__" column.
+      Enable action buttons for each item. Actions will be displayed in the "0act" column.
       
     * "action_filter" => callback receving (action-name, objref, object-properties), must return
                          a boolean telling if the action must be displayed or not.
@@ -630,9 +671,9 @@ class FixedObjectList extends ObjectList
         matched against the linked ObjectList "filter" fields, in the same order
         
     The following "special" fields are available for all objects:
-        "__app__": name of owner application
-        "__ref__": complete object reference
-        "__act__": column holding action buttons
+        "0app": name of owner application
+        "0ref": complete object reference
+        "0act": column holding action buttons
 */
 abstract class ObjectList extends AppElement
 {
@@ -661,14 +702,15 @@ abstract class ObjectList extends AppElement
     
     function render()
     {
-        $hheight = "2em";
+        $hheight = "1.6em";
         $this->add_child($this->title);
-        $this->title->set_css("height", "2em");
+        $this->title->set_css("height", "1.2em");
         $this->title->set_content($this->s["title"]);
+        $this->title->set_css("margin-right", "1em");
         
         if ($this->header)
         {
-            $hheight = "3.2em";
+            $hheight = "2.8em";
             $this->add_child($this->header);
         }
         
@@ -677,8 +719,8 @@ abstract class ObjectList extends AppElement
         $this->lst->set_css("overflow", "auto");
         $this->lst->set_css("top", $hheight);
         $this->lst->set_css("bottom", 0);
-        $this->lst->set_css("left", 0);
-        $this->lst->set_css("right", 0);
+        $this->lst->set_css("left", "0");
+        $this->lst->set_css("right", "1em");
     }
 }
 

@@ -20,6 +20,7 @@ along with domserver.  If not, see <http://www.gnu.org/licenses/>.
 abstract class UIElement
 {
     public $tagname = "div";
+    public $init_done = FALSE;
 
     function __construct($domserver, $id)
     {
@@ -29,6 +30,7 @@ abstract class UIElement
         $this->obj = $this->ds->obj;
         $this->config = $this->ds->config;
         $this->output = $this->ds->output;
+        $this->skin = $this->ds->skin;
         
         $this->output->register_element($this);
         $this->init();
@@ -77,18 +79,13 @@ abstract class UIElement
         $this->output->add_op("dom", array($this, $property, $value));
     }
     
-    /* Set CSS property */
-    final function set_css($property, $value)
+    /* Set CSS property
+        if $pseudoclass is specified, the CSS property will be applied to that
+        pseudoclass.
+     */
+    final function set_css($property, $value, $pseudoclass=FALSE)
     {
-        if (!$this->output)
-        {
-            $bt = debug_backtrace();
-            echo "<pre>";
-            var_dump($bt[0]);
-            var_dump($bt[1]);
-            die("\n\nbt");
-        }
-        $this->output->add_op("style", array($this, $property, $value));
+        $this->output->add_op("style", array($this, $property, $value, $pseudoclass));
     }
     
     /* Set CSS class */
@@ -119,6 +116,13 @@ abstract class UIElement
     final function set_handler($event, $target, $method, $arg)
     {
         $this->output->add_op("event", array($this, $event, $target, $method, $arg));
+    }
+    
+    /* Set JS event handler
+        $event is a DOM event, $handler is the JS handler function name */
+    final function set_jshandler($event, $handler)
+    {
+        $this->output->add_op("jsevent", array($this, $event, $handler));
     }
     
     /* Make element draggable
@@ -203,12 +207,12 @@ abstract class UIElement
     
     final function save_data($key, $value)
     {
-        $this->ds->save_client_data("{$this->appid}/{$this->id}/$key", $value);
+        $this->ds->set_client_data("{$this->appid}/{$this->id}/$key", $value);
     }
     
     final function load_data($key, $default)
     {
-        return $this->ds->load_client_data("{$this->appid}/{$this->id}/$key", $default);
+        return $this->ds->get_client_data("{$this->appid}/{$this->id}/$key", $default);
     }
     
     function init() {}
@@ -235,7 +239,9 @@ class UIImageElement extends UIElement
         return "<img id=\"$id\" src=\"{$this->src}\"$classes>\n";
     }
     
-    function render() {}
+    function render() {
+        $this->set_dom("src", $this->src);
+    }
     
     function set_src($src)
     {

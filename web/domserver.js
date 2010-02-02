@@ -76,18 +76,44 @@ function $swap(a, b)
     
     if (next == a)
     {
-        parent.removeNode(a);
+        parent.removeChild(a);
         parent.insertBefore(a, b);
     }
     else
     {
-        parent.removeNode(b);
+        parent.removeChild(b);
         parent.insertBefore(b, a)
-        parent.removeNode(a);
+        parent.removeChild(a);
         
         if (next) parent.insertBefore(a, next);
         else parent.appendChild(a);
     }
+}
+
+/* Set a stylesheet rule
+    Updates rule if existing, creates a new rule otherwise.
+ */
+function $cssrule(selector, prop, value)
+{
+    var rule = undefined;
+    var numss = document.styleSheets.length;
+    for (var i=0; i<numss; i++)
+    {
+        var sheet = document.styleSheets[i];
+        for (var j=0; j<sheet.cssRules.length; j++)
+        {
+            var r = sheet.cssRules[j];
+            if (r.selectorText == selector)
+            {
+                rule = r;
+                break;
+            }
+        }
+        if (rule) break;
+    }
+    
+    if (rule) rule.style[prop] = value;
+    else document.styleSheets[numss-1].addRule(selector, prop + ":" + value + ";");
 }
 
 /********************************************************************
@@ -248,6 +274,19 @@ function $drop(handler, method, target, objref)
     $queue.get(url, $op);
 }
 
+/* Preload image */
+var preloaded = [];
+function $preload(src)
+{
+    if (preloaded.indexOf(src) == -1)
+    {
+        var im = document.createElement("img");
+        im.style.display = "none";
+        im.src = src;
+        document.documentElement.appendChild(im);
+    }
+}
+
 /********************************************************************
  *                             DEV TOOLS                            *
  ********************************************************************/
@@ -257,7 +296,7 @@ function $fatal(msg)
 {
     var err = document.createElement("div");
     err.className = "domserver_fatal_error";
-    err.innerHTML = "<b>Fatal error !</b><br>" + msg + "<br>";
+    err.innerHTML = "<b>Fatal error !</b><br><br>" + msg + "<br>";
     var lnk = document.createElement("a");
     lnk.href = "?";
     lnk.innerHTML = "reload";
@@ -280,7 +319,7 @@ function $debug_disable()
 function $debug_enable()
 {
 	if ($debug_window) return;
-	$debug_window = window.open("framework/debug_window.php","debug_window","toolbar=no,scrollbars,width=600,height=400");
+	$debug_window = window.open("framework/debug_window.php","debug_window","toolbar=no,scrollbars,width=800,height=600");
 
 	var currentTime = new Date();
 	$init_time = currentTime.getTime();

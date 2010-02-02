@@ -17,11 +17,131 @@ You should have received a copy of the GNU General Public License
 along with domserver.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-class MusicSummary extends AppElement
+class MusicStatusText extends AppElement
 {
+    function __construct($app, $id, $player, $property, $xform=FALSE, $song=TRUE)
+    {
+        parent::__construct($app, $id);
+        $this->player = $player;
+        $this->prop = $property;
+        $this->xform = $xform;
+        $this->song = $song;
+    }
+    
     function render()
     {
-        $this->set_content("Music");
+        $this->update();
+    }
+    
+    function update()
+    {
+        $source = $this->song ? $this->player->cur_song : $this->player->mpd;
+        $val = isset($source[$this->prop]) ? $source[$this->prop] : '-';
+        $this->set_content($this->xform ? call_user_func($this->xform, $val) : $val);
+    }
+}
+
+class MusicSeekbar extends ProgressBarElement
+{
+    function __construct($app, $id, $player)
+    {
+        parent::__construct($app, $id);
+        $this->player = $player;
+    }
+    
+    function update()
+    {
+        $total = $this->player->cur_song["len"];
+        $time = $this->player->mpd["time"];
+        $percent = $total ? 100.0 * $time / $total : 0;
+        
+        $this->set_percent($percent);
+    }
+}
+
+class MusicSummary extends AppElement
+{
+	function init()
+	{
+		$mpd = $this->obj->get_object("media:mpd", 255);
+        $this->mpd = $mpd->props;
+        
+        if ($this->mpd["song"] != -1)
+        {
+            $cursong = $this->obj->get_object("media:mpd-item|" . $this->mpd["song"], 2);
+            if ($cursong) $this->cur_song = $cursong->props;
+        }
+        
+        $this->elems = array(
+        	"title" => new MusicStatusText($this->app, "{$this->id}_tit", $this, "title"),
+        	"artist" => new MusicStatusText($this->app, "{$this->id}_art", $this, "artist"),
+        	"seek" => new MusicSeekBar($this->app, "{$this->id}_seek", $this)
+        );
+        
+        $this->icons = array(
+            "play" => new IconElement($this->app, "{$this->id}_play", "play"),
+            "pause" => new IconElement($this->app, "{$this->id}_pause", "pause"),
+            "prev" => new IconElement($this->app, "{$this->id}_prev", "rew"),
+            "next" => new IconElement($this->app, "{$this->id}_next", "fwd"),
+        );  
+	}
+	
+    function render()
+    {
+        foreach ($this->elems as $e) $this->add_child($e);
+        
+        foreach ($this->icons as $action => $i)
+        {
+            $this->add_child($i);
+            $i->set_css("cursor", "hand");
+            $i->set_handler("onclick", $this, "icon_handler", $action);
+        }
+        
+        $this->elems["seek"]->set_jshandler("onclick", "music_playerseek");
+        $this->update();
+    }
+    
+    function update()
+    {
+        foreach ($this->elems as $e) $e->update();
+        
+        foreach ($this->icons as $action => $i)
+        {
+            $display = "inline";
+            
+            if ($action == "pause")
+                $display = $this->mpd["state"] == "play" ? "inline" : "none";
+            if ($action == "play")
+                $display = $this->mpd["state"] == "play" ? "none" : "inline";
+            
+            $i->set_css("display", $display);
+        }
+        
+        $this->schedule_update(1000);
+    }
+    
+    function player_seek($arg)
+    {
+        if (in_array($this->mpd["state"], array("play", "pause")))
+        {
+            $pos = floatval($this->cur_song["len"]) * floatval($arg);
+            $params = array(
+                "position" => array(
+                    "type" => "num",
+                    "value" => $pos
+                )
+            );
+            $this->obj->do_action("media", "mpd-player-seek", "media:mpd", $params);
+        }
+    }
+    
+    function icon_handler($action)
+    {
+        try {
+            $this->obj->do_action("media", "mpd-player-$action", "media:mpd");
+        } catch (ObjectError $e) {
+            $this->debug("could not execute 'mpd-player-$action' : " . $e->getMessage());
+        }
     }
     
     function drop_callback($target, $objref)

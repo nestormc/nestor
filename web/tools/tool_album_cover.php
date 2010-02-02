@@ -35,8 +35,8 @@ class AlbumCover extends Tool
         $im = imagecreatefromjpeg($img);
         if ($im)
         {
-            header("Content-type: image/jpeg");
-            imagejpeg($im, FALSE, 90);
+            header("Content-type: image/png");
+            imagepng($im);
         }
         else $this->no_cover();
     }

@@ -19,6 +19,8 @@ along with domserver.  If not, see <http://www.gnu.org/licenses/>.
 
 require_once "socket_interface/si_codes.php";
 
+class ConnectionError extends Exception {}
+
 class SITag
 {
     function __construct($name, $type)
@@ -85,7 +87,6 @@ class SITag
             $s .= "----- SUBTAGS : -----\n";
             foreach ($this->subtags as $st)
                 $s .= $st->dump();
-            $s .= $sts;
             $s .= "---------------------\n";
         }
         $s .= sprintf("Value: %s\n", $this->value);
@@ -261,8 +262,7 @@ class SIPacket
     function _read_raw_packet($dbuf)
     {
         $in = fread($dbuf, 8);
-        if (strlen($in) < 8)
-            die("No packet to read");
+        if (strlen($in) < 8) throw new ConnectionError("No answer");
         $unpack = unpack("nvers/nflags/Nlen", $in);
         $version = $unpack["vers"];
         $this->flags = $unpack["flags"];
@@ -346,7 +346,7 @@ class SocketInterface
     {
    		$this->socket = @fsockopen($this->host, $this->port, $errno, $errstr, 10);
 		if (!$this->socket) {
-			$this->errmsg = "Socket error: $errstr ($errno)";
+		    throw new ConnectionError("$errstr ($errno)");
 			$this->connected = FALSE;
 		}
 		else $this->connected = TRUE;
@@ -354,11 +354,7 @@ class SocketInterface
     
     function disconnect()
     {
-        if (!$this->connected)
-        {
-            $this->errmsg = "Already disconnected";
-            return;
-        }
+        if (!$this->connected) return;
         
         $packet = new SIPacket(SIC('OP_DISCONNECT'));
         $ack = $this->request($packet);

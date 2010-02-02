@@ -18,13 +18,15 @@ along with domserver.  If not, see <http://www.gnu.org/licenses/>.
 */
 
 set_include_path(get_include_path() . PATH_SEPARATOR . dirname(__FILE__));
-define("DOMSERVER_DEBUG", TRUE);
+define("DOMSERVER_DEBUG", FALSE);
 
+require_once "framework/misc.php";
 require_once "socket_interface/si.php";
 require_once "socket_interface/objects.php";
 require_once "framework/app.php";
 require_once "framework/app_element.php";
 require_once "framework/app_objlist.php";
+require_once "framework/skin.php";
 require_once "framework/tool.php";
 require_once "framework/output_manager.php";
 require_once "ui/ui.php";
@@ -37,10 +39,13 @@ class Domserver
     private $si = FALSE;
     private $apps = array();
     private $tools = array();
+    private $client_data = array();
+    private $client_data_changed = array();
     
     public $config = array();
     public $obj = FALSE;
     public $output = FALSE;
+    public $skin = FALSE;
     
     function __construct()
     {
@@ -66,6 +71,12 @@ class Domserver
         /* Create output manager */
         $this->output = new OutputManager($this);
         
+        /* Create skin helper */
+        $this->skin = new Skin($this, "default");
+        
+        /* Preload DB cookie data */
+        $this->load_dbcookies();
+        
         /* Load apps */
         $dir = opendir(dirname(__FILE__) . DIRECTORY_SEPARATOR . "apps");
         while (($f = readdir($dir)) !== FALSE)
@@ -83,10 +94,20 @@ class Domserver
         closedir($dir);
     }
     
+    function __destruct()
+    {
+        /* Save DB cookie data */
+        $this->save_dbcookies();
+    }
+    
     private function _add_app($clsname)
     {
-        $app = new $clsname($this);
-        $this->apps[$app->id] = $app;
+        try {
+            $app = new $clsname($this);
+            $this->apps[$app->id] = $app;
+        } catch (ConnectionError $e) {
+            /* Continue for now, we'll re-catch this later */
+        }
     }
     
     private function _add_tool($clsname)
@@ -133,7 +154,7 @@ class Domserver
         return (intval($c["c"]) != 0);
     }
     
-    private function get_session_id()
+    private function get_session_id($setcookie=TRUE)
     {
         $sid = FALSE;
         $this->delete_expired_sessions();
@@ -148,7 +169,7 @@ class Domserver
         {
             do
             {
-                $sid = md5("domserver:" . microtime() . $_SERVER["REMOTE_ADDR"] . $_SERVER["REMOTE_PORT"]);
+                $sid = sha1("domserver:" . microtime() . $_SERVER["REMOTE_ADDR"] . $_SERVER["REMOTE_PORT"]);
             }
             while ($this->session_exists($sid));
             
@@ -165,52 +186,78 @@ class Domserver
             $q->execute();
         }
         
-        $_COOKIE["domserver:session_id"] = $sid;
-        setcookie("domserver:session_id", $sid, time() + self::session_expires);
+        if ($setcookie)
+        {
+            $_COOKIE["domserver:session_id"] = $sid;
+            setcookie("domserver:session_id", $sid, time() + self::session_expires);
+        }
         return $sid;
     }
     
-    function save_client_data($key, $value)
+    function save_dbcookies()
     {
-        $sid = $this->get_session_id();
-        $exp = var_export($value, TRUE);
+        $sid = $this->get_session_id(FALSE);
         
-        $q = $this->db->prepare("INSERT OR REPLACE INTO web_values(session_name, key, value) VALUES(:name, :key, :value)");
-        $q->bindValue(':name', $sid, PDO::PARAM_STR);
-        $q->bindValue(':key', $key, PDO::PARAM_STR);
-        $q->bindValue(':value', $exp, PDO::PARAM_STR);
-        $q->execute();
+        foreach (array_keys($this->client_data_changed) as $key)
+        {
+            $value = $this->client_data[$key];
+            
+            $exp = var_export($value, TRUE);
+            $q = $this->db->prepare("INSERT OR REPLACE INTO web_values(session_name, key, value) VALUES(:name, :key, :value)");
+            $q->bindValue(':name', $sid, PDO::PARAM_STR);
+            $q->bindValue(':key', $key, PDO::PARAM_STR);
+            $q->bindValue(':value', $exp, PDO::PARAM_STR);
+            $q->execute();
+            $q = NULL;
+        }
     }
     
-    function load_client_data($key, $default)
+    function load_dbcookies()
     {
         $sid = $this->get_session_id();
-        $value = $default;
         
-        $q = $this->db->prepare("SELECT value FROM web_values WHERE session_name = :name AND key = :key");
+        $q = $this->db->prepare("SELECT key, value FROM web_values WHERE session_name = :name");
         $q->bindValue(':name', $sid, PDO::PARAM_STR);
-        $q->bindValue(':key', $key, PDO::PARAM_STR);
         $q->execute();
         
-        if ($v = $q->fetch(PDO::FETCH_ASSOC))
+        while ($v = $q->fetch(PDO::FETCH_ASSOC))
         {
-            $value = eval("return $v[value];");
+            $this->client_data[$v["key"]] = eval("return $v[value];");
         }
-        
-        return $value;
+    }
+    
+    function set_client_data($key, $value)
+    {
+        if ($this->client_data[$key] != $value)
+        {
+            $this->client_data_changed[$key] = TRUE;
+            $this->client_data[$key] = $value;
+        }
+    }
+    
+    function get_client_data($key, $default)
+    {
+        return isset($this->client_data[$key]) ? $this->client_data[$key] : $default;
     }
     
     function get_applist()
     {
         $ret = array();
         foreach ($this->apps as $id => $app)
+        {
             $ret[$id] = $app->get_summary_element();
+        }
         return $ret;
     }
     
     function get_app_workspace($id)
     {
-        return $this->apps[$id]->get_workspace_element();
+        if (isset($this->apps[$id]))
+        {
+            return $this->apps[$id]->get_workspace_element();
+        } 
+        else
+            return FALSE;
     }
     
     function render()

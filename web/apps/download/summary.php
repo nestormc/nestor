@@ -36,13 +36,11 @@ class DownloadSummary extends AppElement
         $am = $this->obj->get_object("amule:", 2);
         $am = $am->props;
         
-        $this->set_content("Downloads");
         $this->add_child($this->state);
         
-        $speed = DownloadUI::_speed_xform($bt["dl_speed"]+ $am["dl_speed"]);
+        $speed = human_speed($bt["dl_speed"]+ $am["dl_speed"]);
         $num = $bt["dl_files"] + $am["dl_files"];
-        $s = $num == 1 ? "" : "s";
-        $this->state->set_content(sprintf("%d file$s @ %s", $num, $speed));
+        $this->state->set_content(sprintf(_n("%d file | %s", "%d files | %s", $num), $num, $speed));
         
         $this->schedule_update(1000);
     }

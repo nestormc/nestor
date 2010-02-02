@@ -21,26 +21,45 @@ require_once "framework/element.php";
 
 class DomserverWorkspace extends UIElement
 {
-    function render() 
+    function get_app_workspace()
     {
         $app_id = $this->load_data("app", FALSE);
-        if ($app_id) $this->display_app($app_id);
-        else $this->set_content("No app selected");
+        if ($app_id) $this->ws = $this->ds->get_app_workspace($app_id);
+        else $this->ws = FALSE;
     }
     
-    function display_app($app_id)
+    function init()
     {
-        $this->save_data("app", $app_id);
-        $this->set_content("");
-        
-        $ws = $this->ds->get_app_workspace($app_id);
-        $this->add_child($ws);
-        $ws->set_class("app_workspace");
+        $this->get_app_workspace();
+    }
+
+    function render() 
+    {
+        $this->display_app();
+    }
+    
+    function display_app()
+    {
+        if ($this->ws)
+        {
+            $this->set_content("");
+            $this->add_child($this->ws);
+            $this->ws->set_class("app_workspace");
+        }
+        else
+        {
+            $this->set_content("no app selected");
+        }
     }
 
     function set_active_app($app_id)
     {
-        if ($app_id != $this->load_data("app", FALSE)) $this->display_app($app_id);
+        if ($app_id != $this->load_data("app", FALSE))
+        {
+            $this->save_data("app", $app_id);
+            $this->get_app_workspace();
+            $this->display_app();
+        }
     }
 }
 
