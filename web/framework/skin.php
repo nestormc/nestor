@@ -38,6 +38,11 @@ class Skin
         $act = $active ? "_active" : "";
         return "{$this->dir}/apps/$name$act.svg";
     }
+    
+    function image($name)
+    {
+        return "{$this->dir}/images/$name.svg";
+    }
 }
 
 ?>

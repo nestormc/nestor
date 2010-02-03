@@ -59,6 +59,57 @@ class MusicSeekbar extends ProgressBarElement
     }
 }
 
+class MusicVolumebar extends AppElement
+{
+    const VOLUME_GAMMA = 1.5;
+    
+    private function gamma($vol, $invert=FALSE)
+    {
+        $gamma = $invert ? 1.0 / MusicVolumebar::VOLUME_GAMMA : MusicVolumebar::VOLUME_GAMMA;
+        return pow(floatval($vol) / 100.0, $gamma) * 100.0;
+    }
+
+    function __construct($app, $id, $player)
+    {
+        parent::__construct($app, $id);
+        $this->player = $player;
+    }
+
+    function init()
+    {
+        $this->vol = new ImageElement($this->app, "{$this->id}_V", $this->skin->image("volume_full"));
+    }
+    
+    function render()
+    {
+        /* FIXME remove those ugly PX dimensions */
+        $this->set_css("width", "61px");
+        $this->set_css("height", "15px");
+        $this->set_css("background-image", "url(" . $this->skin->image("volume_empty") . ")");
+        $this->set_jshandler("onclick", "music_setvolume");
+        
+        $this->add_child($this->vol);
+        $this->vol->set_css("position", "absolute");
+    }
+    
+    function set_volume($percent)
+    {
+        $params = array(
+            "volume" => array(
+                "type" => "num",
+                "value" => ceil($this->gamma(100.0 * $percent, TRUE))
+            )
+        );
+        $this->obj->do_action("media", "mpd-player-volume", "media:mpd", $params);
+    }
+    
+    function update()
+    {
+        $vol = floor(1 + ($this->gamma($this->player->mpd["volume"]) * 59 / 100));
+        $this->vol->set_css("clip", "rect(auto,{$vol}px,auto,auto)");
+    }
+}
+
 class MusicSummary extends AppElement
 {
 	function init()
@@ -82,13 +133,16 @@ class MusicSummary extends AppElement
             "play" => new IconElement($this->app, "{$this->id}_play", "play"),
             "pause" => new IconElement($this->app, "{$this->id}_pause", "pause"),
             "prev" => new IconElement($this->app, "{$this->id}_prev", "rew"),
-            "next" => new IconElement($this->app, "{$this->id}_next", "fwd"),
+            "next" => new IconElement($this->app, "{$this->id}_next", "fwd")
         );  
+        
+        $this->volume = new MusicVolumebar($this->app, "{$this->id}_vol", $this);
 	}
 	
     function render()
     {
         foreach ($this->elems as $e) $this->add_child($e);
+        $this->elems["seek"]->set_jshandler("onclick", "music_playerseek");
         
         foreach ($this->icons as $action => $i)
         {
@@ -97,7 +151,9 @@ class MusicSummary extends AppElement
             $i->set_handler("onclick", $this, "icon_handler", $action);
         }
         
-        $this->elems["seek"]->set_jshandler("onclick", "music_playerseek");
+        $this->add_child($this->volume);
+        $this->volume->set_css("float", "right");
+        
         $this->update();
     }
     
@@ -116,6 +172,8 @@ class MusicSummary extends AppElement
             
             $i->set_css("display", $display);
         }
+        
+        $this->volume->update();
         
         $this->schedule_update(1000);
     }

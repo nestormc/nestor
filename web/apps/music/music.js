@@ -19,4 +19,12 @@ function music_playerseek(e)
 {
     var percent = e.offsetX / this.offsetWidth;
     $method("music_summary", "player_seek", percent);
+    e.stopPropagation();
+}
+
+function music_setvolume(e)
+{
+    var percent = e.offsetX / this.offsetWidth;
+    $method("music_summary_vol", "set_volume", percent);
+    e.stopPropagation();
 }
