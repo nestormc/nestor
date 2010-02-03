@@ -123,7 +123,7 @@ class MediaImporterThread(Thread):
                         pass
                         
             unknown_titles = ['unknown', 'unknown track', 'piste inconnue']
-            if md['title'].lower() in unknown_titles:
+            if not md['title'] or md['title'].lower() in unknown_titles:
                 title = None
             else:
                 title = md['title']
