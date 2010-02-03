@@ -37,6 +37,12 @@ abstract class AppElement extends UIElement
     }
 }
 
+class DivElement extends AppElement
+{
+    function render() {}
+}
+
+
 class LabelElement extends UIElement
 {
     function render() {}
@@ -93,7 +99,7 @@ class IconElement extends ImageElement
 }
 
 
-class ProgressBarContentElement extends AppElement
+class ProgressBarContent extends AppElement
 {    
     function init()
     {
@@ -117,7 +123,7 @@ class ProgressBarElement extends AppElement
 {
     function init()
     {
-        $this->cnt = new ProgressBarContentElement($this->app, "{$this->id}_content");
+        $this->cnt = new ProgressBarContent($this->app, "{$this->id}_C");
     }
     
     function set_percent($percent)
@@ -129,6 +135,55 @@ class ProgressBarElement extends AppElement
     {
         $this->set_class("progress_bar");
         $this->add_child($this->cnt);
+    }
+}
+
+class ScrollContainerElement extends AppElement
+{
+    function init()
+    {
+        $this->wrap = new DivElement($this->app, "{$this->id}_W");
+        $this->cnt = new DivElement($this->app, "{$this->id}_C"); 
+        $this->bar = new DivElement($this->app, "{$this->id}_B"); 
+    }
+    
+    function add_child($child, $internal=FALSE)
+    {
+        if ($internal) parent::add_child($child);
+        else
+        {
+            $this->cnt->add_child($child);
+            $this->refresh_scrollbar();
+        }
+    }
+    
+    function refresh_scrollbar()
+    {
+        $this->add_jscode("\$scroll_move({id})");
+    }
+    
+    function remove_child($child)
+    {
+        $this->cnt->remove_child($child);
+    }
+    
+    function set_content($cnt)
+    {
+        $this->cnt->set_content($cnt);
+    }
+
+    function render()
+    {
+        $this->set_class("scroll_container");
+        $this->add_child($this->wrap, TRUE);
+        $this->wrap->set_class("scroll_container_wrap");
+        $this->wrap->add_child($this->cnt, TRUE);
+        $this->wrap->set_jshandler("onscroll", "\$scroll");
+        $this->cnt->set_class("scroll_container_cnt");
+        $this->add_child($this->bar, TRUE);
+        $this->bar->set_class("scroll_container_bar");
+        
+        $this->add_jscode("\$scroll_declare({id})");
     }
 }
 

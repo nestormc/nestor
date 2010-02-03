@@ -6,14 +6,12 @@ body, html {
     font-family: sans-serif;
     font-size: 9pt;
     
-    /* Give full space to the document */
     width: 100%;
     height: 100%;
     margin: 0;
 }
 
 #domserver_ui {
-    /* Give full space to root element */
     position: relative;
     height: 100%;
     width: 100%;
@@ -46,7 +44,7 @@ body, html {
     top: 3em; 
     bottom: 1em;
     left: 21em;
-    right: 0;
+    right: 1em;
     
     overflow: auto;
 }
@@ -59,6 +57,10 @@ body, html {
     right: 0;    
     overflow: auto;
 }
+
+/********************************************************************/
+/*                       Application summaries                      */
+/********************************************************************/
 
 .app_icon {
     float: left;
@@ -85,20 +87,15 @@ body, html {
     margin-left: 4em;
 }
 
-div.domserver_fatal_error {
-    border: 2px solid red;
-    color: red;
-    background-color: #FFCCCC;
-    padding: 1em;
-    
-    position: absolute;
-    left: 30%;
-    right: 30%;
-    top: 40%;
-    bottom: 40%;
-    
-    overflow: auto;
+.app_summary.drag_hover {
+    background-color: #FFAAFF;
 }
+
+/********************************************************************/
+/*                        Framework elements                        */
+/********************************************************************/
+
+/* Progress bar */
 
 .progress_bar {
     margin: 0.35em 0 0.35em 0;
@@ -112,15 +109,42 @@ div.domserver_fatal_error {
     height: 0.3em;
     overflow: hidden;
 }
-.drag_label {
-    background-color: #FFFFEE;
-    border: 1px solid black;
-    padding: 0 0.5em 0 0.5em;
+
+/* Scrolling container */
+
+.scroll_container {
+    position: relative;
+    overflow: hidden;
 }
 
-.app_summary.drag_hover {
-    background-color: #FFAAFF;
+.scroll_container_wrap {
+    position: absolute;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    right: -100; /* hide the browser's scroll bar */
+    overflow: auto;
 }
+
+.scroll_container_cnt {
+    position: absolute;
+    left: 0;
+    right: 100; /* restore .scroll_container width */
+}
+
+.scroll_container_bar {
+    height: 0;
+    position: absolute;
+    right: 0;
+    top: 0;
+    
+    /* Customizable */
+    background-color: #AAAAAA;
+    width: 0.2em;
+}
+
+/* Object lists */
+
 .list_title {
     border-top: 1px solid;
     border-bottom: 1px solid;
@@ -154,11 +178,41 @@ div.domserver_fatal_error {
     background-color: #DDDDDD;
 }
 
-#music_playlistcol_playlist_body > div.drag_hover {
+
+/********************************************************************/
+/*                              Popups                              */
+/********************************************************************/
+
+div.domserver_fatal_error {
+    border: 2px solid red;
+    color: red;
+    background-color: #FFCCCC;
+    padding: 1em;
+    
+    position: absolute;
+    left: 30%;
+    right: 30%;
+    top: 40%;
+    bottom: 40%;
+    
+    overflow: auto;
+}
+
+.drag_label {
+    background-color: #FFFFEE;
+    border: 1px solid black;
+    padding: 0 0.5em 0 0.5em;
+}
+
+/********************************************************************/
+/*                      Application-specific                        */
+/********************************************************************/
+
+#music_playlistcol_playlist_BDY > div.drag_hover {
     border-top: 1px solid black;
 }
 
-#music_playlistcol_playlist_body.drag_hover > div#music_playlistcol_playlist_body_closer {
+#music_playlistcol_playlist_BDY.drag_hover > div#music_playlistcol_playlist_BDY_END {
     border-top: 1px solid black;
 }
 
@@ -166,6 +220,6 @@ div.domserver_fatal_error {
     font-size: 0.8em;
 }
 
-:focus {
-    background-color: green;
+#music_playlistcol {
+    padding-right: 1em;
 }

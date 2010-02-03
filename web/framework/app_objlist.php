@@ -310,7 +310,7 @@ class RefreshObjectListBody extends ObjectListBody
             else
             {
                 /* New item : create new child */
-                $child = new ObjectListItem($this->app, "{$this->id}_item$id", $props, $objref, $this->s);
+                $child = new ObjectListItem($this->app, "{$this->id}_I$id", $props, $objref, $this->s);
                 $this->add_item($child, $id, $props);
             }
         }
@@ -348,7 +348,7 @@ class FixedObjectListBody extends ObjectListBody
                 $props = $o->props;
                 $id = $props[$this->s["unique_field"]];
                 
-                $child = new ObjectListItem($this->app, "{$this->id}_item$id", $props, $objref, $this->s);
+                $child = new ObjectListItem($this->app, "{$this->id}_I$id", $props, $objref, $this->s);
                 $this->add_item($child, $id, $props);
             }
         
@@ -385,13 +385,18 @@ abstract class ObjectListBody extends AppElement
         $this->children_data = $this->load_data("children", array());
         foreach ($this->children_data as $id => $data)
         {
-            $this->children[$id] = new ObjectListItem($this->app, "{$this->id}_item$id", $data, $data["0ref"], $this->s);
+            $this->children[$id] = new ObjectListItem($this->app, "{$this->id}_I$id", $data, $data["0ref"], $this->s);
         }
         
         $this->selected_id = intval($this->load_data("selected_id", -1));
         $this->count = count($this->children);
         
-        $this->closer = new ObjectListCloser($this->app, "{$this->id}_closer");
+        $this->closer = new ObjectListCloser($this->app, "{$this->id}_END");
+    }
+    
+    function take_scroll_container($scroll)
+    {
+        $this->scroll = $scroll;
     }
     
     function item_event($arg)
@@ -432,6 +437,9 @@ abstract class ObjectListBody extends AppElement
         /* Move closer to the bottom */
         $this->remove_child($this->closer);
         $this->add_child($this->closer);
+        
+        /* Refresh scrollbar */
+        $this->scroll->refresh_scrollbar();
     }
     
     /* Fetch objects, must call $this->add_item($child_element, $item_id) to add items */
@@ -570,7 +578,7 @@ class RefreshObjectList extends ObjectList
 {
     function get_list_body()
     {
-        return new RefreshObjectListBody($this->app, "{$this->id}_body", $this->s);
+        return new RefreshObjectListBody($this->app, "{$this->id}_BDY", $this->s);
     }
 }
 
@@ -587,7 +595,7 @@ class FixedObjectList extends ObjectList
 {
     function get_list_body()
     {
-        return new FixedObjectListBody($this->app, "{$this->id}_body", $this->s);
+        return new FixedObjectListBody($this->app, "{$this->id}_BDY", $this->s);
     }
     
     function reload()
@@ -677,6 +685,9 @@ class FixedObjectList extends ObjectList
 */
 abstract class ObjectList extends AppElement
 {
+    public $title;
+    public $scroll;
+
     function __construct($app, $id, $settings)
     {
         $this->s = $settings;
@@ -687,11 +698,14 @@ abstract class ObjectList extends AppElement
     
     function init()
     {
+        $this->scroll = new ScrollContainerElement($this->app, "{$this->id}_S");
+        
         $this->lst = $this->get_list_body();
-        $this->title = new ObjectListTitle($this->app, "{$this->id}_title");
+        $this->lst->take_scroll_container($this->scroll);
+        $this->title = new ObjectListTitle($this->app, "{$this->id}_TIT");
         
         if (isset($this->s["fields"][$this->s["main_field"]]["title"]))
-            $this->header = new ObjectListHeader($this->app, "{$this->id}_header", $this->s);
+            $this->header = new ObjectListHeader($this->app, "{$this->id}_HDR", $this->s);
         else $this->header = FALSE;
     }
     
@@ -706,7 +720,6 @@ abstract class ObjectList extends AppElement
         $this->add_child($this->title);
         $this->title->set_css("height", "1.2em");
         $this->title->set_content($this->s["title"]);
-        $this->title->set_css("margin-right", "1em");
         
         if ($this->header)
         {
@@ -714,13 +727,15 @@ abstract class ObjectList extends AppElement
             $this->add_child($this->header);
         }
         
-        $this->add_child($this->lst);
-        $this->lst->set_css("position", "absolute");
-        $this->lst->set_css("overflow", "auto");
-        $this->lst->set_css("top", $hheight);
-        $this->lst->set_css("bottom", 0);
-        $this->lst->set_css("left", "0");
-        $this->lst->set_css("right", "1em");
+        $this->add_child($this->scroll);
+        $this->scroll->set_css("position", "absolute");
+        $this->scroll->set_css("top", $hheight);
+        $this->scroll->set_css("left", "0");
+        $this->scroll->set_css("right", "0");
+        $this->scroll->set_css("bottom", "0");
+        $this->scroll->add_child($this->lst);
+        
+        $this->lst->set_css("width", "100%");
     }
 }
 

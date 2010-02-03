@@ -47,13 +47,14 @@ abstract class UIElement
     }
     
     /* Add child element */
-    final function add_child($child)
+    function add_child($child)
     {
         $this->output->add_op("child", array($this, $child));
+        $this->output->render_child($child);
     }
     
     /* Remove child element */
-    final function remove_child($child)
+    function remove_child($child)
     {
         $this->output->add_op("unchild", array($this, $child));
     }
@@ -68,7 +69,7 @@ abstract class UIElement
         Warning: removes all previously added children.  It should it be called
         _before_ any call to add_child if content _and_ children are wanted.
      */
-    final function set_content($html)
+    function set_content($html)
     {
         $this->output->add_op("content", array($this, $html));
     }
@@ -123,6 +124,16 @@ abstract class UIElement
     final function set_jshandler($event, $handler)
     {
         $this->output->add_op("jsevent", array($this, $event, $handler));
+    }
+    
+    /* Add JS code
+        Special varibales in $code will be replaced :
+        - {id} : element DOM id
+        - {this} : element DOM node
+    */
+    final function add_jscode($code)
+    {
+        $this->output->add_op("jscode", array($this, $code));
     }
     
     /* Make element draggable

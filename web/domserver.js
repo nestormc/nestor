@@ -382,6 +382,63 @@ function $debug_msg(msg)
 	span.scrollIntoView();
 }
 
+
+/********************************************************************
+ *                         FRAMEWORK TOOLS                          *
+ ********************************************************************/
+ 
+var $scroll_containers = [];
+
+/* Declare a scroll container */
+function $scroll_declare(sce_id)
+{
+    if ($scroll_containers.indexOf(sce_id) == -1)
+        $scroll_containers.push(sce_id);
+        
+    $scroll_move(sce_id);
+}
+ 
+/* ScrollContainerElement scroll handler */
+function $scroll()
+{
+    $scroll_move(this.id.replace(/_W$/, ""));
+}
+
+/* Move and resize a ScrollContainerElement scrollbar */
+function $scroll_move(sce_id)
+{
+    var sce = $(sce_id);
+    var bar = $(sce_id + "_B");
+    var wrap = $(sce_id + "_W");
+    var cnt = $(sce_id + "_C");
+    
+    if (sce && bar && wrap && cnt)
+    {
+        if (cnt.offsetHeight <= sce.offsetHeight)
+        {
+            bar.style.height = 0;
+        }
+        else
+        {
+            var sz = Math.max(5, Math.floor(sce.offsetHeight * sce.offsetHeight / cnt.offsetHeight));
+            bar.style.height = sz + "px";    
+            var top = Math.floor((sce.offsetHeight - sz) * wrap.scrollTop / (cnt.offsetHeight - sce.offsetHeight));
+            bar.style.top = top + "px";
+        }
+    }
+}
+
+/* Refresh all scrollbar dimensions */
+function $scroll_refresh_all()
+{
+    for (var i = 0; i < $scroll_containers.length; i++)
+    {
+        $scroll_move($scroll_containers[i]);
+    }
+}
+
+window.onresize = $scroll_refresh_all;
+
 /********************************************************************
  *                          DRAG AND DROP                           *
  *     Code adapted from Aaron Boodman's public domain library      *

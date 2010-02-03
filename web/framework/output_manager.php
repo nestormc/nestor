@@ -95,7 +95,7 @@ class OutputManager
     }
     
     /* Wrapper for child rendering (catching exceptions) */
-    private function render_child($child)
+    function render_child($child)
     {
         try {
             $child->render();
@@ -128,7 +128,7 @@ class OutputManager
         global $DEBUG_OPCODES, $DEBUG_IDS;
         
         $this->ops[] = array($opcode, $params);
-        if (DOMSERVER_DEBUG && in_array($opcode, $DEBUG_OPCODES))
+        if (DOMSERVER_DEBUG && (in_array($opcode, $DEBUG_OPCODES) || in_array("*", $DEBUG_OPCODES)))
         {
             $dparams = array();
             
@@ -199,7 +199,7 @@ class OutputManager
                 $ops[] = "var c=document.createElement(\"{$child->tagname}\");";
                 $ops[] = "c.id=\"$childid\";";
                 $ops[] = "\$(\"$id\").appendChild(c);";
-                $this->render_child($child);
+                //$this->render_child($child);
                 break;
                 
             case 'unchild':
@@ -241,6 +241,13 @@ class OutputManager
                 $event = $params[1];
                 $handler = $params[2];
                 $ops[] = "\$(\"$id\").$event=$handler;";
+                break;
+                
+            case 'jscode':
+                $code = $params[1];
+                $code = str_replace("{id}", "\"$id\"", $code);
+                $code = str_replace("{this}", "\$(\"$id\")", $code);
+                $ops[] = "$code;";
                 break;
                 
             case 'drag_src':
@@ -398,7 +405,7 @@ class OutputManager
                 $elems[$childid] = $blank;
                 $elems[$childid]["obj"] = $child;
                 $elems[$id]["children"][] = $childid;
-                $this->render_child($child);
+                //$this->render_child($child);
                 break;
                 
             case 'unchild':
@@ -441,6 +448,13 @@ class OutputManager
                 $event = $params[1];
                 $handler = $params[2];
                 $js[] = "if (\$(\"$id\")) \$(\"$id\").$event = $handler;";
+                break;
+                
+            case 'jscode':
+                $code = $params[1];
+                $code = str_replace("{id}", "\"$id\"", $code);
+                $code = str_replace("{this}", "\$(\"$id\")", $code);
+                $js[] = "$code;";
                 break;
                 
             case 'drag_src':
