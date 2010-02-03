@@ -36,7 +36,7 @@ class AlbumCover extends Tool
         if ($im)
         {
             header("Content-type: image/png");
-            imagepng($im);
+            imagepng($im, NULL, 0);
         }
         else $this->no_cover();
     }
