@@ -15,6 +15,7 @@
 
 import mpd
 import os.path
+import threading
 import time
 
 from ..errors import ObjectError
@@ -493,6 +494,7 @@ class MPDWrapper:
     def __init__(self, domserver):
         self.domserver = domserver
         self.client = mpd.MPDClient()
+        self.cmdlock = threading.Condition(threading.Lock())
         
     def _connect(self):
         try:
@@ -507,16 +509,23 @@ class MPDWrapper:
                 int(self.domserver.config['media.mpd_port'])
             )
             self.client.password(self.domserver.config['media.mpd_password'])
+            self._connect()
         
     def _command(self, cmd, *args):
-        self._connect()
         args_str = []
         for a in args:
             if isinstance(a, unicode):
                 args_str.append(a.encode('utf-8'))
             else:
                 args_str.append(a)
-        ret = eval("self.client.%s(*args_str)" % cmd)
+                
+        # The MPD library is not thread-safe, thus we lock here
+        self.cmdlock.acquire()
+        try:    
+            self._connect()
+            ret = eval("self.client.%s(*args_str)" % cmd)
+        finally:
+            self.cmdlock.release()
         return ret
         
     def __getattr__(self, attr):
