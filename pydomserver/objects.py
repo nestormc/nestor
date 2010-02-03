@@ -797,7 +797,6 @@ class ObjectAccessor:
                     if owner not in self.providers:
                         raise ObjectError("invalid-provider:%s" % owner)
                         
-                        
                     exprtag = tag.get_subtag(SIC.TAG_OBJ_EXPRESSION)
                     expr = OExpression.from_sitag(exprtag)
                     
@@ -849,6 +848,7 @@ class ObjectAccessor:
             return
             
         elif found == SIC.TAG_OBJ_REFERENCE:
+            self.domserver.perf("Starting object query (%s)" % tag.value)
             self.providers[tag.value.split(":", 1)[0]].on_query_start()
         
             try:
@@ -867,9 +867,11 @@ class ObjectAccessor:
             resp.set_flag(SIC.FLAGS_USE_ZLIB)
             client.answer(resp)
             self.providers[tag.value.split(":", 1)[0]].on_query_end()
+            self.domserver.perf("Finished object query")
             return
             
         elif found == SIC.TAG_ACTION_QUERY:
+            self.domserver.perf("Starting action query (%s)" % tag.value)
             try:
                 try:
                     proc = self.processors[tag.value]
@@ -898,9 +900,11 @@ class ObjectAccessor:
             resp.set_flag(SIC.FLAGS_USE_ZLIB)
             client.answer(resp)
             self.providers[tag.value].on_query_end()
+            self.domserver.perf("Finished action query")
             return
                 
         elif found == SIC.TAG_ACTION_EXECUTE:
+            self.domserver.perf("Starting action execute (%s)" % tag.value)
             try:
                 try:
                     proc = self.processors[tag.value]
@@ -938,4 +942,5 @@ class ObjectAccessor:
                 client.answer_success()
             self.providers[tag.value].on_query_end()
             return
+            self.domserver.perf("Finished action execute")
             
