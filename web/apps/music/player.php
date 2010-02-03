@@ -23,8 +23,8 @@ class MusicCover extends ImageElement
 {
     function __construct($app, $id, $player)
     {
-        parent::__construct($app, $id, "tools/no-cover.png");
         $this->player = $player;
+        parent::__construct($app, $id, $path = $this->player->cur_song["artist"] . DIRECTORY_SEPARATOR . $this->player->cur_song["album"]);
     }
     
     function update()
@@ -66,7 +66,7 @@ class MusicPlayerblock extends AppElement
         
         //$this->elems["seekbar"]->set_css("position", "absolute");
         //$this->elems["seekbar"]->set_css("left", "10em");
-       // $this->elems["seekbar"]->set_css("right", "0");
+        //$this->elems["seekbar"]->set_css("right", "0");
         
         $this->update();
     }

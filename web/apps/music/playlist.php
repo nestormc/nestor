@@ -99,7 +99,7 @@ class MusicPlayerColumn extends AppElement
         $this->playlist->set_css("top", $this->player_height);
         $this->playlist->set_css("bottom", 0);
         $this->playlist->set_css("left", 0);
-        $this->playlist->set_css("right", 0);
+        $this->playlist->set_css("right", "1em");
     }
     
     function playlist_remove_handler($action, $objref)

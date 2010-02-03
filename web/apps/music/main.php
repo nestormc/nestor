@@ -109,7 +109,7 @@ class MusicUI extends AppElement
             "apps" => "media",
             "otype" => "music-artist",
             "lod" => 2,
-            "limit" => 50,
+            "limit" => 30,
             
             "fields" => array(
                 "artist" => array(
@@ -144,6 +144,12 @@ class MusicUI extends AppElement
             array($this->lists["albums"], 1),
             array($this->lists["tracks"], 1)
         ));
+        
+        $this->lists["artists"]->title->set_css("margin-right", "1em");
+        $this->lists["artists"]->scroll->set_css("margin-right", "1em");
+        
+        $this->lists["albums"]->title->set_css("margin-right", "1em");
+        $this->lists["albums"]->scroll->set_css("margin-right", "1em");
     }
     
     function medialib_dblclick_handler($element)
