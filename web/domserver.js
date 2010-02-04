@@ -230,6 +230,41 @@ function $ajaxqueue(qname) {
 	this.post = $ajax_mk_post(this);
 }
 
+/* Update scheduler (enables updating all elements with the same update inteval at the same time) */
+var $scheduler = {
+    resolution: 50,
+    queue: new $ajaxqueue('scheduler'),
+    updates: {},
+    timeouts: {},
+    
+    schedule: function(timeout, elem_id)
+    {
+        if (timeout == 0) timeout = $scheduler.resolution;
+        
+        for (var to in $scheduler.updates)
+            if ($scheduler.updates[to].indexOf(elem_id) != -1) return;
+    
+        if (typeof $scheduler.updates[timeout] == 'undefined')
+            $scheduler.updates[timeout] = [elem_id];
+        else
+            $scheduler.updates[timeout].push(elem_id);
+            
+        if (typeof $scheduler.timeouts[timeout] == 'undefined')
+            $scheduler.timeouts[timeout] = window.setTimeout($scheduler.mk_update(timeout), timeout);
+    },
+    
+    mk_update: function(timeout)
+    {
+        return function() {
+            $scheduler.timeouts[timeout] = undefined;
+            var eids = $scheduler.updates[timeout].join(',');
+            $scheduler.updates[timeout] = [];
+            var url = "?a=update&eid=" + encodeURIComponent(eids);
+            $scheduler.queue.get(url, $op);
+        };
+    }
+};
+
 
 
 /********************************************************************

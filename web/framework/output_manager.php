@@ -216,7 +216,8 @@ class OutputManager
                 
             case 'sched_update':
                 $interval = $params[1];
-                $ops[] = "window.setTimeout(function(){\$update(\"$id\");},$interval);";
+                //$ops[] = "window.setTimeout(function(){\$update(\"$id\");},$interval);";
+                $ops[] = "\$scheduler.schedule($interval, \"$id\");";
                 break;
                 
             case 'class':
@@ -280,17 +281,21 @@ class OutputManager
         return "{op:function(){" . implode("", $ops) . "}}";
     }
     
-    function update_element($id)
+    function update_elements($ids)
     {
-        if (DOMSERVER_DEBUG)
-            $this->debug[] = "*** UPDATE &lt;$id&gt; ***";
-    
-        $element = $this->elements[$id];
-        try {
-            $element->update();
-        } catch (ConnectionError $e) {
-            $this->fatal = "Could not connect to domserver: " . $e->getMessage();
+        foreach (explode(",", $ids) as $id)
+        {
+            if (DOMSERVER_DEBUG)
+                $this->debug[] = "*** UPDATE &lt;$id&gt; ***";
+        
+            $element = $this->elements[$id];
+            try {
+                $element->update();
+            } catch (ConnectionError $e) {
+                $this->fatal = "Could not connect to domserver: " . $e->getMessage();
+            }
         }
+        
         return $this->render_json_opcodes();
     }
     
@@ -422,7 +427,8 @@ class OutputManager
                 
             case 'sched_update':
                 $interval = $params[1];
-                $js[] = "window.setTimeout(function(){\$update(\"$id\");}, $interval);";
+                // $js[] = "window.setTimeout(function(){\$update(\"$id\");}, $interval);";
+                $js[] = "\$scheduler.schedule($interval, \"$id\");";
                 break;
                 
             case 'class':

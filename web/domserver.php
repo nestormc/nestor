@@ -17,8 +17,8 @@ You should have received a copy of the GNU General Public License
 along with domserver.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-set_include_path(get_include_path() . PATH_SEPARATOR . dirname(__FILE__));
 define("DOMSERVER_DEBUG", FALSE);
+set_include_path(get_include_path() . PATH_SEPARATOR . dirname(__FILE__));
 
 require_once "framework/misc.php";
 require_once "socket_interface/si.php";
@@ -266,11 +266,11 @@ class Domserver
         {
         case "update":
             $ui = new DomserverUI($this, "ui");
-            echo $this->output->update_element($_GET["eid"]);
+            echo $this->output->update_elements($_GET["eid"]);
             break;
             
         case "method":
-            $ui = new DomserverUI($this, "ui");
+            $ui = new DomserverUI($this, "ui");            
             echo $this->output->call_element_method($_GET["eid"], $_GET["m"], stripslashes($_GET["arg"]));
             break;
             
