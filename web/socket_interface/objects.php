@@ -185,6 +185,7 @@ class ObjectDescriptor
 class ObjectAccess
 {
     private $si = FALSE;
+    private $objcache = array();
     
     function __construct($si)
     {
@@ -204,6 +205,8 @@ class ObjectAccess
 
     function get_object($objref, $detail_level = 0)
     {
+        if (isset($this->objcache[$objref])) return $this->objcache[$objref];
+    
         $ret = FALSE;
         $req = new SIPacket(SIC('OP_OBJECTS'));
         $tag = new SIStringTag($objref, SIC('TAG_OBJ_REFERENCE'));
@@ -217,6 +220,7 @@ class ObjectAccess
             {
                 $ret = new ObjectDescriptor();
                 $ret->from_sitag($tag);
+                $this->objcache[$ret->objref] = $ret;
             }
         }
         $this->handle_failure($resp);
@@ -249,6 +253,7 @@ class ObjectAccess
                     $o = new ObjectDescriptor();
                     $o->from_sitag($t);
                     $ret[] = $o;
+                    $this->objcache[$o->objref] = $o;
                 }
             }
         }
