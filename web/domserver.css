@@ -122,14 +122,14 @@ body, html {
     top: 0;
     left: 0;
     bottom: 0;
-    right: -100; /* hide the browser's scroll bar */
+    right: 0; /* Changed after we compute OS scrollbar width in JS */
     overflow: auto;
 }
 
 .scroll_container_cnt {
     position: absolute;
     left: 0;
-    right: 100; /* restore .scroll_container width */
+    right: 0;
 }
 
 .scroll_container_bar {
@@ -139,7 +139,7 @@ body, html {
     top: 0;
     
     /* Customizable */
-    background-color: #AAAAAA;
+    background-color: #444;
     width: 0.2em;
 }
 

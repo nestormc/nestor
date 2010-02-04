@@ -423,10 +423,33 @@ function $debug_msg(msg)
  ********************************************************************/
  
 var $scroll_containers = [];
+var $scroll_got_os_size = false;
+
+/* Compute OS scrollbar size and change CSS rules accordingly */
+function $scroll_get_os_size()
+{
+    if ($scroll_got_os_size) return;
+    
+    var _out = document.createElement("div");
+    var _in = document.createElement("div");
+    
+    _out.style.overflow = "auto";
+    _out.style.height = "100px";
+    _in.style.height = "200px";
+    
+    _out.appendChild(_in);
+    document.documentElement.appendChild(_out);
+    var os_size =  _out.offsetWidth - _in.offsetWidth;
+    document.documentElement.removeChild(_out);
+    
+    $cssrule(".scroll_container_wrap", "right", "-" + os_size + "px");
+    $scroll_got_os_size = true;
+}
 
 /* Declare a scroll container */
 function $scroll_declare(sce_id)
 {
+    $scroll_get_os_size();
     if ($scroll_containers.indexOf(sce_id) == -1)
         $scroll_containers.push(sce_id);
         
