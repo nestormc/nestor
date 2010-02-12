@@ -29,16 +29,6 @@ class MPDPlayerObj(ObjectWrapper):
     
     def describe(self):
         self.types = ['mpd-player']
-        self.prop_desc = {
-            'state':    {'lod': SIC.LOD_BASIC,      'type': 'string'},
-            'time':     {'lod': SIC.LOD_MAX,        'type': 'uint32'},
-            'random':   {'lod': SIC.LOD_MAX,        'type': 'uint32'},
-            'repeat':   {'lod': SIC.LOD_MAX,        'type': 'uint32'},
-            'volume':   {'lod': SIC.LOD_MAX,        'type': 'uint32'},
-            'xfade':    {'lod': SIC.LOD_MAX,        'type': 'uint32'},
-            'song':     {'lod': SIC.LOD_MAX,        'type': 'uint32'}
-        }
-        
         self.update()
         
     def update(self):
@@ -61,12 +51,6 @@ class MusicArtistObj(ObjectWrapper):
     
     def describe(self):
         self.types = ['music-artist']
-        self.prop_desc = {
-            'artist':       {'lod': SIC.LOD_BASIC,      'type': 'string'},
-            'artist_id':    {'lod': SIC.LOD_BASIC + 1,  'type': 'uint32'},
-            'keywords':     {'lod': SIC.LOD_MAX,        'type': 'string'},
-            'path':         {'lod': SIC.LOD_MAX,        'type': 'string'}
-        }
         
         music = self.provider.music
         artist_id = int(self.oid.split('|', 1)[1])
@@ -90,15 +74,6 @@ class MusicAlbumObj(ObjectWrapper):
     
     def describe(self):    
         self.types = ['music-album']
-        self.prop_desc = {
-            'album':        {'lod': SIC.LOD_BASIC,      'type': 'string'},
-            'artist':       {'lod': SIC.LOD_BASIC + 1,  'type': 'string'},
-            'album_id':     {'lod': SIC.LOD_BASIC + 1,  'type': 'uint32'},
-            'year':         {'lod': SIC.LOD_BASIC + 1,  'type': 'string'},
-            'genre':        {'lod': SIC.LOD_MAX,        'type': 'string'},
-            'keywords':     {'lod': SIC.LOD_MAX,        'type': 'string'},
-            'path':         {'lod': SIC.LOD_MAX,        'type': 'string'}
-        }
         
         music = self.provider.music
         album_id = int(self.oid.split('|', 1)[1])
@@ -127,20 +102,6 @@ class MusicTrackObj(ObjectWrapper):
         kind, id = self.oid.split('|', 1)
         id = int(id)
         self.types = ['music-track']
-        self.prop_desc = {
-            'title':        {'lod': SIC.LOD_BASIC,      'type': 'string'},
-            'mpd-position': {'lod': SIC.LOD_BASIC,      'type': 'uint32'},
-            'album':        {'lod': SIC.LOD_BASIC + 1,  'type': 'string'},
-            'artist':       {'lod': SIC.LOD_BASIC + 1,  'type': 'string'},
-            'track_id':     {'lod': SIC.LOD_BASIC + 1,  'type': 'uint32'},
-            'len':          {'lod': SIC.LOD_BASIC + 1,  'type': 'uint32'},
-            'fmt':          {'lod': SIC.LOD_BASIC + 1,  'type': 'string'},
-            'num':          {'lod': SIC.LOD_BASIC + 1,  'type': 'uint32'},
-            'year':         {'lod': SIC.LOD_MAX,        'type': 'string'},
-            'genre':        {'lod': SIC.LOD_MAX,        'type': 'string'},
-            'keywords':     {'lod': SIC.LOD_MAX,        'type': 'string'},
-            'path':         {'lod': SIC.LOD_MAX,        'type': 'string'}
-        }
         
         music = self.provider.music
         playlist = self.provider.mpd_playlist
@@ -238,7 +199,12 @@ class MLObjectProvider(ObjectProvider):
     def get_object(self, oid):
         if oid == 'mpd':
             return MPDPlayerObj(self.domserver, self, 'mpd')
-        kind, id = oid.split('|', 1)
+            
+        try:
+            kind, id = oid.split('|', 1)
+        except ValueError:
+            raise ObjectError("invalid-oid:media:%s" % oid)
+            
         if kind == 'music-artist':
             return MusicArtistObj(self.domserver, self, oid)
         elif kind == 'music-album':
@@ -321,78 +287,85 @@ class MLObjectProcessor(ObjectProcessor):
         
         # Metadata edition
         if name == 'edit-artist':
-            act.add_param('name', 'string', False, obj['artist'])
+            act.add_param('name', False, obj['artist'])
         elif name == 'edit-album':
-            act.add_param('artist', 'string', False, obj['artist'])
-            act.add_param('title', 'string', False, obj['album'])
-            act.add_param('year', 'uint32', False, obj['year'])
-            act.add_param('genre', 'string', False, obj['genre'])
+            act.add_param('artist', False, obj['artist'])
+            act.add_param('title', False, obj['album'])
+            act.add_param('year', False, obj['year'])
+            act.add_param('genre', False, obj['genre'])
         elif name == 'edit-track':
-            act.add_param('artist', 'string', False, obj['artist'])
-            act.add_param('album', 'string', False, obj['album'])
-            act.add_param('num', 'uint32', False, obj['num'])
-            act.add_param('title', 'string', False, obj['title'])
+            act.add_param('artist', False, obj['artist'])
+            act.add_param('album', False, obj['album'])
+            act.add_param('num', False, obj['num'])
+            act.add_param('title', False, obj['title'])
             
         # MPD Player controls
         elif name == 'mpd-player-seek':
-            act.add_param('position', 'uint32', False, obj['time'])
+            act.add_param('position', False, obj['time'])
         elif name == 'mpd-player-volume':
-            act.add_param('volume', 'uint32', False, obj['volume'])
+            act.add_param('volume', False, obj['volume'])
             
         # MPD Playlist controls
         elif name == 'mpd-enqueue':
-            act.add_param('position', 'uint32', False,
-                len(self.objs.mpd_playlist))
+            act.add_param('position', False, len(self.objs.mpd_playlist))
         elif name == 'mpd-item-move':
-            act.add_param('position', 'uint32', False, obj['mpd-position'])
+            act.add_param('position', False, obj['mpd-position'])
     
     def execute(self, act):
         name = act.name
         obj = act.obj
         
         # Metadata edition
-        try:
+        if name.startswith('edit-'):            
             if name == 'edit-artist':
-                self.objs.cache.invalidate(obj)
-                for album_id in self.music.get_artist_albumids(obj['artist_id']):
-                    o = self.objs.get("media:music-album|%d" % album_id)
-                    if o:
-                        self.objs.cache.invalidate(o)
-                        for track_id in self.music.get_album_trackids(o['album_id']):
-                            o = self.objs.get("media:music-track|%d" % track_id)
-                            if o: self.objs.cache.invalidate(o)
-                        
                 meta = self.music.get_artist_metadata(obj['artist_id'])
                 meta['artist'] = act['name']
-                self.music.update_artist(meta, obj['artist_id'])
-                return
+                id = obj['artist_id']
+                type = MusicTypes.ARTIST
 
             elif name == 'edit-album':
-                self.objs.cache.invalidate(obj)
-                for track_id in self.music.get_album_trackids(obj['album_id']):
-                    o = self.objs.get("media:music-track|%d" % track_id)
-                    if o: self.objs.cache.invalidate(o)
-                    
                 meta = self.music.get_album_metadata(obj['album_id'])
+                
+                # FIXME add support for SIGNED ints
+                if act['year'] >> 31:
+                    act['year'] = 2**32 - act['year']
+                    
                 meta['artist'] = act['artist']
                 meta['album'] = act['title']
                 meta['year'] = act['year']
                 meta['genre'] = act['genre']
-                self.music.update_album(meta, obj['album_id'])
-                return
+                id = obj['album_id']
+                type = MusicTypes.ALBUM
             
             elif name == 'edit-track':
-                self.objs.cache.invalidate(obj)
                 meta = self.music.get_track_metadata(obj['track_id'])
+                
+                # FIXME add support for SIGNED ints
+                if act['num'] >> 31:
+                    act['num'] = 2**32 - act['num']
+                
                 meta['artist'] = act['artist']
                 meta['album'] = act['album']
                 meta['num'] = act['num']
                 meta['title'] = act['title']
-                self.music.update_track(meta, obj['track_id'])
-                return
-            
-        except MediaUpdateError, e:
-            raise ObjectError("update-error:%s" % e)
+                id = obj['track_id']
+                type = MusicTypes.TRACK
+                
+            try:
+                arids, alids, trids = self.music.update_metadata(meta, id, type)
+            except MediaUpdateError, e:
+                raise ObjectError("update-error:%s" % e)
+                
+            # Invalidate changed objects
+            for id in arids:
+                o = self.objs.get("music-artist|%d" % id)
+                self.objs.cache.invalidate(o)
+            for id in alids:
+                o = self.objs.get("music-album|%d" % id)
+                self.objs.cache.invalidate(o)
+            for id in trids:
+                o = self.objs.get("music-track|%d" % id)
+                self.objs.cache.invalidate(o)
             
         # MPD Player controls
         if name == 'mpd-player-play':

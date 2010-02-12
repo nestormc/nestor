@@ -15,7 +15,8 @@
 
 __all__ = [
     'helpers',
-    'dbConfigdict',
+    'web',
+    'dbconfigdict',
     'errors',
     'logger',
     'objects',
@@ -42,6 +43,7 @@ from .logger import Logger
 from .threadmanager import ThreadManager
 from .objects import ObjectAccessor
 from .socketinterface import SIServerThread
+from .web.serverthread import HTTPServerThread
 
            
 class Domserver:
@@ -76,6 +78,7 @@ class Domserver:
                 self._init_threads()
                 self._init_socketiface()
                 self._init_objects()
+                self._init_web()
             except:
                 self.info(traceback.format_exc())
                 raise
@@ -270,6 +273,10 @@ class Domserver:
         """Unregister previously registered handler for packets with opcode."""
         
         self._si.unregister_packet_handler(opcode)
+        
+    def _init_web(self):
+        self._web = HTTPServerThread(self, self)
+        self._web_tid = self.add_thread(self._web, True)
         
     def add_helper(self, helperclass):
         try:

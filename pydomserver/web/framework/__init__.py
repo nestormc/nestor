@@ -14,9 +14,10 @@
 # along with avhes.  If not, see <http://www.gnu.org/licenses/>.
 
 __all__ = [
-    'errors',
-    'import',
-    'metadata',
-    'music'
+    'app',
+    'app_element',
+    'app_objlist',
+    'element',
+    'outputmanager'
 ]
 

@@ -25,7 +25,6 @@ import urllib
 from ..errors import ObjectError
 from ..thread import Thread
 from ..objects import ObjectProvider, ObjectProcessor, ObjectWrapper
-from ..socketinterfacecodes import SIC
 from ..utils import fileIsOpen
 
 class DictTorrent:
@@ -198,24 +197,8 @@ class BTDownloadObj(ObjectWrapper):
     
     def describe(self):
         self.types = ['download', 'torrent']
-        self.prop_desc = {
-            'name':         {'lod': SIC.LOD_BASIC,      'type': 'string'},
-            'files':        {'lod': SIC.LOD_BASIC,      'type': 'uint32'},
-            'hash':         {'lod': SIC.LOD_BASIC + 1,  'type': 'string'},
-            'speed':        {'lod': SIC.LOD_BASIC + 1,  'type': 'uint32'},
-            'seeds':        {'lod': SIC.LOD_BASIC + 1,  'type': 'uint32'},
-            'status':       {'lod': SIC.LOD_BASIC + 1,  'type': 'uint32'},
-            'seed':         {'lod': SIC.LOD_BASIC + 1,  'type': 'uint32'},
-            'cancel':       {'lod': SIC.LOD_BASIC + 1,  'type': 'uint32'},
-            'date_started': {'lod': SIC.LOD_BASIC + 1,  'type': 'uint32'},
-            'size':         {'lod': SIC.LOD_BASIC + 1,  'type': 'uint32'},
-            'progress':     {'lod': SIC.LOD_BASIC + 1,  'type': 'string'},
-            'magnet-uri':   {'lod': SIC.LOD_MAX,        'type': 'string'}
-        }
-        
-        self.prop_desc['size']['conv'] = lambda x: int(x / 1024)
-        self.prop_desc['progress']['conv'] = lambda x: "%.2f%%" % x
-        self.prop_desc['files']['conv'] = lambda x: len(x)
+        self._props = ('name', 'files', 'hash', 'speed', 'seeds', 'status',
+            'seed', 'cancel', 'date_started', 'size', 'progress', 'magnet-uri')
         
         try:
             self.provider.bt[self.oid]
@@ -223,7 +206,7 @@ class BTDownloadObj(ObjectWrapper):
         except KeyError:
             found_active = 0
         
-        for p in self.prop_desc:
+        for p in self._props:
             if found_active and p in self.provider.bt[self.oid].keys():
                 self.props[p] = self.provider.bt[self.oid][p]
             else:
@@ -273,13 +256,6 @@ class BitTorrentObj(ObjectWrapper):
 
     def describe(self):
         self.types = ['bt-app']
-        self.prop_desc = {
-            'active': {'lod': SIC.LOD_BASIC, 'type': 'uint32'},
-            'dl_speed': {'lod': SIC.LOD_BASIC + 1, 'type': 'uint32'},
-            'dl_files': {'lod': SIC.LOD_BASIC + 1, 'type': 'uint32'},
-            'ul_speed': {'lod': SIC.LOD_BASIC + 1, 'type': 'uint32'},
-        }
-        
         self.update()
     
     def update(self):
@@ -374,7 +350,7 @@ class BTObjectProcessor(ObjectProcessor):
             return
         else:
             if name == 'bt-download-magnet':
-                act.add_param('magnet-link', 'string')
+                act.add_param('magnet-link')
             
     def execute(self, act):
         name = act.name
@@ -490,20 +466,7 @@ class BTWatcherThread(Thread):
             op = self.objs.load_object(o)
             if op['status'] == 0:
                 destdir = os.path.join(rundir, op['hash'])
-                self.verbose("Restarting torrent '%s' with magnet %s" % (op['hash'], op['magnet-uri']))
                 self.bt.add_magnet(op['magnet-uri'], destdir)
-        
-        # Restart previously running torrents
-        #rundir = self.domserver.config["bt.run_dir"]
-        #for r, d, files in os.walk(rundir):
-        #    for f in files:
-        #        if f.endswith(".torrent"):
-        #            hash = f.split(".", 1)[0]
-        #            destdir = os.path.join(rundir, hash)
-        #            if os.path.isdir(destdir):
-        #                self.verbose("Restarting torrent '%s'" % hash)
-        #                self.bt.add_torrent(os.path.join(rundir, f), destdir)
-        #    d[0:len(d)] = []
             
         # Add existing torrents in DROP directory
         dropdir = self.domserver.config["bt.drop_dir"]

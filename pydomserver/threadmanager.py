@@ -86,6 +86,16 @@ class ThreadManager:
             self._remove_safe(tid)
         finally:
             self._lock.release()
+            
+    def _remove_all_safe(self):
+        """Stop and remove all threads"""
+        
+        for tid in self._threads:
+            if self._threads[tid].isAlive():
+                self._threads[tid].stop()
+        for tid in self._threads:
+            self._threads[tid].join()
+        self._threads = []
         
     def run(self):
         """Start all threads and wait until stop() is called or one of the
@@ -123,8 +133,7 @@ class ThreadManager:
                 self._stopping = True
                 self._lock.acquire()
                 try:
-                    for tid in self._threads.keys():
-                        self._remove_safe(tid)
+                    self._remove_all_safe()
                 finally:
                     self._lock.release()
                     

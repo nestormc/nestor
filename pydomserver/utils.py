@@ -132,3 +132,41 @@ def getObjects(path):
 		d[0:len(d)] = []
 	return (files, subdirs)
 
+
+def human_bytes(v, start=0, unit="", suffix=""):
+    suffixes = {0: "", 1: "k", 2: "M", 3: "G", 4: "T"}
+    val = float(v)
+    mult = start
+    while val > 1000:
+        val /= 1024
+        mult += 1
+        
+    if val < 10:
+        prec = 2
+    elif val < 100:
+        prec = 1
+    else:
+        prec = 0
+        
+    fmt = "%%.%dF %%s%%s%%s" % prec
+    return fmt % (val, suffixes[mult], unit, suffix)
+    
+def human_speed(v):
+    return human_bytes(v, 0, "B", "/s")
+    
+def human_size(v):
+    return human_bytes(v, 0, "B")
+    
+def human_ksize(v):
+    return human_bytes(v, 1, "B")
+    
+def human_Msize(v):
+    return human_bytes(v, 2, "B")
+    
+def human_seconds(secs):
+    minutes = int(secs / 60)
+    seconds = secs - 60 * minutes
+    return "%d:%02d" % (minutes, seconds)
+    
+    
+

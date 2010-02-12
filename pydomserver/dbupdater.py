@@ -113,6 +113,7 @@ UPDATE_SCRIPTS = {
                 title TEXT NOT NULL,
                 format TEXT NOT NULL,
                 length REAL,
+                import_filename TEXT,
                 
                 CONSTRAINT fk_mtk_album_id FOREIGN KEY (album_id) REFERENCES music_albums(id)
             );

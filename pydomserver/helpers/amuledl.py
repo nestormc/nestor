@@ -17,12 +17,12 @@ import hashlib
 import os
 import StringIO
 import time
+import threading
 from amule import AmuleClient, ECConnectionError
 
 from ..errors import ObjectError
 from ..objects import ObjectProvider, ObjectProcessor, ObjectWrapper
 from ..runwatcherthread import RunWatcherThread
-from ..socketinterfacecodes import SIC
 
 
 class DictDownload:
@@ -139,25 +139,27 @@ class Amule:
         self.downloads = {}
         self.results = {}
         self.status = {}
+        self.lock = threading.Condition(threading.Lock())
         
     def register_object_provider(self, objs):
         self.objs = objs
     
     def connect(self):
-        try:
-            self.client.connect(
-                'localhost',
-                int(self.domserver.config['amule.ec_port']),
-                self.domserver.config['amule.ec_password'],
-                'domserver',
-                'TODOversion'
-            )
-        except ECConnectionError, e:
-            self.log.info("Could not connect to amule - <%s>" % e)
-            self.connected = False
-        else:
-            self.log.info("Connected to amule")
-            self.connected = True
+        if not self.connected:
+            try:
+                self.client.connect(
+                    'localhost',
+                    int(self.domserver.config['amule.ec_port']),
+                    self.domserver.config['amule.ec_password'],
+                    'domserver',
+                    'TODOversion'
+                )
+            except ECConnectionError, e:
+                self.log.info("Could not connect to amule - <%s>" % e)
+                self.connected = False
+            else:
+                self.log.info("Connected to amule")
+                self.connected = True
             
     def disconnect(self):
         if self.connected:
@@ -178,11 +180,15 @@ class Amule:
             
     def _update(self):
         interval = int(self.domserver.config['amule.update_interval'])
-        if self.last_updated + interval < time.time():
-            self.downloads = self.client.get_download_list()
-            self.results = self.client.get_search_results()
-            self.status = self.client.get_server_status()
-            self.last_updated = time.time()
+        self.lock.acquire()
+        try:
+            if self.last_updated + interval < time.time():
+                self.downloads = self.client.get_download_list()
+                self.results = self.client.get_search_results()
+                self.status = self.client.get_server_status()
+                self.last_updated = time.time()
+        finally:
+            self.lock.release()
             
     def keys(self):
         if self.connected:
@@ -198,19 +204,8 @@ class AmuleDownloadObj(ObjectWrapper):
 
     def describe(self):
         self.types = ['download', 'amule-partfile']
-        self.prop_desc = {
-            'name':         {'lod': SIC.LOD_BASIC,      'type': 'string'},
-            'hash':         {'lod': SIC.LOD_BASIC + 1,  'type': 'string'},
-            'speed':        {'lod': SIC.LOD_BASIC + 1,  'type': 'uint32'},
-            'seeds':        {'lod': SIC.LOD_BASIC + 1,  'type': 'uint32'},
-            'status':       {'lod': SIC.LOD_BASIC + 1,  'type': 'uint32'},
-            'size':         {'lod': SIC.LOD_BASIC + 1,  'type': 'uint32'},
-            'progress':     {'lod': SIC.LOD_BASIC + 1,  'type': 'string'},
-            'date_started': {'lod': SIC.LOD_BASIC + 1,  'type': 'uint32'}
-        }
-        
-        self.prop_desc['size']['conv'] = lambda x: int(x / 1024)
-        self.prop_desc['progress']['conv'] = lambda x: "%.2f%%" % x
+        self._props = ('name', 'hash', 'speed', 'seeds', 'status', 'size',
+            'progress', 'date_started')
         
         am = self.provider.am
         try:
@@ -218,7 +213,7 @@ class AmuleDownloadObj(ObjectWrapper):
         except KeyError:
             amdl = None
         
-        for p in self.prop_desc:
+        for p in self._props:
             if amdl and p in amdl.keys():
                 self.props[p] = amdl[p]
             else:
@@ -261,18 +256,9 @@ class AmuleResultObj(ObjectWrapper):
 
     def describe(self):
         self.types = ['result', 'amule-result']
-        self.prop_desc = {
-            'name': {'lod': SIC.LOD_BASIC, 'type': 'string'},
-            'hash': {'lod': SIC.LOD_BASIC, 'type': 'string'},
-            'size': {'lod': SIC.LOD_BASIC + 1, 'type': 'uint32'},
-            'seeds': {'lod': SIC.LOD_BASIC + 1, 'type': 'uint32'},
-            'downloading': {'lod': SIC.LOD_BASIC + 1, 'type': 'uint32'}
-        }
-        
-        self.prop_desc['size']['conv'] = lambda x: int(x / 1024)
-        self.prop_desc['downloading']['conv'] = lambda x: {0:0}.get(x, 1)
+        self._props = ('name', 'hash', 'size', 'seeds', 'downloading')
     
-        for p in self.prop_desc:
+        for p in self._props:
             self.props[p] = self.provider.am[self.oid][p]
     
     def update(self):
@@ -287,22 +273,14 @@ class AmuleObj(ObjectWrapper):
 
     def describe(self):
         self.types = ['amule-app']
-        self.prop_desc = {
-            'active': {'lod': SIC.LOD_BASIC, 'type': 'uint32'},
-            'dl_speed': {'lod': SIC.LOD_BASIC + 1, 'type': 'uint32'},
-            'dl_files': {'lod': SIC.LOD_BASIC + 1, 'type': 'uint32'},
-            'ul_speed': {'lod': SIC.LOD_BASIC + 1, 'type': 'uint32'},
-            'ed2k_users': {'lod': SIC.LOD_MAX, 'type': 'uint32'},
-            'ed2k_files': {'lod': SIC.LOD_MAX, 'type': 'uint32'},
-            'kad_users': {'lod': SIC.LOD_MAX, 'type': 'uint32'},
-            'kad_files': {'lod': SIC.LOD_MAX, 'type': 'uint32'}
-        }
+        self._props = ('active', 'dl_speed', 'dl_files', 'ul_speed',
+            'ed2k_users', 'ed2k_files', 'kad_users', 'kad_files')
         self.update()
     
     def update(self):
         am = self.provider.am
         
-        for p in self.prop_desc:
+        for p in self._props:
             if am.connected:
                 if p == 'active':
                     self.props[p] = 1
@@ -312,7 +290,6 @@ class AmuleObj(ObjectWrapper):
                     try:
                         self.props[p] = int(am.status[p])
                     except KeyError:
-                        self.domserver.debug("Warning: missing amule status key '%s'" % p)
                         self.props[p] = 0
             else:
                 self.props[p] = 0
@@ -395,15 +372,15 @@ class AmuleObjectProcessor(ObjectProcessor):
         obj = act.obj
         
         if name == 'amule-search':
-            act.add_param('query', 'string')
-            act.add_param('search-type', 'uint32')
-            act.add_param('file-type', 'string')
-            act.add_param('min-size', 'uint32', True)
-            act.add_param('max-size', 'uint32', True)
-            act.add_param('avail', 'uint32', True)
-            act.add_param('file-ext', 'string', True)
+            act.add_param('query')
+            act.add_param('search-type')
+            act.add_param('file-type')
+            act.add_param('min-size', True)
+            act.add_param('max-size', True)
+            act.add_param('avail', True)
+            act.add_param('file-ext', True)
         if name == 'amule-download-ed2k':
-            act.add_param('ed2k-link', 'string')
+            act.add_param('ed2k-link')
         
     def execute(self, act):
         name = act.name

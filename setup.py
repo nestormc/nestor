@@ -38,6 +38,9 @@ setup(
     packages = [
         'pydomserver',
         'pydomserver.helpers',
-        'pydomserver.helpers.media'
+        'pydomserver.helpers.media',
+        'pydomserver.web',
+        'pydomserver.web.apps',
+        'pydomserver.web.framework'
     ]
 )

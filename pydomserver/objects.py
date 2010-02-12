@@ -16,9 +16,6 @@
 import time
 
 from .errors import ObjectError, ObjectCacheMiss, ImplementationError
-from .socketinterface import SIPacket, SIStringTag, SIUInt32Tag
-from .socketinterfacecodes import SIC
-
 
 class OCriterion:
 
@@ -86,14 +83,6 @@ class OCriterion:
         
         return oper_map[0] % prop_map[self.prop], [oper_map[1](self.val)]
         
-    def to_sitag(self):
-        tag = SIStringTag(self.oper, SIC.TAG_OBJ_CRITERION)
-        tag.subtags.extend([
-            SIStringTag(self.prop, SIC.TAG_OBJ_CRIT_PROPERTY),
-            SIStringTag(self.val, SIC.TAG_OBJ_CRIT_VALUE)
-        ])
-        return tag
-        
         
 class OExpression:
 
@@ -157,34 +146,6 @@ class OExpression:
         elif self.oper == '':
             where, data = self.crit_a.to_sqlwhere(prop_map)
             return "(%s)" % where, data
-            
-    def to_sitag(self):
-        tag = SIStringTag(self.oper, SIC.TAG_OBJ_EXPRESSION)
-        tag.subtags.append(self.crit_a.to_sitag())
-        if self.crit_b is not None:
-            tag.subtags.append(self.crit_b.to_sitag())
-        return tag
-        
-    @classmethod
-    def from_sitag(cls, tag):
-        if tag.name == SIC.TAG_OBJ_CRITERION:
-            prop = tag.get_subtag(SIC.TAG_OBJ_CRIT_PROPERTY).value
-            val = tag.get_subtag(SIC.TAG_OBJ_CRIT_VALUE).value
-            return OCriterion(prop, tag.value, val)
-        elif tag.name == SIC.TAG_OBJ_EXPRESSION:
-            if len(tag.subtags) == 0:
-                return cls(tag.value, None)
-            elif len(tag.subtags) == 1:
-                crit = cls.from_sitag(tag.subtags[0])
-                return cls(tag.value, crit)
-            elif len(tag.subtags) == 2:
-                crit_a = cls.from_sitag(tag.subtags[0])
-                crit_b = cls.from_sitag(tag.subtags[1])
-                return cls(tag.value, crit_a, crit_b)
-            else:
-                return None
-        else:
-            return None
 
 
 class ObjectWrapper:
@@ -194,22 +155,6 @@ class ObjectWrapper:
     only use is to filter objects returned by a search query.
     
     'props' is a dict of properties for the objects.
-    
-    'prop_desc' is a dict describing how to transmit those properties.  Keys are
-    property names (*) and values are dicts with the following properties:
-    
-        - lod: minimal query level-of-detail for the property to be transmitted
-        - type: 'uint32', 'string' or 'dict'
-        - conv (optional): function to convert the value before transmission
-    
-        Type 'dict' is used to transmit properties whose values are dicts.  In
-        this case, there should also be a second-level description dict as key
-        'desc' to describe how to transmit the values.
-        
-        (*) The special property '*' can be used to specify transmission info
-        for all other properties, but it can only be used in level 2+
-        descriptions (ie. for type 'dict') as ObjectWrappers do not have a
-        keys() method.
     
     """
     
@@ -222,56 +167,10 @@ class ObjectWrapper:
         
         self.types = []
         self.props = {}
-        self.prop_desc = {}
         
         self.last_access = 0
         self.access_count = 0
         self._update(True)
-        
-    def _prop_to_sitags(self, lod, prop, value, d):
-        """Create SITag for a property"""
-        if d.has_key('conv'):
-            conv = d['conv']
-        else:
-            conv = lambda x:x
-            
-        if d['type'] == 'dict':
-            tag = SIStringTag(prop, SIC.TAG_OBJ_ARRAY)
-            subtags = self._desc_to_sitags(lod, value, d['desc'])
-            tag.subtags.extend(subtags)
-        else:
-            tag = SIStringTag(prop, SIC.TAG_OBJ_PROPERTY)
-            if d['type'] == 'string':
-                cls = SIStringTag
-            elif d['type'] == 'uint32':
-                cls = SIUInt32Tag
-            tag.subtags.append(cls(conv(value), SIC.TAG_OBJ_VALUE))
-            
-        return tag
-        
-    def _desc_to_sitags(self, lod, item, desc):
-        """Create object properties SITags"""
-        
-        tags = []
-        for p in desc:
-            if p == '*':
-                continue
-            if lod >= desc[p]['lod']:
-                tags.append(self._prop_to_sitags(lod, p, item[p], desc[p]))
-            
-        if desc.has_key('*') and lod >= desc['*']['lod']:
-            for p in item.keys():
-                tags.append(self._prop_to_sitags(lod, p, item[p], desc['*']))
-        return tags
-        
-    def to_sitag(self, lod):
-        """Create object description SITag"""
-        
-        tag = SIStringTag(self.objref, SIC.TAG_OBJ_REFERENCE)
-        tag.subtags.extend(self._desc_to_sitags(lod, self, self.prop_desc))
-        typetag = SIStringTag(','.join(self.types), SIC.TAG_OBJ_TYPE)
-        tag.subtags.append(typetag)
-        return tag
         
     def _update(self, first=False):
         """Update object properties and access statistics"""
@@ -311,8 +210,7 @@ class ObjectWrapper:
     def describe(self):
         """Describe the object.
         
-        This function must be overriden to fill self.types, self.props and
-        self.prop_desc.
+        This function must be overriden to fill self.types and self.props
         """
         
         raise ImplementationError("ObjectWrapper.describe() was not overriden")
@@ -351,56 +249,20 @@ class ActionWrapper:
         self.obj = obj
         self.params = {}
         
-    def add_param(self, name, typ='uint32', optional=False, default=None):
+    def add_param(self, name, optional=False, default=None):
         self.params[name] = {
-            'type': typ,
             'optional': optional,
             'value': default
         }
         
     def __getitem__(self, key):
         return self.params[key]['value']
-                
-    def to_sitag(self):
-        actiontag = SIStringTag(self.name, SIC.TAG_ACTION_ID)
-        for name in self.params:
-            p = self.params[name]
-            tag = SIStringTag(name, SIC.TAG_ACTION_PARAM)
-            
-            flags = 0
-            if p['type'] == 'uint32':
-                flags |= SIC.APFLAG_TYPE_NUMBER
-                cls = SIUInt32Tag
-            elif p['type'] == 'string':
-                flags |= SIC.APFLAG_TYPE_STRING
-                cls = SIStringTag
-            elif p['type'] == 'objref':
-                flags |= SIC.APFLAG_TYPE_OBJREF
-                cls = SIStringTag
-            elif p['type'] == 'bool':
-                flags |= SIC.APFLAG_TYPE_BOOL
-                cls = SIUInt8Tag
-            
-            tag.subtags.append(
-                SIUInt32Tag(flags, SIC.TAG_ACTION_PARAM_FLAGS)
-            )
-            if p['value'] is not None:
-                tag.subtags.append(cls(p['value'], SIC.TAG_ACTION_PARAM_VALUE))
-            actiontag.subtags.append(tag)
-        return actiontag
         
-    def execute(self, tag):
-        vals = {}
-        for t in tag.subtags:
-            if t.name == SIC.TAG_ACTION_PARAM:
-                st = t.get_subtag(SIC.TAG_ACTION_PARAM_VALUE)
-                if st is None:
-                    raise ObjectError("missing-param-value:%s" % t.value)
-                vals[t.value] = st.value
-        for name in self.params.keys():
-            if vals.has_key(name):
-                self.params[name]["value"] = vals[name]
-            elif self.params[name]['flags'] & SIC.APFLAG_OPTION_OPTIONAL == 0:
+    def execute(self, params):
+        for name in self.params:
+            if name in params:
+                self.params[name]["value"] = params[name]
+            elif self.params[name]['optional']:
                 raise ObjectError("missing-param:%s" % name)
         return self.processor._execute(self)
             
@@ -616,7 +478,7 @@ class ObjectProvider:
                 self.cache.put(obj)
                 return obj
             else:
-                raise ObjectErrpr("object-not-found:%s" % oid)
+                raise ObjectError("object-not-found:%s" % oid)
         
     def get_object(self, oid):
         """Return an ObjectWrapper corresponding to object oid.
@@ -718,7 +580,6 @@ class ObjectAccessor:
         self.domserver = domserver
         self.providers = {}
         self.processors = {}
-        self.domserver.register_packet_handler(SIC.OP_OBJECTS, self.handle_sipacket)
         self.cache = ObjectCache(self.domserver)
         
     def register_interface(self, **kwargs):
@@ -735,7 +596,7 @@ class ObjectAccessor:
         if processor:
             self.processors[name] = processor 
         
-    def get(self, objref):
+    def get(self, objref, querystart=False):
         """Try to get an ObjectWrapper from an object reference, or raise
         ObjectError.  Return (object, object-provider).
         """
@@ -749,198 +610,80 @@ class ObjectAccessor:
         except KeyError:
             raise ObjectError("invalid-provider:%s" % owner)
             
+        if querystart:
+            source.on_query_start()
         obj = source.get(oid)
+        if querystart:
+            source.on_query_end()
         return obj, source
         
-            
-    def handle_sipacket(self, client, packet):
-        tagnames = [
-            SIC.TAG_OBJ_MATCHQUERY,
-            SIC.TAG_OBJ_REFERENCE,
-            SIC.TAG_ACTION_QUERY,
-            SIC.TAG_ACTION_EXECUTE
-        ]
+    def get_object(self, objref):
+        """Shortcut to get object only"""
         
-        tag = None
-        found = None
-        for tn in tagnames:
-            tag = packet.get_tag(tn)
-            if tag:
-                found = tn
-                break;
-        if tag is None:
-            client.answer_failure("no-query")
-            return
+        o, s = self.get(objref, True)
+        return o
     
-        if found == SIC.TAG_OBJ_MATCHQUERY:
-            self.domserver.perf("Starting matchquery")
+    def match_objects(self, owners, expr, types=None, offset=0, limit=-1):
+        self.domserver.perf("Starting matchquery")
+        oids = []
+        for owner in owners:  
+            if owner not in self.providers:
+                raise ObjectError("invalid-provider:%s" % owner)
                 
-            try:
-                lod = tag.get_subtag(SIC.TAG_OBJ_DETAIL_LEVEL).value
-            except AttributeError:
-                lod = 0
-                
-            try:
-                offset = tag.get_subtag(SIC.TAG_OBJ_LIST_OFFSET).value
-            except AttributeError:
-                offset = 0
-                
-            try:
-                limit = tag.get_subtag(SIC.TAG_OBJ_LIST_LIMIT).value
-            except AttributeError:
-                limit = -1
-                
-            owners = tag.value.split(',')
-            oids = []
-            for owner in owners:            
-                try:
-                    if owner not in self.providers:
-                        raise ObjectError("invalid-provider:%s" % owner)
-                        
-                    exprtag = tag.get_subtag(SIC.TAG_OBJ_EXPRESSION)
-                    expr = OExpression.from_sitag(exprtag)
-                    
-                    try:
-                        types = tag.get_subtag(SIC.TAG_OBJ_TYPE).value
-                    except AttributeError:
-                        types = ''
-                    if types == '':
-                        types = None
-                    else:
-                        types = types.split(',')
-                        
-                    self.domserver.perf("Owner %s, types %r, expression %s" %
-                            (owner, types, expr.dump()))
-                    
-                    self.providers[owner].on_query_start()
-                    oids.extend([[owner, oid]
-                      for oid in self.providers[owner].match_oids(expr, types)])
-                except ObjectError, e:
-                    client.answer_failure(e)
-                    return
-                    
-            self.domserver.perf("Matching oids retrieved")
+            self.domserver.perf("Owner %s, types %r, expression %s" %
+                    (owner, types, expr.dump()))
             
-            if limit == -1:
-                oids = oids[offset:]
-            else:
-                oids = oids[offset:offset + limit]
+            self.providers[owner].on_query_start()
+            oids.extend([[owner, oid]
+                for oid in self.providers[owner].match_oids(expr, types)])
                 
-            try:
-                objs = [self.providers[owner].get(oid) for owner, oid in oids]
-            except ObjectError, e:
-                client.answer_failure(e)
-                return
-                
-            self.domserver.perf("Matching objects wrapped")
-                
-            resp = SIPacket(opcode=SIC.OP_OBJECTS)
-            resp.tags.extend([o.to_sitag(lod) for o in objs])
-            resp.set_flag(SIC.FLAGS_USE_ZLIB)
-            
-            self.domserver.perf("Packet built")
-            
-            client.answer(resp)
-            
-            self.domserver.perf("Packet sent")
-            for owner in owners:
-                self.providers[owner].on_query_end()
-            return
-            
-        elif found == SIC.TAG_OBJ_REFERENCE:
-            self.domserver.perf("Starting object query (%s)" % tag.value)
-            self.providers[tag.value.split(":", 1)[0]].on_query_start()
+        self.domserver.perf("Matching oids retrieved")
         
-            try:
-                obj, source = self.get(tag.value)
-            except ObjectError, e:
-                client.answer_failure(e)
-                return
-                
-            try:
-                lod = tag.get_subtag(SIC.TAG_OBJ_DETAIL_LEVEL).value
-            except AttributeError:
-                lod = 0
-                
-            resp = SIPacket(opcode=SIC.OP_OBJECTS)
-            resp.tags.append(obj.to_sitag(lod))
-            resp.set_flag(SIC.FLAGS_USE_ZLIB)
-            client.answer(resp)
-            self.providers[tag.value.split(":", 1)[0]].on_query_end()
-            self.domserver.perf("Finished object query")
-            return
+        if limit == -1:
+            oids = oids[offset:]
+        else:
+            oids = oids[offset:offset + limit]
             
-        elif found == SIC.TAG_ACTION_QUERY:
-            self.domserver.perf("Starting action query (%s)" % tag.value)
-            try:
-                try:
-                    proc = self.processors[tag.value]
-                except KeyError:
-                    raise ObjectError("invalid-processor:%s" % tag.value)
-                
-                self.providers[tag.value].on_query_start()
-                
-                try:
-                    objref = tag.get_subtag(SIC.TAG_OBJ_REFERENCE).value
-                except AttributeError:
-                    raise ObjectError("missing-objref")
-                
-                obj, source = self.get(objref)
-            except ObjectError, e:
-                client.answer_failure(e)
-                return
-                
-            actions = [ActionWrapper(proc, tag.value, name, obj)
-                for name in proc.get_actions(obj)]
-            for a in actions:
-                proc.describe(a)
-                
-            resp = SIPacket(opcode=SIC.OP_OBJECTS)
-            resp.tags.extend([a.to_sitag() for a in actions])
-            resp.set_flag(SIC.FLAGS_USE_ZLIB)
-            client.answer(resp)
-            self.providers[tag.value].on_query_end()
-            self.domserver.perf("Finished action query")
-            return
-                
-        elif found == SIC.TAG_ACTION_EXECUTE:
-            self.domserver.perf("Starting action execute (%s)" % tag.value)
-            try:
-                try:
-                    proc = self.processors[tag.value]
-                except KeyError:
-                    raise ObjectError("invalid-processor:%s" % tag.value)
-                    
-                self.providers[tag.value].on_query_start()
-                try:
-                    actiontag = tag.get_subtag(SIC.TAG_ACTION_ID)
-                    action = actiontag.value
-                except AttributeError:
-                    raise ObjectError("missing-action-id")
-                    
-                try:
-                    objref = tag.get_subtag(SIC.TAG_OBJ_REFERENCE).value
-                except AttributeError:
-                    raise ObjectError("missing-objref")
-                    
-                obj, source = self.get(objref)
-            except ObjectError, e:
-                client.answer_failure(e)
-                return
-                
-            act = ActionWrapper(proc, proc.name, action, obj)
-            try:
-                proc._describe(act)
-                ret = act.execute(actiontag)
-            except ObjectError, e:
-                client.answer_failure(e)
-                return
-                
-            if ret is not None:
-                client.answer_progress(ret)
-            else:
-                client.answer_success()
-            self.providers[tag.value].on_query_end()
-            return
-            self.domserver.perf("Finished action execute")
+        objs = [self.providers[owner].get(oid) for owner, oid in oids]
             
+        self.domserver.perf("Matching objects wrapped, returning")
+        
+        for owner in owners:
+            self.providers[owner].on_query_end()
+        
+        return objs
+    
+    def do_action(self, owner, action, objref, params={}):
+        self.domserver.perf("Starting action execute (%s.%s on %s)" % (owner, action, objref))
+        try:
+            proc = self.processors[owner]
+        except KeyError:
+            raise ObjectError("invalid-processor:%s" % owner)
+            
+        obj, source = self.get(objref, True)
+            
+        act = ActionWrapper(proc, proc.name, action, obj)
+        proc._describe(act)
+        ret = act.execute(params)
+        source.on_query_end()
+        self.domserver.perf("Finished action execute, returning")
+        return ret
+    
+    def get_actions(self, processor, objref):
+        self.domserver.perf("Starting action query (%s > %s)" % (processor, objref))
+        try:
+            proc = self.processors[processor]
+        except KeyError:
+            raise ObjectError("invalid-processor:%s" % tag.value)
+        
+        obj, source = self.get(objref, True)
+        
+        actions = [ActionWrapper(proc, tag.value, name, obj)
+            for name in proc.get_actions(obj)]
+        for a in actions:
+            proc.describe(a)
+        source.on_query_end()
+            
+        self.domserver.perf("Finished action query, returning")
+        return actions
+

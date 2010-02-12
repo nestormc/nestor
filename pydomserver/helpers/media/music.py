@@ -58,7 +58,6 @@ class MusicLibrary:
     def __init__(self, domserver, logger=None):
         self.domserver = domserver
         self.log = logger if logger else domserver
-        self.cleanup_database()
         
     def fetch_missing_covers(self):
         db = self.domserver.get_media_db()
@@ -73,7 +72,7 @@ class MusicLibrary:
         
     def cleanup_database(self):
         """Cleanup obsolete data in database (eg. albums w/o tracks or artists
-        w/o albums)"""
+        w/o albums) and empty media folders"""
         
         db = self.domserver.get_media_db()
         
@@ -87,6 +86,11 @@ class MusicLibrary:
         db.executescript(script)
         db.commit()
         db.close()
+        
+        mdir = self.domserver.config["media.music_dir"]
+        for r, dirs, files in os.walk(mdir, False):
+            if r != mdir and not dirs and not files:
+                os.rmdir(r)
         
     def get_sortname(self, name):
         """Compute the sortname for a given artist name.
@@ -200,179 +204,24 @@ class MusicLibrary:
         
         return (None, None)
         
-    def get_artist_id(self, artist):
-        query = "SELECT id, name FROM music_artists WHERE name LIKE ?"
-        db = self.domserver.get_media_db()
-        rset = db.execute(query, (self.fnchars(artist),)).fetchall()
-        db.close()
-        ret = None
-        for artist_id, name in rset:
-            if self.fnchars(name) == self.fnchars(artist):
-                ret = artist_id
-                break
-                
-        return ret
+    def write_file_tags(self, meta):
+        """Write metadata to file tags"""
         
-    def get_artist_metadata(self, artist_id):            
-        query = "SELECT name FROM music_artists WHERE id = ?"
-        db = self.domserver.get_media_db()
-        rset = db.execute(query, (artist_id,)).fetchone()
-        db.close
+        path = self.meta_to_filename(meta, MusicTypes.TRACK)
+        self.log.debug("Writing tags in '%s'" % path)
         
-        meta = {
-            'artist': rset[0]
-        }
-        
-        return meta
-        
-    def get_artist_albumids(self, artist_id):
-        query = "SELECT id FROM music_albums WHERE artist_id = ?"
-        db = self.domserver.get_media_db()
-        rset = db.execute(query, (artist_id,)).fetchall()
-        db.close()
-        return [r[0] for r in rset]
-        
-    def write_artist_metadata(self, meta, artist_id=None):
-        """Write artist metadata in database.
-        
-        Only the 'artist' key of metadata is needed here.
-        Should not be called directly; use update_artist instead (which also
-        moves files)
-        """
-        
-        db = self.domserver.get_media_db()
-        
-        if artist_id is None:
-            query = """INSERT OR REPLACE INTO music_artists(name, sortname)
-                VALUES(?,?)"""
-            data = (meta['artist'], self.get_sortname(meta['artist']))
-            artist_id = db.execute(query, data).lastrowid
-        else:
-            query = """UPDATE music_artists SET name = ?, sortname = ?
-                WHERE id = ?"""
-            data = (meta['artist'], self.get_sortname(meta['artist']),
-                artist_id)
-            db.execute(query, data)
-        
-        db.commit()
-        db.close()
-        return artist_id
-        
-    def update_artist(self, meta, artist_id):
-        """Update an artist.
-        
-        Only the 'artist' key of metadata is needed here.
-        Update metadata in database and move associated files.
-        """
+        filemeta = Metadata(path)
+        filemeta['artist'] = meta['artist']
+        filemeta['album'] = meta['album']
+        filemeta['title'] = meta['title']
+        filemeta['trackno'] = str(meta['num']) if meta['num'] != -1 else ''
+        filemeta['genre'] = meta['genre']
+        filemeta['year'] = str(meta['year']) if meta['year'] != -1 else '' 
+        filemeta.save()
             
-        oldmeta = self.get_artist_metadata(artist_id)
-        oldpath = self.meta_to_filename(oldmeta, MusicTypes.ARTIST)
-        newpath = self.meta_to_filename(meta, MusicTypes.ARTIST)
-        
-        if oldpath != newpath:
-            if os.path.exists(newpath):
-                raise MediaUpdateError("Artist '%s' already exists" % meta['artist'])
-            shutil.move(oldpath, newpath)
-        self.write_artist_metadata(meta)
-        
-        for album_id in self.get_artist_albumids(artist_id):
-            for track_id in self.get_album_trackids(album_id):
-                tmeta = self.get_track_metadata(track_id)
-                self.write_file_tags(tmeta)
-        
-    def get_album_id(self, artist, album):
-        artist_id = self.get_artist_id(artist)
-        ret = None
-        if artist_id:
-            query = """SELECT id, title FROM music_albums
-                WHERE artist_id = ? AND title LIKE ?"""
-            db = self.domserver.get_media_db()
-            rset = db.execute(query, (artist_id, self.fnchars(album))).fetchall()
-            db.close()
-            for album_id, title in rset:
-                if self.fnchars(title) == self.fnchars(album):
-                    ret = album_id
-                    break
-        return ret
-        
-    def get_album_metadata(self, album_id):
-        query = """SELECT al.title, al.year, al.genre, ar.name
-            FROM music_albums al JOIN music_artists ar ON al.artist_id = ar.id
-            WHERE al.id = ?"""
-        db = self.domserver.get_media_db()
-        rset = db.execute(query, (album_id,)).fetchone()
-        db.close()
-        
-        meta = {
-            'album': rset[0],
-            'year': rset[1],
-            'genre': rset[2],
-            'artist': rset[3]
-        }
-        return meta
-        
-    def get_album_trackids(self, album_id):
-        query = "SELECT id FROM music_tracks WHERE album_id=?"
-        db = self.domserver.get_media_db()
-        rset = db.execute(query, (album_id,)).fetchall()
-        db.close()
-        return [r[0] for r in rset]
-        
-    def write_album_metadata(self, meta, album_id=None):
-        """Write album metadata.
-        
-        Write metadata in database and associated files.  The metadata keys
-        needed here are artist, album, year and genre.  Should not be called
-        directly, use update_album instead (which also moves files).
-        """
-        
-        artist_id = self.get_artist_id(meta['artist'])
-        db = self.domserver.get_media_db()
-        
-        if album_id is None:
-            query = """INSERT OR REPLACE INTO music_albums (artist_id, title,
-                year, genre) VALUES(?, ?, ?, ?)"""
-            data = (artist_id, meta['album'], meta['year'], meta['genre'])
-            album_id = db.execute(query, data).lastrowid
-        else:
-            query = """UPDATE music_albums SET artist_id = ?, title = ?,
-                year = ?, genre = ? WHERE id = ?"""
-            data = (artist_id, meta['album'], meta['year'], meta['genre'],
-                album_id)
-            db.execute(query, data)
-        
-        db.commit()
-        db.close() 
-        return album_id
-        
-    def update_album(self, meta, album_id):
-        """Update album metadata.
-        
-        The metadata keys needed here are artist, album, year and genre.
-        Update metadata in database and move associated files.
-        """
-        
-        oldmeta = self.get_album_metadata(album_id)
-        
-        if meta['artist'] != oldmeta['artist']:
-            artist_id = self.get_artist_id(meta['artist'])
-            if not artist_id:
-                os.makedirs(self.meta_to_filename(meta, MusicTypes.ARTIST))
-                artist_id = self.write_artist_metadata(meta)
-                
-        oldpath = self.meta_to_filename(oldmeta, MusicTypes.ALBUM)
-        newpath = self.meta_to_filename(meta, MusicTypes.ALBUM)
-        
-        if oldpath != newpath:
-            if os.path.exists(newpath):
-                raise MediaUpdateError("Album '%s/%s' already exists" % (
-                    meta['artist'], meta['album']))
-            shutil.move(oldpath, newpath)
-        self.write_album_metadata(meta)
-        
-        for track_id in self.get_album_trackids(album_id):
-            tmeta = self.get_track_metadata(track_id)
-            self.write_file_tags(tmeta)
+    def has_album_cover(self, album_id):
+        meta = self.get_album_metadata(album_id)
+        return os.path.exists(self.meta_to_coverfile(meta))
         
     def search_album_cover(self, album_id):
         meta = self.get_album_metadata(album_id)
@@ -399,10 +248,34 @@ class MusicLibrary:
                 img.close()
                 # Avoid too frequent queries
                 time.sleep(0.5)
-            
-    def has_album_cover(self, album_id):
-        meta = self.get_album_metadata(album_id)
-        return os.path.exists(self.meta_to_coverfile(meta))
+        
+    def get_artist_id(self, artist):
+        query = "SELECT id, name FROM music_artists WHERE name LIKE ?"
+        db = self.domserver.get_media_db()
+        rset = db.execute(query, (self.fnchars(artist),)).fetchall()
+        db.close()
+        ret = None
+        for artist_id, name in rset:
+            if self.fnchars(name) == self.fnchars(artist):
+                ret = artist_id
+                break
+                
+        return ret
+        
+    def get_album_id(self, artist, album):
+        artist_id = self.get_artist_id(artist)
+        ret = None
+        if artist_id:
+            query = """SELECT id, title FROM music_albums
+                WHERE artist_id = ? AND title LIKE ?"""
+            db = self.domserver.get_media_db()
+            rset = db.execute(query, (artist_id, self.fnchars(album))).fetchall()
+            db.close()
+            for album_id, title in rset:
+                if self.fnchars(title) == self.fnchars(album):
+                    ret = album_id
+                    break
+        return ret
         
     def get_track_id(self, artist, album, track):
         album_id = self.get_album_id(artist, album)
@@ -418,6 +291,48 @@ class MusicLibrary:
                     ret = track_id
                     break
         return ret
+        
+    def get_artist_albumids(self, artist_id):
+        query = "SELECT id FROM music_albums WHERE artist_id = ?"
+        db = self.domserver.get_media_db()
+        rset = db.execute(query, (artist_id,)).fetchall()
+        db.close()
+        return [r[0] for r in rset]
+        
+    def get_album_trackids(self, album_id):
+        query = "SELECT id FROM music_tracks WHERE album_id=?"
+        db = self.domserver.get_media_db()
+        rset = db.execute(query, (album_id,)).fetchall()
+        db.close()
+        return [r[0] for r in rset]
+        
+    def get_artist_metadata(self, artist_id):            
+        query = "SELECT name FROM music_artists WHERE id = ?"
+        db = self.domserver.get_media_db()
+        rset = db.execute(query, (artist_id,)).fetchone()
+        db.close
+        
+        meta = {
+            'artist': rset[0]
+        }
+        
+        return meta
+        
+    def get_album_metadata(self, album_id):
+        query = """SELECT al.title, al.year, al.genre, ar.name
+            FROM music_albums al JOIN music_artists ar ON al.artist_id = ar.id
+            WHERE al.id = ?"""
+        db = self.domserver.get_media_db()
+        rset = db.execute(query, (album_id,)).fetchone()
+        db.close()
+        
+        meta = {
+            'album': rset[0],
+            'year': rset[1],
+            'genre': rset[2],
+            'artist': rset[3]
+        }
+        return meta
             
     def get_track_metadata(self, track_id):
         query = """
@@ -440,28 +355,64 @@ class MusicLibrary:
                 meta[mapping[i]] = data[i]
         return meta
         
-    def write_file_tags(self, meta):
-        """Write metadata to file tags"""
+    def write_artist_metadata(self, meta, artist_id=None):
+        """Write artist metadata in database.
         
-        path = self.meta_to_filename(meta, MusicTypes.TRACK)
-        self.log.debug("Writing tags in '%s'" % path)
+        Only the 'artist' key of metadata is needed here.
+        Should not be called directly (does not move files)
+        """
         
-        filemeta = Metadata(path)
-        filemeta['artist'] = meta['artist']
-        filemeta['album'] = meta['album']
-        filemeta['title'] = meta['title']
-        filemeta['trackno'] = str(meta['num']) if meta['num'] != -1 else ''
-        filemeta['genre'] = meta['genre']
-        filemeta['year'] = str(meta['year']) if meta['year'] != -1 else '' 
-        filemeta.save()
+        db = self.domserver.get_media_db()
+        
+        if artist_id is None:
+            query = """INSERT OR REPLACE INTO music_artists(name, sortname)
+                VALUES(?,?)"""
+            data = (meta['artist'], self.get_sortname(meta['artist']))
+            artist_id = db.execute(query, data).lastrowid
+        else:
+            query = """UPDATE music_artists SET name = ?, sortname = ?
+                WHERE id = ?"""
+            data = (meta['artist'], self.get_sortname(meta['artist']),
+                artist_id)
+            db.execute(query, data)
+        
+        db.commit()
+        db.close()
+        return artist_id
+        
+    def write_album_metadata(self, meta, album_id=None):
+        """Write album metadata.
+        
+        Write metadata in database and associated files.  The metadata keys
+        needed here are artist, album, year and genre.  Should not be called
+        directly (does not move files).
+        """
+        
+        artist_id = self.get_artist_id(meta['artist'])
+        db = self.domserver.get_media_db()
+        
+        if album_id is None:
+            query = """INSERT OR REPLACE INTO music_albums (artist_id, title,
+                year, genre) VALUES(?, ?, ?, ?)"""
+            data = (artist_id, meta['album'], meta['year'], meta['genre'])
+            album_id = db.execute(query, data).lastrowid
+        else:
+            query = """UPDATE music_albums SET artist_id = ?, title = ?,
+                year = ?, genre = ? WHERE id = ?"""
+            data = (artist_id, meta['album'], meta['year'], meta['genre'],
+                album_id)
+            db.execute(query, data)
+        
+        db.commit()
+        db.close() 
+        return album_id
         
     def write_track_metadata(self, meta, track_id=None):
         """Write track metadata.
         
         Update (or insert if track_id is None) track metadata in database; write
-        metadata to file tags.
-        Should not be called directly, use update_track instead (which also
-        moves files when necessary)
+        metadata to file tags. Should not be called directly (does not move
+        files)
         """
         
         album_id = self.get_album_id(meta['artist'], meta['album'])
@@ -484,35 +435,151 @@ class MusicLibrary:
         db.close()
         return track_id
         
-    def update_track(self, meta, track_id):
+    def update_metadata(self, meta, id, type):
+        artists = []
+        albums = []
+        tracks = []
+    
+        if type == MusicTypes.ARTIST:
+            artists = [id]
+            albums, tracks = self.update_artist(meta, id)
+        elif type == MusicTypes.ALBUM:
+            albums = [id]
+            tracks = self.update_album(meta, id)
+        elif type == MusicTypes.TRACK:
+            tracks = [id]
+            self.update_track(meta, id)
+            
+        self.cleanup_database()        
+        return artists, albums, tracks
+                
+    def update_artist(self, meta, artist_id):
+        """Update an artist.
+        
+        Only the 'artist' key of metadata is needed here.
+        Update metadata in database and move associated files.
+        
+        Return a couple of lists of changed album and track ids
+        """
+        
+        oldmeta = self.get_artist_metadata(artist_id)
+        
+        changed = False
+        for k in oldmeta:
+            if oldmeta[k] != meta[k]:
+                changed = True
+                break
+        if not changed:
+            return [], []
+            
+        # Dry-update albums to check for exceptions
+        albumids = self.get_artist_albumids(artist_id)
+        albummeta = {}
+        for album_id in albumids:
+            albummeta[album_id] = self.get_album_metadata(album_id)
+            albummeta[album_id]['artist'] = meta['artist']
+            self.update_album(albummeta[album_id], album_id, True)
+            
+        # Update metadata
+        existing_id = self.get_artist_id(meta['artist'])
+        if not existing_id:
+            self.write_artist_metadata(meta, artist_id)
+            
+        # Update albums
+        for album_id in albummeta:
+            trackids = self.update_album(albummeta[album_id], album_id)
+            
+        return albumids, trackids
+        
+    def update_album(self, meta, album_id, dryrun=False):
+        """Update album metadata.
+        
+        The metadata keys needed here are artist, album, year and genre.
+        Update metadata in database and move associated files.
+        
+        Return a list of changed track ids
+        """
+        
+        oldmeta = self.get_album_metadata(album_id)
+        
+        changed = False
+        for k in oldmeta:
+            if oldmeta[k] != meta[k]:
+                changed = True
+                break
+        if not changed:
+            return []
+            
+        # Dry-update tracks to check for exceptions
+        trackids = self.get_album_trackids(album_id)
+        trackmeta = {}
+        for track_id in trackids:
+            trackmeta[track_id] = self.get_track_metadata(track_id)
+            for k in ('artist', 'album', 'genre', 'year'):
+                trackmeta[track_id][k] = meta[k]
+            self.update_track(trackmeta[track_id], track_id, True, True)
+            
+        if dryrun: return
+
+        if meta['artist'] != oldmeta['artist']:
+            artist_id = self.get_artist_id(meta['artist'])
+            if not artist_id:
+                artist_id = self.write_artist_metadata(meta)
+                os.makedirs(self.meta_to_filename(meta, MusicTypes.ARTIST))
+                
+        # Update metadata
+        existing_id = self.get_album_id(meta['artist'], meta['album'])
+        if not existing_id:
+            self.write_album_metadata(meta, album_id)
+        
+        # Update tracks
+        for track_id in trackmeta:
+            self.update_track(trackmeta[track_id], track_id, True)
+            
+        return trackids
+                
+    def update_track(self, meta, track_id, fromparent=False, dryrun=False):
         """Update track metadata.
         
         Update metadata in database and move the associated file.
         """
         
         oldmeta = self.get_track_metadata(track_id)
-         
-        if meta['artist'] != oldmeta['artist']:
-            artist_id = self.get_artist_id(meta['artist'])
-            if not artist_id:
-                os.makedirs(self.meta_to_filename(meta, MusicTypes.ARTIST))
-                artist_id = self.write_artist_metadata(meta)
         
-        if meta['album'] != oldmeta['album']:
-            album_id = self.get_album_id(meta['artist'], meta['album'])
-            if not album_id:
-                os.makedirs(self.meta_to_filename(meta, MusicTypes.ALBUM))
-                album_id = self.write_album_metadata(meta)
+        changed = False
+        for k in oldmeta:
+            if oldmeta[k] != meta[k]:
+                changed = True
+                break
+        if not changed:
+            return
         
         oldpath = self.meta_to_filename(oldmeta, MusicTypes.TRACK)
         newpath = self.meta_to_filename(meta, MusicTypes.TRACK)
+        if oldpath == newpath:
+            raise MediaUpdateError("duplicate:%s" % oldpath)
         
-        if oldpath != newpath:
-            if os.path.exists(newpath):
-                raise MediaUpdateError("Track '%s/%s/%s' already exists" % (
-                    meta['artist'], meta['album'], meta['title']))
-            shutil.move(oldpath, newpath)
+        if dryrun: return
+            
+        if meta['artist'] != oldmeta['artist']:
+            artist_id = self.get_artist_id(meta['artist'])
+            if not artist_id:
+                artist_id = self.write_artist_metadata(meta)
+                os.makedirs(self.meta_to_filename(meta, MusicTypes.ARTIST))
+                
+        if meta['album'] != oldmeta['album']:
+            album_id = self.get_album_id(meta['artist'], meta['album'])
+            if not album_id:
+                album_id = self.write_album_metadata(meta)
+                os.makedirs(self.meta_to_filename(meta, MusicTypes.ALBUM))
+            
+        # Update metadata
+        if not fromparent:
+            self.write_album_metadata(meta, album_id)
         self.write_track_metadata(meta, track_id)
+        
+        # Move file and write tags
+        shutil.move(oldpath, newpath)
         self.write_file_tags(meta)
 
     def import_track(self, path, meta, move=False):

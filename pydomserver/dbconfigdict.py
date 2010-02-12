@@ -20,6 +20,12 @@ DOMSERVER_CONFIG_DEFAULTS = {
     'domserver.log_level':      3,
     'domserver.use_psyco':      0,
     
+    'web.host':                 '',
+    'web.port':                 8080,
+    'web.session_expires':      365 * 24 * 3600,
+    'web.output_expires':       3600,
+    'web.static_dir':           '/usr/share/domserver/web',
+    
     'amule.enabled':            0,
     'amule.log_file':           '/var/log/domserver/domserver.log',
     'amule.log_level':          3,
