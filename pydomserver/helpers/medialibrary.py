@@ -129,8 +129,9 @@ class MusicTrackObj(ObjectWrapper):
             
             track_id = music.get_track_id(meta['artist'], meta['album'],
                 meta['title'])
-                
-        if status.get('song', -1) != -1 and status.get('song', -1) == mpd_pos:
+           
+        song = int(status.get('song', -1))
+        if song != -1 and song == mpd_pos:
             playing = 1
         else:
             playing = 0
@@ -160,8 +161,9 @@ class MusicTrackObj(ObjectWrapper):
         id = int(id)
         music = self.provider.music
         playlist = self.provider.mpd_playlist
+        status = self.provider.mpd_status
                 
-        # Only update mpd-position (cleared from cache on metadata change)
+        # Only update mpd-position and mpd-playing
         if kind == 'music-track':
             rpath = music.meta_to_filename(self.props['meta'], MusicTypes.TRACK, True)
             try:
@@ -175,6 +177,13 @@ class MusicTrackObj(ObjectWrapper):
                     pass
             
             self.props['mpd-position'] = mpd_pos
+        
+        song = int(status.get('song', -1))
+        if song != -1 and song == self.props["mpd-position"]:
+            self.props["mpd-playing"] = 1
+        else:
+            self.props["mpd-playing"] = 0
+            
         
     def set_value(self, key, value):
         raise KeyError("Cannot write to MusicTrackObj['%s']" % key)
