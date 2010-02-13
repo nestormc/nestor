@@ -32,12 +32,15 @@ class MusicStatusText(e.AppElement):
         self.song = song
         
     def render(self):
-        self.update()
+        pass
         
     def update(self):
         source = self.player.cur_song if self.song else self.player.mpd
+        oldsource = self.player.oldsong if self.song else self.player.oldmpd
         val = source.get(self.prop, '-')
-        self.set_content(self.xform(val))
+        oldval = oldsource.get(self.prop, '-')
+        if val != oldval:
+            self.set_content(self.xform(val))
         
 
 class MusicSeekbar(e.ProgressBarElement):
@@ -50,7 +53,13 @@ class MusicSeekbar(e.ProgressBarElement):
         total = self.player.cur_song.get('len', 0)
         time = self.player.mpd.get('time', 0)
         percent = 100.0 * time / total if total else 0
-        self.set_percent(percent)
+        
+        ototal = self.player.oldsong.get('len', 0)
+        otime = self.player.oldmpd.get('time', 0)
+        opercent = 100.0 * otime / ototal if ototal else 0
+        
+        if percent != opercent:
+            self.set_percent(percent)
         
 
 class MusicVolumebar(e.AppElement):
@@ -89,26 +98,33 @@ class MusicVolumebar(e.AppElement):
     def set_volume(self, percent):
         params = {'volume': int(math.ceil(self.gamma(100.0 * float(percent), True)))}
         self.obj.do_action("media", "mpd-player-volume", "media:mpd", params)
-        self.player.update_status()
         self.player.update()
         
     def update(self):
         vol = math.floor(1 + self.gamma(self.player.mpd["volume"]) * 59 / 100)
-        self.vol.set_css({"clip": "rect(auto,%dpx,auto,auto)" % vol})
+        oldvol = math.floor(1 + self.gamma(self.player.oldmpd.get("volume", 100)) * 59 / 100)
+        
+        if vol != oldvol:
+            self.vol.set_css({"clip": "rect(auto,%dpx,auto,auto)" % vol})
 
 
 class MusicSummary(e.AppElement):
 
     def __init__(self, app, om, id, musicui):
         self.musicui = musicui
+        self.mpd = {}
+        self.cur_song = {}
         e.AppElement.__init__(self, app, om, id)
         
     def update_playlist(self):
-        if self.musicui.workspace:
+        if self.musicui.workspace and self.musicui.workspace.playlist_rendered:
             self.musicui.workspace.playlist.playlist.reload()
         
     def update_status(self):
+        self.debug("UPDATE STATUS")
         mpd = self.obj.get_object("media:mpd")
+        self.oldmpd = self.mpd
+        self.oldsong = self.cur_song
         self.mpd = mpd.getprops()
                 
         self.cur_song = {}
@@ -119,11 +135,8 @@ class MusicSummary(e.AppElement):
 
     def renew(self, outputmgr):
         e.AppElement.renew(self, outputmgr)
-        self.update_status()
 
-    def init(self):
-        self.update_status()
-        
+    def init(self):        
         self.title = self.create(e.DivElement, "%s_title" % self.id)
                 
         self.elems = {
@@ -157,6 +170,9 @@ class MusicSummary(e.AppElement):
         self.seek_hid = self.output.handler_id(self.player_seek)
     
     def render(self):
+        self.mpd = {}
+        self.cur_song = {}
+        
         self.add_child(self.title)
         self.title.set_content("Music")
         self.title.set_class("app_summary_title")
@@ -177,6 +193,12 @@ class MusicSummary(e.AppElement):
         self.update()
         
     def update(self):
+        self.debug("Calling update_status from update()")
+        self.update_status()
+        
+        if self.cur_song != self.oldsong:
+            self.update_playlist()
+    
         for e in self.elems:
             self.elems[e].update()
             
@@ -196,13 +218,10 @@ class MusicSummary(e.AppElement):
             pos = int(float(self.cur_song["len"]) * float(arg))
             params = {"position": pos}
             self.obj.do_action("media", "mpd-player-seek", "media:mpd", params)
-            self.update_status()
             self.update()
     
     def icon_handler(self, action):
         self.obj.do_action("media", "mpd-player-%s" % action, "media:mpd")
-        self.update_playlist()
-        self.update_status()
         self.update()
         
 
@@ -485,9 +504,12 @@ class MusicWorkspace(e.AppElement):
         )
         
         self.playlist= self.create(MusicPlaylistColumn, "playlistcol")
+        self.playlist_rendered = False
 
     def render(self):
         self.add_child(self.playlist)
+        self.playlist_rendered = True
+        
         self.add_child(self.artists)
         self.add_child(self.albtrk)
         
