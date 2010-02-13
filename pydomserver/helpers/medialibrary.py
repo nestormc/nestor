@@ -105,6 +105,7 @@ class MusicTrackObj(ObjectWrapper):
         
         music = self.provider.music
         playlist = self.provider.mpd_playlist
+        status = self.provider.mpd_status
         
         if kind == 'music-track':
             meta = music.get_track_metadata(id)
@@ -128,10 +129,16 @@ class MusicTrackObj(ObjectWrapper):
             
             track_id = music.get_track_id(meta['artist'], meta['album'],
                 meta['title'])
+                
+        if status.get('song', -1) != -1 and status.get('song', -1) == mpd_pos:
+            playing = 1
+        else:
+            playing = 0
             
         self.props = {
             'title': meta['title'],
             'mpd-position': mpd_pos,
+            'mpd-playing': playing,
             'album': meta['album'],
             'artist': meta['artist'],
             'track_id': track_id,
