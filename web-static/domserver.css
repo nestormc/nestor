@@ -274,3 +274,13 @@ div.domserver_fatal_error {
 #music_summary_art {
     font-size: 0.8em;
 }
+
+.playlist_item span {
+    background-color: white;
+}
+
+.playlist_item span.playing {
+    background-color: #FFD200;
+    font-size: 1.75em;
+}
+

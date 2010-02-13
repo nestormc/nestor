@@ -98,16 +98,24 @@ class MusicVolumebar(e.AppElement):
 
 
 class MusicSummary(e.AppElement):
+
+    def __init__(self, app, om, id, musicui):
+        self.musicui = musicui
+        e.AppElement.__init__(self, app, om, id)
+        
+    def update_playlist(self):
+        if self.musicui.workspace:
+            self.musicui.workspace.playlist.playlist.reload()
         
     def update_status(self):
         mpd = self.obj.get_object("media:mpd")
-        self.mpd = mpd.props
-        
+        self.mpd = mpd.getprops()
+                
         self.cur_song = {}
         if self.mpd["song"] != -1:
             cursong = self.obj.get_object("media:mpd-item|%d" % self.mpd["song"])
             if cursong:
-                self.cur_song = cursong.props
+                self.cur_song = cursong.getprops()
 
     def renew(self, outputmgr):
         e.AppElement.renew(self, outputmgr)
@@ -193,6 +201,7 @@ class MusicSummary(e.AppElement):
     
     def icon_handler(self, action):
         self.obj.do_action("media", "mpd-player-%s" % action, "media:mpd")
+        self.update_playlist()
         self.update_status()
         self.update()
         
@@ -219,13 +228,13 @@ class MusicCoverBlock(e.AppElement):
 
     def update_status(self):
         mpd = self.obj.get_object("media:mpd")
-        self.mpd = mpd.props
+        self.mpd = mpd.getprops()
         
         self.cur_song = {}
         if self.mpd["song"] != -1:
             cursong = self.obj.get_object("media:mpd-item|%d" % self.mpd["song"])
             if cursong:
-                self.cur_song = cursong.props
+                self.cur_song = cursong.getprops()
 
     def init(self):
         self.update_status()
@@ -244,6 +253,35 @@ class MusicCoverBlock(e.AppElement):
         self.schedule_update(1000)
         
         
+class MusicPlaylistItem(ol.ObjectListItem):
+
+    def init(self):
+        self.span = self.create(e.SpanElement, "%s_S" % self.id)
+        
+    def update_label(self):
+        self.span.set_content("<b>%s</b> %s" % (self.data["artist"],
+            self.data["title"]))
+        
+    def update_playing(self):
+        if self.data["mpd-playing"]:
+            self.span.set_class("playing")
+        else:
+            self.span.unset_class("playing")
+
+    def render(self):
+        self.set_class("playlist_item")
+        self.add_child(self.span)
+        self.update_label()
+        self.update_playing()
+    
+    def update_data(self, updated):
+        ol.ObjectListItem.update_data(self, updated)
+        if "artist" in updated or "title" in updated:
+            self.update_label()
+        if "mpd-playing" in updated:
+            self.update_playing()
+        
+        
 class MusicPlaylistColumn(e.AppElement):
 
     player_height = "18.4em"
@@ -255,34 +293,20 @@ class MusicPlaylistColumn(e.AppElement):
             "otype": ["mpd-item"],
             "limit": 50,
             
+            "custom_item": MusicPlaylistItem,
+            
             "fields": {
-                "artist": {"weight": 3},
-                "title": {"weight": 5},
-                "len": {
-                    "weight": 1,
-                    "xform": u.human_seconds,
-                    "style": {"text-align": "right"}
-                },
-                "0act": {
-                    "weight": 1,
-                    "style": {"text-align": "center"}
-                }
+                "artist": {"weight": 1},
+                "title": {"weight": 1},
+                "mpd-playing": {"weight": 1}
             },
             "unique_field": "mpd-position",
             "main_field": "title",
-            "field_order": ["artist", "title", "len", "0act"],
+            "field_order": ["artist", "title", "mpd-playing"],
             
             "item_drop_handler": self.playlist_drop_handler,
             "drop_handler": self.playlist_drop_handler,
-            "item_events": {"ondblclick": self.playlist_dblclick_handler},
-            
-            "actions": {
-                "mpd-item-remove": {
-                    "title": "Remove",
-                    "handler": self.playlist_remove_handler,
-                    "icon": "delete"
-                }
-            }
+            "item_events": {"ondblclick": self.playlist_dblclick_handler}
         }
     
         self.cover = self.create(MusicCoverBlock, "%s_cover" % self.id)
@@ -315,12 +339,14 @@ class MusicPlaylistColumn(e.AppElement):
     def playlist_dblclick_handler(self, element):
         if isinstance(element, ol.ObjectListItem):
             self.obj.do_action("media", "mpd-item-play", element.objref)
+            self.playlist.reload()
             
     def playlist_drop_handler(self, tgt, objref):
         pl_changed = False
         tgt_pos = -1
         obj = self.obj.get_object(objref)
-        objpos = obj.props.get("mpd-position", -1)
+        props = obj.getprops()
+        objpos = props.get("mpd-position", -1)
         
         if isinstance(tgt, ol.ObjectListItem):
             tgt_pos = tgt.data["mpd-position"]
@@ -335,7 +361,7 @@ class MusicPlaylistColumn(e.AppElement):
         if obj and tgt_pos != -1:
             params = {"position": tgt_pos}
             if objref.startswith("media:mpd-item|"):
-                if obj.props["mpd-position"] != tgt_pos:
+                if props["mpd-position"] != tgt_pos:
                     self.obj.do_action("media", "mpd-item-move", objref, params)
                     pl_changed = True
             else:
@@ -481,16 +507,17 @@ class WebMusicApp(WebApp):
     
     def __init__(self, ui):
         WebApp.__init__(self, ui, 'music', 'Music')
+        self.workspace = None
         
     def renew(self, om):
         WebApp.renew(self, om)
-        
         self.om.add_js("web/apps/music.js")
         
     def get_summary_element(self):
-        return self.create(MusicSummary, 'summary')
+        return self.create(MusicSummary, 'summary', self)
         
     def get_workspace_element(self):
-        return self.create(MusicWorkspace, 'workspace')
+        self.workspace = self.create(MusicWorkspace, 'workspace')
+        return self.workspace
         
     

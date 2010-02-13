@@ -105,12 +105,15 @@ class ObjectListItem(e.AppElement):
         self.data = data
         self.objref = objref
         self.s = settings
+        self.label = self.data[self.s["main_field"]]
         e.AppElement.__init__(self, app, om, id)
         
     def update_data(self, updated):
         for f in updated:
             v = updated[f]
             self.data[f] = v
+            if f == self.s["main_field"]:
+                self.label = v
 
 
 class CellsObjectListItem(ObjectListItem):
@@ -126,9 +129,6 @@ class CellsObjectListItem(ObjectListItem):
             value = self.data.get(f, None)
             if "xform" in fs:
                 value = fs["xform"](value)
-                
-            if self.s["main_field"] == f:
-                self.label = value
                 
             fid = f.replace("-", "")
             
@@ -184,9 +184,6 @@ class CellsObjectListItem(ObjectListItem):
         fs = self.s["fields"][field]
         if "xform" in fs:
             value = fs["xform"](value)
-            
-        if field == self.s["main_field"]:
-            self.label = value
             
         if fs.get("display", None) == "progress":
             self.cells[field]["element"].set_percent(float(value))
@@ -382,7 +379,7 @@ class RefreshObjectListBody(ObjectListBody):
         positions = {}
         for o in objs:
             objref = o.objref
-            props = o.props
+            props = o.getprops()
             props["0ref"] = objref
             props["0app"] = o.owner
             
@@ -424,6 +421,7 @@ class FixedObjectListBody(RefreshObjectListBody):
 
     def reload(self):
         expr = self._get_filter_expr()
+        
         RefreshObjectListBody.fetch(self, expr)
 
     def fetch(self, expr):
@@ -436,7 +434,7 @@ class FixedObjectListBody(RefreshObjectListBody):
             
             for o in objs:
                 objref = o.objref
-                props = o.props
+                props = o.getprops()
                 props["0ref"] = objref
                 props["0app"] = o.owner
                 id = str(props[self.s["unique_field"]])

@@ -33,9 +33,9 @@ class DownloadSummary(e.AppElement):
         
     def update(self):
         bt = self.obj.get_object("bt:")
-        bt = bt.props
+        bt = bt.getprops()
         am = self.obj.get_object("amule:")
-        am = am.props
+        am = am.getprops()
         
         speed = u.human_speed(bt["dl_speed"] + am["dl_speed"])
         num  = bt["dl_files"] + am["dl_files"]
