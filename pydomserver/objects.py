@@ -206,6 +206,9 @@ class ObjectWrapper:
             if self.is_a(t):
                 return True
         return False
+        
+    def getprops(self):
+        return self.props.copy()
     
     def describe(self):
         """Describe the object.
