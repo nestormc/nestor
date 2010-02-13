@@ -99,12 +99,22 @@ class ObjectListCell(e.AppElement):
         
 
 class ObjectListItem(e.AppElement):
-
+    """Abstract list item class"""
+    
     def __init__(self, app, om, id, data, objref, settings):
         self.data = data
         self.objref = objref
         self.s = settings
         e.AppElement.__init__(self, app, om, id)
+        
+    def update_data(self, updated):
+        for f in updated:
+            v = updated[f]
+            self.data[f] = v
+
+
+class CellsObjectListItem(ObjectListItem):
+    """List item with pseudo-table-cells for each field"""
         
     def init(self):
         self.cells = {}
@@ -184,10 +194,11 @@ class ObjectListItem(e.AppElement):
             self.cells[field]["element"].set_content(value)
             
     def update_data(self, updated):
+        ObjectListItem.update_data(self, updated)
+    
         if updated:
             for f in updated:
                 v = updated[f]
-                self.data[f] = v
                 if f in self.s["fields"]:
                     self.set_cell_value(f, v)
                     
@@ -206,6 +217,7 @@ class ObjectListBody(e.AppElement):
     
     def __init__(self, app, om, id, settings):
         self.s = settings
+        self.itemclass = self.s.get("custom_item", CellsObjectListItem)
         e.AppElement.__init__(self, app, om, id)
         
     def init(self):    
@@ -215,7 +227,7 @@ class ObjectListBody(e.AppElement):
         for id in self.children_ids:
             data = self.children_data[id]
             self.children[id] = self.create(
-                ObjectListItem,
+                self.itemclass,
                 "%s_I%s" % (self.id, id),
                 data,
                 data["0ref"],
@@ -390,7 +402,7 @@ class RefreshObjectListBody(ObjectListBody):
             else:
                 # New item : create new child
                 child = self.create(
-                    ObjectListItem,
+                    self.itemclass,
                     "%s_I%s" % (self.id, id),
                     props,
                     objref,
@@ -430,7 +442,7 @@ class FixedObjectListBody(RefreshObjectListBody):
                 id = str(props[self.s["unique_field"]])
                 
                 child = self.create(
-                    ObjectListItem,
+                    self.itemclass,
                     "%s_I%s" % (self.id, id),
                     props,
                     objref,
@@ -493,6 +505,9 @@ class ObjectList(e.AppElement):
       "title": displayed list title
       "apps" : list of source apps for objects
       "otype": list of object types to display
+      
+    * "custom_item": class used to display list items; must derive from
+                     ObjectListItem. If unspecified, CellsObjectListItem is used.
       
       "fields": {
           "fieldname": {
