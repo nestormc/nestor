@@ -54,6 +54,8 @@ class DictDownload:
         self.am._update()
         if key in ('name', 'size', 'speed'):
             return self.am.downloads[self.hash][key]
+        elif key == 'done':
+            return self.am.downloads[self.hash]['size_done']
         elif key == 'status':
             stopped = self.am.downloads[self.hash].get('stopped', False)
             status = self.am.downloads[self.hash]['status']
@@ -83,8 +85,8 @@ class DictDownload:
             
     def keys(self):
         if self.am.connected:
-            return ['name', 'size', 'speed', 'status', 'seeds', 'progress',
-                    'hash']
+            return ['name', 'size', 'done', 'speed', 'status', 'seeds',
+                'progress', 'hash']
         else:
             return []
             
@@ -205,7 +207,7 @@ class AmuleDownloadObj(ObjectWrapper):
     def describe(self):
         self.types = ['download', 'amule-partfile']
         self._props = ('name', 'hash', 'speed', 'seeds', 'status', 'size',
-            'progress', 'date_started')
+            'done', 'progress', 'date_started')
         
         am = self.provider.am
         try:
@@ -220,7 +222,7 @@ class AmuleDownloadObj(ObjectWrapper):
                 try:
                     val = self.provider.load_object_property(self.oid, p)
                 except KeyError:
-                    if p in ('date_started', 'seeds', 'status', 'size',
+                    if p in ('date_started', 'seeds', 'status', 'size', 'done',
                         'progress', 'speed'):
                         val = 0
                     else:
@@ -234,14 +236,14 @@ class AmuleDownloadObj(ObjectWrapper):
         except KeyError:
             amdl = None
         
-        for p in ('speed', 'seeds', 'status', 'progress'):
+        for p in ('speed', 'seeds', 'status', 'progress', 'done'):
             if amdl and p in amdl.keys():
                 self.props[p] = amdl[p]
             else:
                 try:
                     val = self.provider.load_object_property(self.oid, p)
                 except KeyError:
-                    if p in ('date_started', 'seeds', 'status', 'size',
+                    if p in ('date_started', 'seeds', 'status', 'size', 'done',
                         'progress', 'speed'):
                         val = 0
                     else:

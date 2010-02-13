@@ -46,6 +46,8 @@ class DictTorrent:
             return self.h.name()
         elif key == 'size':
             return self.h.status().total_wanted
+        elif key == 'done':
+            done = self.h.status().total_wanted_done
         elif key == 'seeds':
             return self.h.status().num_seeds
         elif key == 'progress':
@@ -89,8 +91,8 @@ class DictTorrent:
             raise KeyError("DictTorrent has no item named '%s'" % key)
             
     def keys(self):
-        return ['name', 'size', 'seeds', 'progress', 'speed', 'status', 'files',
-            'magnet-uri']
+        return ['name', 'size', 'done', 'seeds', 'progress', 'speed', 'status', 
+            'files', 'magnet-uri']
             
         
 class BitTorrent:
@@ -198,7 +200,8 @@ class BTDownloadObj(ObjectWrapper):
     def describe(self):
         self.types = ['download', 'torrent']
         self._props = ('name', 'files', 'hash', 'speed', 'seeds', 'status',
-            'seed', 'cancel', 'date_started', 'size', 'progress', 'magnet-uri')
+            'seed', 'cancel', 'date_started', 'size', 'done', 'progress',
+            'magnet-uri')
         
         try:
             self.provider.bt[self.oid]
@@ -226,7 +229,8 @@ class BTDownloadObj(ObjectWrapper):
         except KeyError:
             found_active = 0
         
-        proplist = ['speed', 'seeds', 'status', 'cancel', 'seed', 'progress']
+        proplist = ['speed', 'seeds', 'status', 'cancel', 'seed', 'done',
+            'progress']
         if len(self.props["files"]) == 0:
             # Torrent metadata was not available last time, retry now
             proplist.extend(['files', 'size', 'name'])
