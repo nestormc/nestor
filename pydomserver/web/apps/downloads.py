@@ -21,9 +21,14 @@ import pydomserver.utils as u
 class DownloadSummary(e.AppElement):
 
     def init(self):
+        self.title = self.create(e.DivElement, "%s_title" % self.id)
         self.state = self.create(e.DivElement, "%s_state" % self.id)
         
     def render(self):
+        self.add_child(self.title)
+        self.title.set_content("Downloads")
+        self.title.set_class("app_summary_title")
+        self.add_child(self.state)
         self.update()
         
     def update(self):
@@ -32,7 +37,6 @@ class DownloadSummary(e.AppElement):
         am = self.obj.get_object("amule:")
         am = am.props
         
-        self.add_child(self.state)
         speed = u.human_speed(bt["dl_speed"] + am["dl_speed"])
         num  = bt["dl_files"] + am["dl_files"]
         self.state.set_content("%d files | %s" % (num, speed))

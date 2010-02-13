@@ -291,20 +291,17 @@ function $update(id)
     $queue.get(url, $op);
 }
 
-/* Element method handler */
-function $method(id, method, arg)
+/* Framework handler call */
+function $method(handlerid, arg)
 {
-    var url = "/ui/method/" + encodeURIComponent(id) +
-        "/" + encodeURIComponent(method) +
-        "/" + encodeURIComponent(arg);
+    var url = "/ui/handler/" + handlerid + "/" + encodeURIComponent(arg);
     $queue.get(url, $op);   
 }
 
 /* Element drop handler */
-function $drop(handler, method, target, objref)
+function $drop(handlerid, target, objref)
 {
-    var url = "/ui/drop/" + encodeURIComponent(handler) +
-        "/" + encodeURIComponent(method) +
+    var url = "/ui/drop/" + handlerid +
         "/" + encodeURIComponent(target) + 
         "/" + encodeURIComponent(objref);
     $queue.get(url, $op);
@@ -443,12 +440,9 @@ function $scroll_get_os_size()
     var os_size =  _out.offsetWidth - _in.offsetWidth;
     document.documentElement.removeChild(_out);
     
-    console.log("OS SIZE: " + os_size);
-    console.log("_CNT RIGHT: " + (100 - os_size) + "px");
-    
     $cssrule(".scroll_container_wrap", "right", "-100px");
     $cssrule(".scroll_container_cnt", "right", "100px");
-    $cssrule(".scroll_container_cnt.overflowed", "right", (100 - os_size) + "px");
+    $cssrule(".scroll_container_cnt.overflowed", "right", (102 - os_size) + "px");
     $scroll_got_os_size = true;
 }
 
@@ -571,6 +565,7 @@ var $drag = {
     find_target : function(x, y)
     {
         var candidate = document.elementFromPoint(x, y);
+        if (!candidate) return null;
         
         do
         {
@@ -648,7 +643,7 @@ var $drag = {
                 var targetinfo = $drop_targets[target.id];
                 var objref = $drag_src[$drag.obj.id]["objref"];
                 
-                $drop(targetinfo["handler"], targetinfo["method"], target.id, objref)
+                $drop(targetinfo["handler"], target.id, objref)
             }
 
             document.documentElement.removeChild($drag.label);

@@ -15,16 +15,21 @@ You should have received a copy of the GNU General Public License
 along with domserver.  If not, see <http://www.gnu.org/licenses/>.
 */
 
+var music_playerseek_hid = undefined;
+var music_setvolume_hid = undefined;
+
 function music_playerseek(e)
 {
+    if (typeof music_playerseek_hid == 'undefined') return;
     var percent = e.offsetX / this.offsetWidth;
-    $method("music_summary", "player_seek", percent);
+    $method(music_playerseek_hid, percent);
     e.stopPropagation();
 }
 
 function music_setvolume(e)
 {
+    if (typeof music_setvolume_hid == 'undefined') return;
     var percent = e.offsetX / this.offsetWidth;
-    $method("music_summary_vol", "set_volume", percent);
+    $method(music_setvolume_hid, percent);
     e.stopPropagation();
 }

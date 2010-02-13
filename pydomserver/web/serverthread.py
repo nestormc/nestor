@@ -265,10 +265,10 @@ class RequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
         elif req == 'ui':        
             if parm[0] == 'update':
                 out = self.om.update_elements(parm[1].split(','))
-            elif parm[0] == 'method':
-                out = self.om.call_element_method(*parm[1:4])
+            elif parm[0] == 'handler':
+                out = self.om.call_handler(*parm[1:3])
             elif parm[0] == 'drop':
-                out = self.om.call_drop_handler(*parm[1:5])
+                out = self.om.call_drop_handler(*parm[1:4])
         self.wfile.write(out.encode("utf-8"))
         
             

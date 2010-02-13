@@ -46,7 +46,8 @@ class UIElement:
         else:
             classes = "";
             
-        return '<div id="%s"%s>%s</div>\n' % (id, classes, content)
+        return '<%s id="%s"%s>%s</%s>\n' % (self.tagname, id, classes, content,
+            self.tagname)
         
     def add_child(self, child):
         self.output.add_op("child", [self, child])
@@ -84,14 +85,14 @@ class UIElement:
     def schedule_update(self, delay_ms):
         self.output.add_op("sched_update", [self, delay_ms])
         
-    def set_handler(self, event, target, method, arg):
+    def set_handler(self, event, handler, arg):
         """Set DOM event handler
         
         'event' is the name of a DOM event (eg. "onclick").  When that event is
-        triggered, 'target'.'method'('arg') will be called.
+        triggered, handler(arg) will be called.
         """
         
-        self.output.add_op("event", [self, event, target, method, arg])
+        self.output.add_op("event", [self, event, handler, arg])
         
     def set_jshandler(self, event, handler):
         """Set JS function 'handler' as DOM event 'event' handler"""
@@ -116,14 +117,14 @@ class UIElement:
         
         self.output.add_op("drag_src", [self, objref, label])
         
-    def make_drop_target(self, handler, method):
+    def make_drop_target(self, handler):
         """Make element a drop target
         
         When receiving a draggable element with object 'objref', will call:
-            'handler'.'method'(self, 'objref')
+            'handler'(self, 'objref')
         """
         
-        self.output.add_op("drop_target", [self, handler, method])
+        self.output.add_op("drop_target", [self, handler])
         
     def _block_layout(self, blocks, cols=True, overflow="auto"):
         total = 0.0

@@ -20,6 +20,6 @@ __all__ = [
     'music'
 ]
 
-WEB_APPS = [WebDownloadsApp, WebMusicApp]
+WEB_APPS = [WebMusicApp, WebDownloadsApp]
 
 

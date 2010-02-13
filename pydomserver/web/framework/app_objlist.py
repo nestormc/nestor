@@ -50,7 +50,7 @@ class ObjectListActionCell(e.AppElement):
             self.add_child(icon)
             icon.set_dom("title", self.s["actions"][action]["title"])
             icon.set_css({"cursor": "hand"})
-            icon.set_handler("onclick", self, "click_action", action)
+            icon.set_handler("onclick", self.click_action, action)
             
         self.update(True)
         
@@ -168,8 +168,7 @@ class ObjectListItem(e.AppElement):
         self.make_draggable(self.objref, self.label)
         
         if "item_drop_handler" in self.s:
-            dt = self.s["item_drop_handler"]
-            self.make_drop_target(dt["handler"], dt["method"])
+            self.make_drop_target(self.s["item_drop_handler"])
             
     def set_cell_value(self, field, value):
         fs = self.s["fields"][field]
@@ -179,7 +178,7 @@ class ObjectListItem(e.AppElement):
         if field == self.s["main_field"]:
             self.label = value
             
-        if fs["display"] == "progress":
+        if fs.get("display", None) == "progress":
             self.cells[field]["element"].set_percent(float(value))
         else:
             self.cells[field]["element"].set_content(value)
@@ -201,6 +200,7 @@ class ObjectListBody(e.AppElement):
     count = 0
     
     children_data = {}
+    children_ids = []
     children = {}
     selected_id = ''
     
@@ -208,11 +208,11 @@ class ObjectListBody(e.AppElement):
         self.s = settings
         e.AppElement.__init__(self, app, om, id)
         
-    def init(self):
-        """Load previously created children"""
-        
+    def init(self):    
+        # Load previously created children
         self.children_data = self.load("children", {})
-        for id in self.children_data:
+        self.children_ids = self.load("children_ids", [])
+        for id in self.children_ids:
             data = self.children_data[id]
             self.children[id] = self.create(
                 ObjectListItem,
@@ -236,15 +236,12 @@ class ObjectListBody(e.AppElement):
     def render(self):
         self.count = 0;
         self.children = {}
+        self.children_ids = []
         self.children_data = {}
         
         self.set_content("")
         self.add_child(self.closer)
         self.update()
-        
-        if "drop_handler" in self.s:
-            dt = self.s["drop_handler"]
-            self.make_drop_target(dt["handler"], dt["method"])
             
     def update(self):
         expr = self._get_filter_expr()
@@ -255,6 +252,7 @@ class ObjectListBody(e.AppElement):
             self.set_content("no filter...")
             
         self.save("children", self.children_data)
+        self.save("children_ids", self.children_ids)
         
         # Move closer to the bottom
         self.remove_child(self.closer)
@@ -311,55 +309,56 @@ class ObjectListBody(e.AppElement):
         
     def add_item(self, child, id, data):
         self.children[id] = child
+        self.children_ids.append(id)
         self.children_data[id] = data
         self.count += 1
         
         self.add_child(child)
         if id == self.selected_id:
             child.set_class("selected")
+        if self.count % 2:
+            child.set_class("odd")
+        else:
+            child.unset_class("odd")
             
         if "link" in self.s:
-            child.set_handler("onclick", self, "set_link", id)
+            child.set_handler("onclick", self.set_link, id)
             
         if "item_events" in self.s:
             for ev in self.s["item_events"]:
-                child.set_handler(ev, self, "item_event", "%s %s" % (ev, id))
+                child.set_handler(ev, self.item_event, "%s %s" % (ev, id))
                 
     def remove_item(self, id):
         if id in self.children:
             self.remove_child(self.children[id])
             del self.children[id]
+            self.children_ids.remove(id)
             del self.children_data[id]
             self.count -+ 1
+        self.refresh_odd_items()
             
     def change_item_positions(self, positions):
         """Change item positions to match 'positions', which is a mapping of
         positions to item ids"""
         
-        new_children = {}
-        new_children_data = {}
-        
-        # Get current positions
-        cur_positions = {}
-        for id in self.children:
-            cur_positions[id] = len(cur_positions)
-            
-        # Move items to new positions
         for pos in positions:
             id = positions[pos]
-            new_children[id] = self.children[id]
-            new_children_data[id] = self.children_data[id]
-            
-            if cur_positions[id] > pos:
-                oldpos = cur_positions[id]
-                swapid = cur_positions.keys()[cur_positions.values().index(pos)]
-                self.children[id].swap_with(self.children[swapid])
-                cur_positions[id] = pos
-                cur_positions[swapid] = oldpos
+            cur_pos = self.children_ids.index(id)
+            if cur_pos > pos:
+                swap_id = self.children_ids[pos]
+                self.children[id].swap_with(self.children[swap_id])
+                self.children_ids[cur_pos] = swap_id
+                self.children_ids[pos] = id
+        self.refresh_odd_items()
                 
-        # Save children in new order
-        self.children = new_children
-        self.children_data = new_children_data
+    def refresh_odd_items(self):
+        n = 0
+        for id in self.children_ids:
+            n += 1
+            if n % 2:
+                self.children[id].set_class("odd")
+            else:
+                self.children[id].unset_class("odd")
         
 
 class RefreshObjectListBody(ObjectListBody):
@@ -405,10 +404,15 @@ class RefreshObjectListBody(ObjectListBody):
             
         # Move to new positions
         self.change_item_positions(positions)
-        self.schedule_update(self.s["refresh"])
+        if "refresh" in self.s:
+            self.schedule_update(self.s["refresh"])
         
 
-class FixedObjectListBody(ObjectListBody):
+class FixedObjectListBody(RefreshObjectListBody):
+
+    def reload(self):
+        expr = self._get_filter_expr()
+        RefreshObjectListBody.fetch(self, expr)
 
     def fetch(self, expr):
         if self.first and "delay_fetch" in self.s:
@@ -449,8 +453,28 @@ class FixedObjectListBody(ObjectListBody):
 
 class ObjectListTitle(e.AppElement):
 
+    def init(self):
+        self.lbound = self.create(
+            e.ImageElement,
+            "%s_L" % self.id,
+            self.skin.image("roundb_left")
+        )
+        self.title = self.create(e.SpanElement, "%s_S" % self.id)
+        self.rbound = self.create(
+            e.ImageElement,
+            "%s_R" % self.id,
+            self.skin.image("roundb_right")
+        )
+
     def render(self):
         self.set_class("list_title")
+        self.add_child(self.lbound)
+        self.add_child(self.title)
+        self.title.set_class("list_title_span")
+        self.add_child(self.rbound)
+        
+    def set_content(self, content):
+        self.title.set_content(content)
         
 
 class ObjectList(e.AppElement):
@@ -500,17 +524,11 @@ class ObjectList(e.AppElement):
     * "link": linked ObjectList
     * "link-fields": {"fieldname", ...) fields passed to linked ObjectList (2)
     
-    * "item_drop_handler": {
-          "handler": object drop handler element
-          "method": object drop handler method
-      }
+    * "item_drop_handler": callback
       Enables dropping objects on list items. The callback will receive the item
       e.AppElement and the dropped object objref
       
-    * "drop_handler": {
-          "handler": object drop handler element
-          "method": object drop handler method
-      }
+    * "drop_handler": callback
       Same as "item_drop_handler", except it is called when an object is dropped
       on the list itself and the ObjectList element is passed as first argument.
       
@@ -550,6 +568,7 @@ class ObjectList(e.AppElement):
         raise ImplementationError("ObjectList.get_list_body not overriden")
         
     def init(self):
+        self.ctn = self.create(e.DivElement, "%s_C" % self.id)
         self.scroll = self.create(e.ScrollContainerElement, "%s_S" % self.id)
         self.lst = self.get_list_body()
         self.lst.set_scroll_container(self.scroll)
@@ -559,22 +578,33 @@ class ObjectList(e.AppElement):
         self.lst.set_filter(filter)
         
     def render(self):
+        self.set_class("object_list")
+        self.add_child(self.ctn)
+        self.ctn.set_class("object_list_inside")
+        
         # FIXME put constant sizes in WebSkin
-        self.add_child(self.title);
+        self.ctn.add_child(self.title);
         self.title.set_css({"height": "1.2em"})
         self.title.set_content(self.s["title"])
         
-        self.add_child(self.scroll)
+        self.ctn.add_child(self.scroll)
         self.scroll.set_css({
             "position": "absolute",
-            "top": "1.6em",
-            "left": "0",
-            "right": "0",
-            "bottom": "0"
+            "top": "1.4em",
+            "left": "1em",
+            "right": "1em",
+            "bottom": "1em"
         })
         self.scroll.add_child(self.lst)
         
+        if "drop_handler" in self.s:
+            self.scroll.make_drop_target(self.list_drop_handler)
+        
         self.lst.set_css({"width": "100%"})
+        
+    def list_drop_handler(self, target, objref):
+        dh = self.s["drop_handler"]
+        dh(self.lst, objref)
         
     
 class RefreshObjectList(ObjectList):
@@ -606,5 +636,5 @@ class FixedObjectList(ObjectList):
         return self.create(FixedObjectListBody, "%s_BDY" % self.id, self.s)
         
     def reload(self):
-        self.lst.render()
+        self.lst.reload()
         

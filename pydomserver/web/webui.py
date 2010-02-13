@@ -17,99 +17,104 @@ from .framework.element import UIElement, UIImageElement
 from .apps import WEB_APPS
 
 
-class WebHeader(UIElement):
+class WebNestor(UIElement):
     
-    def render(self):   
-        self.set_content("header")
-        
-        
-class WebAppIcon(UIImageElement):
-    
-    def __init__(self, om, id, appname):
-        self.appname = appname
-        # Do not use self.skin here as it is not created yet
-        UIImageElement.__init__(self, om, id, om.ui.skin.app_icon(appname))
-        
-    def set_active(self, active=True):
-        self.set_src(self.skin.app_icon(self.appname, active))
-        
-        
-class WebAppSummaryContainer(UIElement):
-
-    def __init__(self, om, id, appname, appsummary):
-        self.appname = appname
-        self.appsummary = appsummary
-        UIElement.__init__(self, om, id)
-        
     def init(self):
         self.icon = self.create(
-            WebAppIcon,
+            UIImageElement,
             "%s_I" % self.id,
-            self.appname
+            self.skin.image("nestor")
         )
         
     def render(self):
+        self.set_class("nestor_app")
         self.add_child(self.icon)
-        self.icon.set_class("app_icon")
         
-        self.add_child(self.appsummary)
-        self.appsummary.set_class("app_summary")
+
+class WebAppSummaryContainer(UIElement):
+    
+    def __init__(self, om, id, boundary, element):
+        self.boundary = boundary
+        self.element = element
+        UIElement.__init__(self, om, id)
         
-        try:
-            self.appsummary.drop_callback
-        except AttributeError:
-            pass
-        else:
-            self.make_drop_target(self.appsummary, "drop_callback")
-            
-            
+    def init(self):
+        self.lbound = self.create(
+            UIImageElement,
+            "%s_LB" % self.id,
+            self.skin.image("%s_left" % self.boundary)
+        )
+        self.rbound = self.create(
+            UIImageElement,
+            "%s_RB" % self.id,
+            self.skin.image("%s_right" % self.boundary)
+        )
+        
+    def render(self):
+        self.add_child(self.lbound)
+        self.lbound.set_class("applist_boundary")
+        self.lbound.set_class("left")
+        self.add_child(self.element)
+        self.element.set_class("app_summary")
+        self.add_child(self.rbound)
+        self.rbound.set_class("applist_boundary")
+        self.rbound.set_class("right")
+        
+        
 class WebApplist(UIElement):
 
     workspace = None
+    app_order = ['music', 'dl']
     
     def init(self):
-        self.apps = self.ui.app_summaries()
-        self.containers = {}
-        for appid in self.apps:
-            self.containers[appid] = self.create(
+        self.nestor = self.create(WebNestor, "%s_N" % self.id)
+        self.nestor_bound = self.create(
+            UIImageElement,
+            "%s_NB" % self.id,
+            self.skin.image("round_right")
+        )
+        
+        self.appcs = {}
+        apps = self.ui.app_summaries()
+        for appid in apps:
+            boundary = {
+                'music': 'round',
+                'dl': 'up'
+            }[appid]
+            self.appcs[appid] = self.create(
                 WebAppSummaryContainer,
-                "%s_%s_C" % (self.id, appid),
-                appid,
-                self.apps[appid]
-            )
+                "%s_C%s" % (self.id, appid),
+                boundary,
+                apps[appid]
+            )   
             
     def set_workspace(self, ws):
         self.workspace = ws
         
     def render(self):
-        first = True
+        self.add_child(self.nestor)
+        self.add_child(self.nestor_bound)
+        self.nestor_bound.set_class("nestor_boundary")
+    
         active = self.workspace.load("app", None)
-        for appid in self.containers:
-            ctn = self.containers[appid]
-            self.add_child(ctn)
-            if first:
-                ctn.set_class("first")
-                first = False
+        for appid in self.app_order:
+            appc = self.appcs[appid]
+            self.add_child(appc)
                 
-            ctn.set_class("app_summary_container")
-            ctn.set_handler("onclick", self, "set_active_app", appid)
+            appc.set_handler("onclick", self.set_active_app, appid)
             
             if appid == active:
-                ctn.icon.set_active(True)
-                ctn.set_class("active")
+                appc.set_class("active")
             else:
-                ctn.icon.set_active(False)
-                ctn.unset_class("active")
+                appc.unset_class("active")
                 
     def set_active_app(self, appid):
-        for id in self.containers:
-            ctn = self.containers[id]
+        for id in self.appcs:
+            appc = self.appcs[id]
             if appid == id:
-                ctn.icon.set_active(True)
-                ctn.set_class("active")
+                appc.set_class("active")
             else:
-                ctn.icon.set_active(False)
-                ctn.unset_class("active")
+                appc.unset_class("active")
             
         self.workspace.set_active_app(appid)
         
@@ -147,13 +152,11 @@ class WebWorkspace(UIElement):
 class WebRoot(UIElement):
 
     def init(self):
-        self.header = self.create(WebHeader, 'HD')
         self.applist = self.create(WebApplist, 'AL')
         self.wkspace = self.create(WebWorkspace, 'WS')
         self.applist.set_workspace(self.wkspace)
         
     def render(self):
-        self.add_child(self.header)
         self.add_child(self.applist)
         self.add_child(self.wkspace)
         

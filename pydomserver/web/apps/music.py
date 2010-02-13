@@ -67,6 +67,7 @@ class MusicVolumebar(e.AppElement):
             "%s_V" % self.id, 
             self.skin.image("volume_full")
         )
+        self.setvol_hid = self.output.handler_id(self.set_volume)
         
     def render(self):
         # FIXME remove constant AND px dimensions
@@ -76,6 +77,7 @@ class MusicVolumebar(e.AppElement):
             "background-image": "url('%s')" % self.skin.image("volume_empty")
         })
         self.set_jshandler("onclick", "music_setvolume")
+        self.add_jscode("music_setvolume_hid=%d" % self.setvol_hid)
         
         self.add_child(self.vol)
         self.vol.set_css({"position": "absolute"})
@@ -87,6 +89,8 @@ class MusicVolumebar(e.AppElement):
     def set_volume(self, percent):
         params = {'volume': int(math.ceil(self.gamma(100.0 * float(percent), True)))}
         self.obj.do_action("media", "mpd-player-volume", "media:mpd", params)
+        self.player.update_status()
+        self.player.update()
         
     def update(self):
         vol = math.floor(1 + self.gamma(self.player.mpd["volume"]) * 59 / 100)
@@ -94,28 +98,25 @@ class MusicVolumebar(e.AppElement):
 
 
 class MusicSummary(e.AppElement):
+        
+    def update_status(self):
+        mpd = self.obj.get_object("media:mpd")
+        self.mpd = mpd.props
+        
+        self.cur_song = {}
+        if self.mpd["song"] != -1:
+            cursong = self.obj.get_object("media:mpd-item|%d" % self.mpd["song"])
+            if cursong:
+                self.cur_song = cursong.props
 
     def renew(self, outputmgr):
         e.AppElement.renew(self, outputmgr)
-    
-        mpd = self.obj.get_object("media:mpd")
-        self.mpd = mpd.props
-        
-        self.cur_song = {}
-        if self.mpd["song"] != -1:
-            cursong = self.obj.get_object("media:mpd-item|%d" % self.mpd["song"])
-            if cursong:
-                self.cur_song = cursong.props
+        self.update_status()
 
     def init(self):
-        mpd = self.obj.get_object("media:mpd")
-        self.mpd = mpd.props
+        self.update_status()
         
-        self.cur_song = {}
-        if self.mpd["song"] != -1:
-            cursong = self.obj.get_object("media:mpd-item|%d" % self.mpd["song"])
-            if cursong:
-                self.cur_song = cursong.props
+        self.title = self.create(e.DivElement, "%s_title" % self.id)
                 
         self.elems = {
             "title": self.create(
@@ -145,17 +146,23 @@ class MusicSummary(e.AppElement):
         }
         
         self.volume = self.create(MusicVolumebar, "%s_vol" % self.id, self)
+        self.seek_hid = self.output.handler_id(self.player_seek)
     
     def render(self):
+        self.add_child(self.title)
+        self.title.set_content("Music")
+        self.title.set_class("app_summary_title")
+        
         for e in ('title', 'artist', 'seek'):
             self.add_child(self.elems[e])
         self.elems["seek"].set_jshandler("onclick", "music_playerseek")
+        self.add_jscode("music_playerseek_hid=%d" % self.seek_hid)
         
         for action in ('play', 'pause', 'prev', 'next'):
             icon = self.icons[action]
             self.add_child(icon)
             icon.set_css({"cursor": "hand"})
-            icon.set_handler("onclick", self, "icon_handler", action)
+            icon.set_handler("onclick", self.icon_handler, action)
             
         self.add_child(self.volume)
         self.volume.set_css({"float": "right"})
@@ -181,12 +188,13 @@ class MusicSummary(e.AppElement):
             pos = int(float(self.cur_song["len"]) * float(arg))
             params = {"position": pos}
             self.obj.do_action("media", "mpd-player-seek", "media:mpd", params)
+            self.update_status()
+            self.update()
     
     def icon_handler(self, action):
         self.obj.do_action("media", "mpd-player-%s" % action, "media:mpd")
-    
-    def drop_callback(self, target, objref):
-        self.debug("[MusicSummary] %s_%s received '%s'" % (target.appid, target.id, objref))
+        self.update_status()
+        self.update()
         
 
 class MusicCover(e.ImageElement):
@@ -209,7 +217,7 @@ class MusicCover(e.ImageElement):
 
 class MusicCoverBlock(e.AppElement):
 
-    def init(self):
+    def update_status(self):
         mpd = self.obj.get_object("media:mpd")
         self.mpd = mpd.props
         
@@ -218,24 +226,27 @@ class MusicCoverBlock(e.AppElement):
             cursong = self.obj.get_object("media:mpd-item|%d" % self.mpd["song"])
             if cursong:
                 self.cur_song = cursong.props
-                
+
+    def init(self):
+        self.update_status()
         self.cover = self.create(MusicCover, "%s_cover" % self.id, self)
         
     def render(self):
         self.add_child(self.cover)
         self.set_css({"text-align": "center"})
-        self.cover.set_css({"height": "20em", "width": "20em"})
+        self.cover.set_css({"height": "18em", "width": "18em"})
         
         self.update()
         
     def update(self):   
+        self.update_status()
         self.cover.update()
         self.schedule_update(1000)
         
         
 class MusicPlaylistColumn(e.AppElement):
 
-    player_height = "21em"
+    player_height = "18.4em"
 
     def init(self):
         plsetup = {
@@ -261,8 +272,8 @@ class MusicPlaylistColumn(e.AppElement):
             "main_field": "title",
             "field_order": ["artist", "title", "len", "0act"],
             
-            "item_drop_handler": {"handler": self, "method": "playlist_drop_handler"},
-            "drop_handler": {"handler": self, "method": "playlist_drop_handler"},
+            "item_drop_handler": self.playlist_drop_handler,
+            "drop_handler": self.playlist_drop_handler,
             "item_events": {"ondblclick": self.playlist_dblclick_handler},
             
             "actions": {
@@ -294,7 +305,7 @@ class MusicPlaylistColumn(e.AppElement):
             "top": self.player_height,
             "bottom": 0,
             "left": 0,
-            "right": "1em"
+            "right": 0
         })
         
     def playlist_remove_handler(self, action, objref):
@@ -306,44 +317,45 @@ class MusicPlaylistColumn(e.AppElement):
             self.obj.do_action("media", "mpd-item-play", element.objref)
             
     def playlist_drop_handler(self, tgt, objref):
-        if isinstance(tgt, (ol.ObjectListItem, ol.ObjectListBody)):
-            pl_changed = False
-            tgt_pos = -1
-            obj = self.obj.get_object(objref)
-            objpos = obj.props["mpd-position"]
-            
-            if isinstance(tgt, ol.ObjectListItem):
-                tgt_pos = tgt.data["mpd-position"]
-                if objref.startswith("media:mpd-item|") and tgt_pos > objpos:
-                    tgt_pos -= 1
+        pl_changed = False
+        tgt_pos = -1
+        obj = self.obj.get_object(objref)
+        objpos = obj.props.get("mpd-position", -1)
+        
+        if isinstance(tgt, ol.ObjectListItem):
+            tgt_pos = tgt.data["mpd-position"]
+            if objref.startswith("media:mpd-item|") and tgt_pos > objpos:
+                tgt_pos -= 1
+        else:
+            if objref.startswith("media:mpd-item|"):
+                tgt_pos = tgt.count - 1
             else:
-                if objref.startswith("media:mpd-item|"):
-                    tgt_pos = tgt.count - 1
-                else:
-                    tgt_pos = tgt.count
-                    
-            if obj and tgt_pos != -1:
-                params = {"position": tgt_pos}
-                if objref.startswith("media:mpd-item|"):
-                    if obj.props["mpd-position"] != tgt_pos:
-                        self.obj.do_action("media", "mpd-item-move", objref, params)
-                        pl_changed = True
-                else:
-                    self.obj.do_action("media", "mpd-enqueue", objref, params);
+                tgt_pos = tgt.count
+                
+        if obj and tgt_pos != -1:
+            params = {"position": tgt_pos}
+            if objref.startswith("media:mpd-item|"):
+                if obj.props["mpd-position"] != tgt_pos:
+                    self.obj.do_action("media", "mpd-item-move", objref, params)
                     pl_changed = True
-                    
-            if pl_changed:
-                self.playlist.reload()
+            else:
+                self.obj.do_action("media", "mpd-enqueue", objref, params);
+                pl_changed = True
+                
+        if pl_changed:
+            self.playlist.reload()
       
-              
-class MusicWorkspace(e.AppElement):
+
+class MusicAlbumTracksColumn(e.AppElement):
 
     def _minusone_xform(self, value):
         return "&nbsp;" if value == -1 else value
-    
-    def init(self):
-        self.lists = {}
         
+    def __init__(self, app, om, id, musicws):
+        self.musicws = musicws
+        e.AppElement.__init__(self, app, om, id)
+
+    def init(self):
         trksetup = {
             "title": "Tracks",
             "apps": ["media"],
@@ -367,10 +379,10 @@ class MusicWorkspace(e.AppElement):
             "main_field": "title",
             "field_order": ["num", "title", "len"],
             
-            "item_events": {"ondblclick": self.medialib_dblclick_handler},
+            "item_events": {"ondblclick": self.musicws.medialib_dblclick_handler},
             "filter": ["artist", "album"]
         }
-        self.lists["tracks"] = self.create(
+        self.tracks = self.create(
             ol.FixedObjectList,
             "tracks",
             trksetup
@@ -393,16 +405,35 @@ class MusicWorkspace(e.AppElement):
             "main_field": "album",
             "field_order": ["year", "album"],
             
-            "item_events": {"ondblclick": self.medialib_dblclick_handler},
+            "item_events": {"ondblclick": self.musicws.medialib_dblclick_handler},
             
             "filter": ["artist"],
-            "link": self.lists["tracks"],
+            "link": self.tracks,
             "link_fields": ["artist", "album"]
         }
-        self.lists["albums"] = self.create(
+        self.albums = self.create(
             ol.FixedObjectList,
             "albums",
             albsetup
+        )
+        
+    def render(self):
+        self.add_child(self.albums)
+        self.add_child(self.tracks)
+        
+        self.row_layout([
+            {"element": self.albums, "weight": 1},
+            {"element": self.tracks, "weight": 1},
+        ])
+    
+              
+class MusicWorkspace(e.AppElement):
+    
+    def init(self):
+        self.albtrk = self.create(
+            MusicAlbumTracksColumn,
+            'albtrk',
+            self
         )
     
         artsetup = {
@@ -418,40 +449,32 @@ class MusicWorkspace(e.AppElement):
             
             "item_events": {"ondblclick": self.medialib_dblclick_handler},
             
-            "link": self.lists["albums"],
+            "link": self.albtrk.albums,
             "link_fields": ["artist"]
         }
-        self.lists["artists"] = self.create(
+        self.artists = self.create(
             ol.FixedObjectList,
             "artists",
             artsetup
         )
         
-        self.lists["playlist"] = self.create(MusicPlaylistColumn, "playlistcol")
+        self.playlist= self.create(MusicPlaylistColumn, "playlistcol")
 
     def render(self):
-        self.add_child(self.lists["playlist"])
-        self.add_child(self.lists["artists"])
-        self.add_child(self.lists["albums"])
-        self.add_child(self.lists["tracks"])
+        self.add_child(self.playlist)
+        self.add_child(self.artists)
+        self.add_child(self.albtrk)
         
         self.column_layout([
-            {"element": self.lists["playlist"], "weight": 2},
-            {"element": self.lists["artists"], "weight": 1},
-            {"element": self.lists["albums"], "weight": 1},
-            {"element": self.lists["tracks"], "weight": 1}
+            {"element": self.playlist, "weight": 1},
+            {"element": self.artists, "weight": 1},
+            {"element": self.albtrk, "weight": 1}
         ])
-        
-        self.lists["artists"].title.set_css({"margin-right": "1em"})
-        self.lists["artists"].scroll.set_css({"margin-right": "1em"})
-        
-        self.lists["albums"].title.set_css({"margin-right": "1em"})
-        self.lists["albums"].scroll.set_css({"margin-right": "1em"})    
         
     def medialib_dblclick_handler(self, element):
         if isinstance(element, ol.ObjectListItem):
             self.obj.do_action("media", "mpd-play", element.objref)
-            self.lists["playlist"].playlist.reload()
+            self.playlist.playlist.reload()
             
                 
 class WebMusicApp(WebApp):

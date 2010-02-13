@@ -18,7 +18,7 @@ import re
 
 from ..webui import WebUI
 
-DEBUG = False
+DEBUG = True
 DEBUG_OPCODES = []
 
 
@@ -32,6 +32,7 @@ class WebOutputManager:
         self.cssheets = []
         self.elements = {}
         self.el_children = {}
+        self.handlers = []
         
         self.add_js("web/domserver.js")
         self.add_css("web/domserver.css")
@@ -93,6 +94,13 @@ class WebOutputManager:
         """Get JS style property name"""
         sp = prop.split("-")
         return "%s%s" % (sp[0], ''.join([s.capitalize() for s in sp[1:]]))
+        
+    def handler_id(self, handler):
+        try:
+            return self.handlers.index(handler)
+        except ValueError:
+            self.handlers.append(handler)
+            return len(self.handlers) - 1
         
     def register_element(self, element):
         self.elements[self._dom_id(element)] = element
@@ -198,11 +206,10 @@ class WebOutputManager:
                 
             elif opcode == 'event':
                 event = params[1]
-                tid = self._dom_id(params[2])
-                meth = self._json_value(params[3])
-                arg = self._json_value(params[4])
-                ops.append('$("%s").%s=function(e){$method("%s",%s,%s);'
-                    'e.stopPropagation();};' % (id, event, tid, meth, arg))
+                handlerid = self.handler_id(params[2])
+                arg = self._json_value(params[3])
+                ops.append('$("%s").%s=function(e){$method(%d,%s);'
+                    'e.stopPropagation();};' % (id, event, handlerid, arg))
                     
             elif opcode == 'jsevent':
                 event = params[1]
@@ -222,9 +229,8 @@ class WebOutputManager:
                 ])
                 
             elif opcode == 'drop_target':
-                handler = self._dom_id(params[1])
-                method = self._json_value(params[2])
-                ops.extend('$drop_targets["%s"]={handler:"%s",method:%s};' % (id, handler, method))
+                handlerid = self.handler_id(params[1])
+                ops.extend('$drop_targets["%s"]={handler:%d};' % (id, handlerid))
                 
         if ops:
             ops.append("}")
@@ -236,6 +242,7 @@ class WebOutputManager:
             for d in self.debug_msgs:
                 ops.append("$debug(%s);" % self._json_value(d))
         
+        self.debug_msgs = []
         self.ops = []
         return "{op:function(){%s}}" % ''.join(ops)
         
@@ -248,38 +255,37 @@ class WebOutputManager:
         
         return self.render_json_opcodes()
         
-    def call_element_method(self, id, method, arg):
-        if DEBUG:
-            self.debug_msgs.append("*** METHOD %s.%s(%s) ***" % (id, method, arg))
-            
+    def _dbg_func(self, func):
+        desc = str(func)
+        desc = re.sub("^<bound method ", "", desc)
+        desc = re.sub(" of <.*>>$", "", desc)
+        return desc
+        
+    def call_handler(self, handlerid, arg):
         try:
-            meth = eval("self.elements[id].%s" % method)
-        except AttributeError:
-            self.debug_msgs.append("no such method")
-        else:
-            if not callable(meth):
-                self.debug_msgs.append("no such method")
-            else:
-                meth(arg)
-                
+            handler = self.handlers[int(handlerid)]
+        except IndexError:
+            self.debug_msgs.append("no handler %s" % handlerid)
+        else:   
+            if DEBUG:
+                self.debug_msgs.append("*** HANDLER %s (%s), arg %r ***" % (
+                    handlerid, self._dbg_func(handler), arg))
+            handler(arg)
+                    
         return self.render_json_opcodes()
         
-    def call_drop_handler(self, hid, method, tid, objref):
-        if DEBUG:
-            self.debug_msgs.append("*** DROPPED %s on %s, calling %s.%s ***" % (objref, tid, hid, method))
-            
-        handler = self.elements[hid]
-        target = self.elements[tid]
-        
+    def call_drop_handler(self, handlerid, tid, objref):
         try:
-            meth = eval("handler.%s" % method)
-        except AttributeError:  
-            self.debug_msgs.append("no such method")
-        else:
-            if not callable(meth):
-                self.debug_msgs.append("no such method")
-            else:
-                meth(target, objref)
+            handler = self.handlers[int(handlerid)]
+        except IndexError:
+            self.debug_msgs.append("no handler %s" % handlerid)
+        else:   
+            if DEBUG:
+                self.debug_msgs.append("*** DROP %s on %s, calling %s ***" % (
+                    objref, tid, self._dbg_func(handler)))
+                    
+            target = self.elements[tid]
+            handler(target, objref)
                 
         return self.render_json_opcodes()
         
@@ -383,12 +389,11 @@ class WebOutputManager:
                     
             elif opcode == 'event':
                 event = params[1]
-                tid = self._dom_id(params[2])
-                method = self._json_value(params[3])
-                arg = self._json_value(params[4])
+                handlerid = self.handler_id(params[2])
+                arg = self._json_value(params[3])
                 js.append('if ($("%s")) $("%s").%s = function (e) { '
-                    '$method("%s", %s, %s); e.stopPropagation(); };' %
-                        (id, id, event, tid, method, arg))
+                    '$method(%d, %s); e.stopPropagation(); };' %
+                        (id, id, event, handlerid, arg))
                         
             elif opcode == 'jsevent':
                 event = params[1]
@@ -405,9 +410,8 @@ class WebOutputManager:
                 js.append('if ($("%s")) $drag.init($("%s"));' % (id, id))
                 
             elif opcode == 'drop_target':
-                handler = self._dom_id(params[1])
-                method = params[2]
-                drop_tgt[id] = {'handler': handler, 'method': method}
+                handlerid = self.handler_id(params[1])
+                drop_tgt[id] = {'handler': handlerid}
                 
         if self.fatal:
             js.append('$fatal(%s);' % self._json_value(self.fatal))
@@ -447,11 +451,14 @@ class WebOutputManager:
         # HTML block
         html_block = self._indent(self._render_htmltree(self._dom_id(root), elems))
         
+        self.debug_msgs = []
         self.ops = []
+        # FIXME get favicon from skin 
         return """<html>
 <head>
     <title>domserver</title>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <link rel="shortcut icon" type="text/svg+xml" href="web/skins/default/nestor.png">
     
 %s
 %s
