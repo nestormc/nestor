@@ -154,7 +154,16 @@ class RequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
         self._proxy_file(path, head)
             
     def _do_obj(self, parm, head):
-        """Respond to object request"""
+        """Respond to object request
+            
+        Available URLs:
+            obj/<objref>
+                displays object types and properties
+            obj/notify/<name>[/<objref>[/<details]]
+                publish a notification
+            obj/action/<app>/<action>/<objref>[/<param>=<value>,...]
+                do action on object
+        """
         
         if not parm:
             self._404()
@@ -168,7 +177,26 @@ class RequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
         ns = self.server.nestor
         
         if parm[0] == 'notify':
+            for p in range(len(parm)):
+                parm[p] = urllib.unquote(parm[p])
             ns.notify(*parm[1:])
+        elif parm[0] == 'action':
+            for p in range(len(parm)):
+                parm[p] = urllib.unquote(parm[p])
+                
+            proc = parm[1]
+            name = parm[2]
+            objref = parm[3]
+                
+            # Get parameters
+            aparams = {}
+            if len(parm) > 4:
+                for p in parm[4].split(","):
+                    pname, pval = p.split("=")
+                    aparams[pname] = pval
+            
+            # Execute action
+            ns._obj.do_action(proc, name, objref, aparams)
         else:
             try:
                 o, s = ns._obj.get(urllib.unquote('/'.join(parm)), True)
