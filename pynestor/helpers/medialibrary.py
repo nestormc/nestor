@@ -11,7 +11,7 @@
 # GNU General Public License for more details.
 #
 # You should have received a copy of the GNU General Public License
-# along with nestor.  If not, see <http://www.gnu.org/licenses/>.
+# along with nestor.  If not, smee <http://www.gnu.org/licenses/>.
 
 import mpd
 import os.path
@@ -430,7 +430,7 @@ class MLObjectProcessor(ObjectProcessor):
             elif name == 'mpd-enqueue':
                 dst = act['position']
                 if dst < oldlen:
-                    for offset in range(len(self.objs.mpd_playlist) - oldlen):
+                    for offset in range(len(self.objs.mpd.playlist()) - oldlen):
                         self.mpd.move(oldlen + offset, dst + offset)
                 for idx in range(dst, len(self.objs.mpd_playlist)):
                     self.objs.cache.remove("media:mpd-item|%d" % idx)
