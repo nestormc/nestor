@@ -317,6 +317,7 @@ class AmuleObjectProvider(ObjectProvider):
                 tdata = {
                     "name": self.am[oid]["name"],
                     "size": self.am[oid]["size"],
+                    "done": self.am[oid]["done"],
                     "seeds": 0,
                     "progress": self.am[oid]["progress"],
                     "speed": 0,

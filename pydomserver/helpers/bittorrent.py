@@ -47,7 +47,7 @@ class DictTorrent:
         elif key == 'size':
             return self.h.status().total_wanted
         elif key == 'done':
-            done = self.h.status().total_wanted_done
+            return self.h.status().total_wanted_done
         elif key == 'seeds':
             return self.h.status().num_seeds
         elif key == 'progress':
@@ -289,6 +289,7 @@ class BTObjectProvider(ObjectProvider):
                 "magnet-uri": bt[hash]["magnet-uri"],
                 "name": bt[hash]["name"],
                 "size": bt[hash]["size"],
+                "done": bt[hash]["done"],
                 "seeds": 0,
                 "progress": bt[hash]["progress"],
                 "speed": 0,
@@ -508,6 +509,7 @@ class BTWatcherThread(Thread):
                 d = {
                     "name": self.bt[hash]["name"],
                     "size": self.bt[hash]["size"],
+                    "done": self.bt[hash]["done"],
                     "seeds": self.bt[hash]["seeds"],
                     "progress": self.bt[hash]["progress"],
                     "speed": 0,
