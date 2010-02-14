@@ -317,6 +317,18 @@ div.nestor_fatal_error {
     border-bottom: 1px solid white;
 }
 
+.download_item.paused .download_bar {
+    background-color: white;
+}
+
+.download_item.paused {
+    color: #9C9C9C;
+}
+
+.download_item.paused .done {
+    border-bottom: 1px solid 9C9C9C;
+}
+
 .download_ctn {
     position: absolute;
     top: 0;
@@ -345,7 +357,7 @@ div.nestor_fatal_error {
     border-bottom: 1px solid black;
 }
 
-.download_item .seeds {
+.download_item .seeds, .download_item .app {
     text-align: center;
 }
 

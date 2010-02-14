@@ -22,13 +22,15 @@ class DownloadSummary(e.AppElement):
 
     def init(self):
         self.title = self.create(e.DivElement, "%s_title" % self.id)
-        self.state = self.create(e.DivElement, "%s_state" % self.id)
+        self.files = self.create(e.DivElement, "%s_files" % self.id)
+        self.speed = self.create(e.DivElement, "%s_speed" % self.id)
         
     def render(self):
         self.add_child(self.title)
         self.title.set_content("Downloads")
         self.title.set_class("app_summary_title")
-        self.add_child(self.state)
+        self.add_child(self.files)
+        self.add_child(self.speed)
         self.update()
         
     def update(self):
@@ -39,7 +41,8 @@ class DownloadSummary(e.AppElement):
         
         speed = u.human_speed(bt["dl_speed"] + am["dl_speed"])
         num  = bt["dl_files"] + am["dl_files"]
-        self.state.set_content("%d files | %s" % (num, speed))
+        self.files.set_content("%d files" % num)
+        self.speed.set_content(speed)
         self.schedule_update(1000)
         
     def drop_callback(self, tgt, objref):
@@ -55,6 +58,7 @@ class DownloadItem(ol.ObjectListItem):
             "name": self.create(e.DivElement, "%s_name" % self.id),
             "speed": self.create(e.DivElement, "%s_speed" % self.id),
             "seeds": self.create(e.DivElement, "%s_seeds" % self.id),
+            "app": self.create(e.DivElement, "%s_app" % self.id),
             "scnt": self.create(e.DivElement, "%s_SC" % self.id),
             "done": self.create(e.DivElement, "%s_done" % self.id),
             "size": self.create(e.DivElement, "%s_size" % self.id),
@@ -69,6 +73,9 @@ class DownloadItem(ol.ObjectListItem):
 
     def update_name(self):
         self.details["name"].set_content(self.data["name"])
+        
+    def update_app(self):
+        self.details["app"].set_content(self.data["0app"])
         
     def update_size(self):
         sz = u.human_size(self.data["size"])
@@ -86,10 +93,12 @@ class DownloadItem(ol.ObjectListItem):
         self.details["seeds"].set_content(self.data["seeds"])
         
     def update_status(self):
-        if self.data["status"] == 6:
-            self.set_class("finished")
-        else:
-            self.unset_class("finished")
+        sclasses = {0: "stopped", 2: "paused", 6: "finished"}
+        for s in sclasses:
+            if self.data["status"] == s:
+                self.set_class(sclasses[s])
+            else:
+                self.unset_class(sclasses[s])
 
     def render(self):
         self.set_class("download_item")
@@ -105,6 +114,8 @@ class DownloadItem(ol.ObjectListItem):
         self.details["speed"].set_class("speed")
         self.ctn.add_child(self.details["seeds"])
         self.details["seeds"].set_class("seeds")
+        self.ctn.add_child(self.details["app"])
+        self.details["app"].set_class("app")
         self.ctn.add_child(self.details["scnt"])
         self.ctn.add_child(self.details["percent"])
         self.details["percent"].set_class("percent")
@@ -113,6 +124,7 @@ class DownloadItem(ol.ObjectListItem):
             {"element": self.details["name"], "weight": 6},
             {"element": self.details["speed"], "weight": 1},
             {"element": self.details["seeds"], "weight": 1},
+            {"element": self.details["app"], "weight": 1},
             {"element": self.details["scnt"], "weight": 1},
             {"element": self.details["percent"], "weight": 1}
         ], "hidden")
@@ -134,6 +146,7 @@ class DownloadItem(ol.ObjectListItem):
         
         self.update_progress()
         self.update_name()
+        self.update_app()
         self.update_size()
         self.update_done()
         self.update_speed()
@@ -146,6 +159,8 @@ class DownloadItem(ol.ObjectListItem):
             self.update_progress()
         if "name" in updated:
             self.update_name()
+        if "0app" in updated:
+            self.update_app()
         if "size" in updated:
             self.update_size()
         if "done" in updated:
