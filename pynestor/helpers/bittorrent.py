@@ -201,7 +201,7 @@ class BTDownloadObj(ObjectWrapper):
         self.types = ['download', 'torrent']
         self._props = ('name', 'files', 'hash', 'speed', 'seeds', 'status',
             'seed', 'cancel', 'date_started', 'size', 'done', 'progress',
-            'magnet-uri')
+            'magnet-uri', 'path')
         
         try:
             self.provider.bt[self.oid]
@@ -230,7 +230,7 @@ class BTDownloadObj(ObjectWrapper):
             found_active = 0
         
         proplist = ['speed', 'seeds', 'status', 'cancel', 'seed', 'done',
-            'progress']
+            'progress', 'path']
         if len(self.props["files"]) == 0:
             # Torrent metadata was not available last time, retry now
             proplist.extend(['files', 'size', 'name'])
@@ -525,17 +525,13 @@ class BTWatcherThread(Thread):
                 rundir = self.nestor.config['bt.run_dir']
                 dldir = os.path.join(rundir, hash)
                 lobby = self.nestor.config['media.lobby_dir']
-                for r, dirs, files in os.walk(dldir):
-                    for f in dirs + files:
-                        orig = os.path.join(dldir, f)
-                        dest = os.path.join(lobby, f)
-                        shutil.move(orig, dest)
-                    dirs[0:len(dirs)] = []
-                shutil.rmtree(dldir)
+                destdir = os.path.join(lobby, d["name"])
+                shutil.move(dldir, destdir)
                 
-                # Set finished status
+                # Set finished status and send notification
                 self.verbose("Finished torrent '%s'" % hash)
-                self.objs.save_object(hash, {"status": 6})
+                self.objs.save_object(hash, {"status": 6, "path": destdir})
+                self.nestor.notify("download-finished", "bt:%s" % hash)
                 
     def check_canceled(self):
         for hash in self.bt.keys():
