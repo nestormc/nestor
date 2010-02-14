@@ -30,6 +30,7 @@ NESTOR_CONFIG_DEFAULTS = {
     'amule.log_file':           '/var/log/nestor/nestor.log',
     'amule.log_level':          3,
     'amule.amule_dir':          '/home/amule/.aMule',
+    'amule.finished_dir':       '/home/amule/.aMule/Incoming',
     'amule.tcp_port':           20101,
     'amule.udp_port':           20102,
     'amule.max_upload':         40,

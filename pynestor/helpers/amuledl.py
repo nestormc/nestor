@@ -105,7 +105,7 @@ class DictResult:
             return False
             
         if ret:
-            self.am.objs.save_object("download/%s" % self.hash,
+            self.am.objs.save_object("download|%s" % self.hash,
                 {"date_started": time.time()})
         return ret
         
@@ -171,7 +171,7 @@ class Amule:
             
     def __getitem__(self, key):
         self._update()
-        kind, hash = key.split("/", 1)
+        kind, hash = key.split("|", 1)
         if kind == 'download':
             if hash in self.downloads:
                 return DictDownload(self.nestor, self, hash)
@@ -195,8 +195,8 @@ class Amule:
     def keys(self):
         if self.connected:
             self._update()
-            d = ["download/%s" % h for h in self.downloads]
-            r = ["result/%s" % h for h in self.results]
+            d = ["download|%s" % h for h in self.downloads]
+            r = ["result|%s" % h for h in self.results]
             return d + r
         else:
             return []
@@ -207,7 +207,7 @@ class AmuleDownloadObj(ObjectWrapper):
     def describe(self):
         self.types = ['download', 'amule-partfile']
         self._props = ('name', 'hash', 'speed', 'seeds', 'status', 'size',
-            'done', 'progress', 'date_started')
+            'done', 'progress', 'date_started', 'path')
         
         am = self.provider.am
         try:
@@ -236,7 +236,7 @@ class AmuleDownloadObj(ObjectWrapper):
         except KeyError:
             amdl = None
         
-        for p in ('speed', 'seeds', 'status', 'progress', 'done'):
+        for p in ('speed', 'seeds', 'status', 'progress', 'done', 'path'):
             if amdl and p in amdl.keys():
                 self.props[p] = amdl[p]
             else:
@@ -302,19 +302,20 @@ class AmuleObj(ObjectWrapper):
         
 class AmuleObjectProvider(ObjectProvider):
     """Object provider for amule. Provides access to downloads and search
-    results with two kinds of objects: 'amule:download/<hash>' and
-    'amule:result/<hash>'.
+    results with two kinds of objects: 'amule:download|<hash>' and
+    'amule:result|<hash>'.
     """
 
     def __init__(self, nestor, am):
         ObjectProvider.__init__(self, nestor, 'amule')
         self.am = am
-        self.am.register_object_provider(self)
+        am.register_object_provider(self)
+        nestor.register_notification("amule-finished", self.finish_download)
                 
     def save_on_stop(self):
         for oid in self.am.keys():
-            if oid.startswith('download/'):
-                tdata = {
+            if oid.startswith('download|'):
+                data = {
                     "name": self.am[oid]["name"],
                     "size": self.am[oid]["size"],
                     "done": self.am[oid]["done"],
@@ -323,7 +324,7 @@ class AmuleObjectProvider(ObjectProvider):
                     "speed": 0,
                     "status": 0
                 }
-                self.save_object(oid, tdata)
+                self.save_object(oid, data)
         
     def get_oids(self):
         oids = ['']
@@ -335,11 +336,44 @@ class AmuleObjectProvider(ObjectProvider):
         if oid == '':
             return AmuleObj(self.nestor, self, '')
         else:
-            kind, desc = oid.split('/', 1)
+            kind, desc = oid.split('|', 1)
             if kind == 'download':
                 return AmuleDownloadObj(self.nestor, self, oid)
             elif kind == 'result':
                 return AmuleResultObj(self.nestor, self, oid)
+                
+    def finish_download(self, notif):
+        """Finish a download
+        
+        Called when an 'amule-finished' notification is received.
+        """
+        
+        if notif.objref.startswith("amule:download|"):
+            oid = notif.objref[len("amule:"):]
+            hash = notif.objref[len("amule:download|"):]
+            
+            # Save finishing status
+            self.save_object(oid, {
+                "name": self.am[oid]["name"],
+                "size": self.am[oid]["size"],
+                "done": self.am[oid]["size"],
+                "seeds": 0,
+                "progress": 100,
+                "speed": 0,
+                "status": 5
+            })
+            
+            # Move file to lobby
+            rundir = self.nestor.config['amule.finished_dir']
+            dlpath = os.path.join(rundir, self.am[oid]["name"])
+            lobby = self.nestor.config["media.lobby_dir"]
+            destpath = os.path.join(lobby, d.am[oid]["name"])
+            shutil.move(dlpath, destpath)
+                
+            # Set finished status and send notification
+            self.verbose("Finished amule file '%s'" % self.am[oid]["name"])
+            self.objs.save_object(oid, {"status": 6, "path": destpath})
+            self.nestor.notify("download-finished", notif.objref)
         
         
 class AmuleObjectProcessor(ObjectProcessor):
@@ -406,7 +440,7 @@ class AmuleObjectProcessor(ObjectProcessor):
             rs = self.objs.am[obj.oid]
             rs.download()
         elif name == 'amule-search':
-            ors = ["amule:result/%s" % h for h in self.objs.am.results.keys()]
+            ors = ["amule:result|%s" % h for h in self.objs.am.results.keys()]
             for objref in ors:
                 self.objs.cache.remove(objref)
                 
@@ -497,12 +531,17 @@ class AmuleHelper:
         acfile = os.path.join(self.nestor.config["amule.amule_dir"],
                                 "amule.conf")
         ec_password = self.nestor.config["amule.ec_password"]
+        webhost = self.nestor.config["web.host"]
+        if webhost == '':
+            webhost = 'localhost'
+        notifurl = "http://%s/obj/notify/amule-finished" % webhost
         settings = {
             "[eMule]": {
                 "Port": self.nestor.config["amule.tcp_port"],
                 "UDPPort": self.nestor.config["amule.udp_port"],
                 "MaxUpload": self.nestor.config["amule.max_upload"],
-                "MaxDownload": self.nestor.config["amule.max_download"]
+                "MaxDownload": self.nestor.config["amule.max_download"],
+                "IncomingDir": self.nestor.config["amule.finished_dir"]
             },
             "[ExternalConnect]": {
                 "AcceptExternalConnections": 1,
@@ -511,7 +550,7 @@ class AmuleHelper:
             },
             "[UserEvents/DownloadCompleted]": {
                 "CoreEnabled": 1,
-                "CoreCommand": 'mv "%%FILE" "%s"' % self.nestor.config["media.lobby_dir"]
+                "CoreCommand": 'wget -O- %s/amule:download|%%HASH' % notifurl
             }
         }
 
