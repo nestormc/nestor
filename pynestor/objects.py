@@ -582,7 +582,7 @@ class Notification:
 
     def __init__(self, name, objref, details):
         self.name = name
-        self.objref = objref,
+        self.objref = objref
         self.details = details
         self.time = time.time()
         
@@ -592,6 +592,7 @@ class ObjectAccessor:
         self.nestor = nestor
         self.providers = {}
         self.processors = {}
+        self.pending_notifications = []
         self.notified = {}
         self.cache = ObjectCache(self.nestor)
         
@@ -602,6 +603,8 @@ class ObjectAccessor:
         if name in self.notified:
             for callback in self.notified[name]:
                 callback(notif)
+        else:
+            self.pending_notifications.insert(0, notif)
         
     def register_notification(self, name, callback):
         if name not in self.notified:
