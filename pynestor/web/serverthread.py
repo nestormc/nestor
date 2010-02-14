@@ -165,18 +165,22 @@ class RequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
         self._end_headers()
         if head: return
         
-        ds = self.server.nestor
-        try:
-            o, s = ds._obj.get(urllib.unquote('/'.join(parm)), True)
-        except ObjectError, e:
-            self.wfile.write("ObjectError: %s" % e)
-            return
-            
-        self.wfile.write("<pre><b>Object %s</b> types=%r<br><br>" % (o.objref,
-            o.types))
-        for p in o.props:
-            self.wfile.write("%s = %r<br>" % (p, o.props[p]))
-        self.wfile.write("</pre>")
+        ns = self.server.nestor
+        
+        if parm[0] == 'notify':
+            ns.notify(*parm[1:])
+        else:
+            try:
+                o, s = ns._obj.get(urllib.unquote('/'.join(parm)), True)
+            except ObjectError, e:
+                self.wfile.write("ObjectError: %s" % e)
+                return
+                
+            self.wfile.write("<pre><b>Object %s</b> types=%r<br><br>" % (o.objref,
+                o.types))
+            for p in o.props:
+                self.wfile.write("%s = %r<br>" % (p, o.props[p]))
+            self.wfile.write("</pre>")
         
     def _do_web(self, parm, head):
         """Respond to web file request"""
