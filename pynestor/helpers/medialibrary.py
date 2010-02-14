@@ -21,7 +21,7 @@ import time
 from ..errors import ObjectError
 from ..objects import ObjectProvider, ObjectProcessor, ObjectWrapper
 from ..socketinterfacecodes import SIC
-from .media.importer import LobbyWatcherThread
+from .media.importer import ImporterThread
 from .media.music import MusicLibrary, MusicTypes, MediaUpdateError
 
 
@@ -534,8 +534,8 @@ class MediaLibraryHelper:
         self.mpd = MPDWrapper(self.nestor)
         self.music = MusicLibrary(self.nestor, self.logger)
         
-        self.lw_thread = LobbyWatcherThread(self.nestor, self.logger, self)
-        ret = self.nestor.add_thread(self.lw_thread, True)
+        self.import_thread = ImporterThread(self.nestor, self.logger, self)
+        ret = self.nestor.add_thread(self.import_thread, True)
         
         self.objs = MLObjectProvider(nestor, self, self.logger)
         self.proc = MLObjectProcessor(nestor, self)
@@ -545,6 +545,19 @@ class MediaLibraryHelper:
             provider=self.objs,
             processor=self.proc
         )
+        
+        nestor.register_notification(
+            "download-finished",
+            self.import_file_notification
+        )
+        
+    def import_file_notification(self, notif):
+        try:
+            obj = self.nestor._obj.get_object(notif.objref)
+            path = obj["path"]
+            self.import_thread.enqueue(path, True)
+        except (ObjectError, KeyError):
+            pass
         
     def __getitem__(self, key):
         if key == 'music':

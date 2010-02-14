@@ -15,7 +15,6 @@
 
 import os
 import os.path
-from pyinotify import WatchManager, ThreadedNotifier, ProcessEvent, EventsCodes
 import re
 import threading
 import time
@@ -24,80 +23,62 @@ from ...thread import Thread
 from .errors import MediaImportError
 from .metadata import Metadata
 
-
-class ItemEventCatcher(ProcessEvent):
-    """Change event catcher for items in the lobby dir
+            
+class ImporterThread(Thread):
+    """Importer thread
     
-    Every time a change is seen, update parent processor thread's last_activity
-    timestamp.  When a new subdirectory is created, add a new pyinotify watch
-    on it in the parent thread. 
+    Implements a file import queue.
     
     """
 
-    def __init__(self, thread):
-        ProcessEvent.__init__(self)
-        self.thread = thread
-        
-    def process_IN_DELETE_SELF(self, event):
-        self.thread.stop()
-        
-    def process_default(self, event):
-        self.thread.last_activity = time.time()
-        if event.is_dir and event.name is not None:
-            self.thread.add_watch(os.path.join(event.path, event.name))
-            
-            
-PROCESS_INTERVAL = 0.2
-PROCESS_CLEANTIME = 4
-
-class MediaImporterThread(Thread):
-    """Media importer thread
-    
-    Creates a pyinotify instance to watch an object in the media lobby for
-    changes.  When no changes have happened for PROCESS_CLEANTIME seconds,
-    the object is imported.
-    
-    """
-    
-    def __init__(self, nestor, logger, helper, path, delete=False):
+    def __init__(self, nestor, logger, helper):
         Thread.__init__(self, nestor, logger)
-        self.helper = helper
-        self.path = path
         self.running = False
-        self.delete = delete
-        self.cache = {}
-        
+        self.helper = helper
+        self._import_queue = []
+        self._lock = threading.Condition(threading.Lock())
+                
     def nestor_run(self):
-        self._wm = WatchManager()
-        notifier = ThreadedNotifier(self._wm, ItemEventCatcher(self))
-        notifier.start()
-        
-        try:
-            self.add_watch(self.path)
-        except UnicodeError:
-            self.add_watch(self.path.encode('utf-8'))
-        
-        self.last_activity = time.time()
+    
         self.running = True
         while self.running:
-            if self.last_activity < time.time() - PROCESS_CLEANTIME:
-                break
-            time.sleep(PROCESS_INTERVAL)
-        
-        notifier.stop()
-       
-        if self.running:
-            self.process()
+            self.process_queue()
+            time.sleep(0.2)
         
     def stop(self):
         self.running = False
         
-    def add_watch(self, path):
-        self._wm.add_watch(
-            path,
-            EventsCodes.ALL_FLAGS['ALL_EVENTS'],
-            rec = True
-        )
+    def process_queue(self):
+        path = None
+        
+        self._lock.acquire()
+        try:
+            if len(self._import_queue):
+                path, delete = self._import_queue.pop()
+        finally:
+            self._lock.release()
+            
+        if path:
+            self.process(path, delete)
+        
+    def enqueue(self, path, delete=False):
+        self._lock.acquire()
+        try:
+            self._import_queue.insert(0, [path, delete])
+        finally:
+            self._lock.release()
+        
+    def process(self, path, delete=False):
+        self.verbose("Processing %s" % path)
+        try:
+            if os.path.isdir(path):
+                self.import_directory(path, delete)
+            else:
+                self.import_file(path, delete)
+        except Exception, e:
+            self.log_exception(e)
+        else:
+            self.verbose("Finished processing %s" % path)
         
     def guess_metadata(self, path):
         md = Metadata(path)
@@ -162,8 +143,6 @@ class MediaImporterThread(Thread):
                 values = [files[f][k] for f in files if files[f][k] is not None]
                 values = list(set(values))
             
-                self.debug("Values found for %s: %r" % (k, values))
-            
                 if len(values) == 0:
                     values = [def_values[k]]
                 if len(values) == 1:
@@ -214,9 +193,9 @@ class MediaImporterThread(Thread):
             results[f] = {'num': trknum, 'title': match.group(2)}
         return results
             
-    def import_music_file(self, path, metadata):
+    def import_music_file(self, path, metadata, delete=False):
         try:
-            track_id, path = self.helper.music.import_track(path, metadata, self.delete)
+            track_id, path = self.helper.music.import_track(path, metadata, delete)
         except MediaImportError, e:
             self.verbose("Error while importing '%s': %s" % (path, e))
             track_id = None
@@ -229,12 +208,12 @@ class MediaImporterThread(Thread):
             self.debug("Updating MPD (%s)" % rpath)
             self.helper.mpd.update(rpath)
         
-    def import_directory(self, path):
+    def import_directory(self, path, delete=False):
         self.debug("Importing directory %s" % path)
         dfiles = []
         for r, dirs, files in os.walk(path):
             for d in dirs:
-                self.import_directory(os.path.join(r, d))
+                self.import_directory(os.path.join(r, d), delete)
             dfiles.extend(files)
             dirs[0:len(dirs)] = []
         
@@ -261,121 +240,21 @@ class MediaImporterThread(Thread):
                 
                 if mtype == Metadata.MEDIA_MUSIC:
                     for f in files:
-                        self.import_music_file(f, files[f])
+                        self.import_music_file(f, files[f], delete)
                         
-        if self.delete:
+        if delete:
             try:
                 os.rmdir(path)
             except:
                 pass
                 
-    def import_file(self, path):
+    def import_file(self, path, delete=False):
         self.debug("Importing file %s" % path)
         mtype, meta = self.guess_metadata(path)
         
         if mtype == Metadata.MEDIA_MUSIC:
             if not meta[title]:
                 meta[title] = os.path.basename(path).rsplit('.', 1)[0]
-            self.import_music_file(path, meta)
-            
-                
-    def process(self):
-        self.verbose("Processing %s" % self.path)
-        try:
-            if os.path.isdir(self.path):
-                self.import_directory(self.path)
-            else:
-                self.import_file(self.path)
-        except Exception, e:
-            self.log_exception(e)
-        else:
-            self.verbose("Finished processing %s" % self.path)
-        
-        
-class LobbyEventCatcher(ProcessEvent):
-    """CREATE event catcher for items in the lobby dir
+            self.import_music_file(path, meta, delete)
     
-    Calls parent thread process() on the object of the event
-    """
-
-    def __init__(self, thread):
-        ProcessEvent.__init__(self)
-        self.thread = thread
-
-    def process_default(self, event):
-        self.thread.enqueue(os.path.join(event.path, event.name))
-            
-            
-class LobbyWatcherThread(Thread):
-    """Lobby watcher thread
-    
-    Creates a pyinotify instance to watch for object creation in the media 
-    lobby directory.  A ProcessorThread is brought up for each new object.
-    
-    """
-
-    def __init__(self, nestor, logger, helper):
-        Thread.__init__(self, nestor, logger)
-        self.running = False
-        self.lobby = self.nestor.config["media.lobby_dir"]
-        self.helper = helper
-        self._jobs = []
-        self._lock = threading.Condition(threading.Lock())
-        self._threads = []
-        self._max_threads = 10
-                
-    def nestor_run(self):
-        for root, dirs, files in os.walk(self.lobby):
-            for f in files + dirs:
-                self.enqueue(f)
-    		dirs[0:len(dirs)] = []
-    
-        wm = WatchManager()
-        notifier = ThreadedNotifier(wm, LobbyEventCatcher(self))
-        notifier.start()
-        
-        watch = wm.add_watch(
-            self.lobby,
-            EventsCodes.ALL_FLAGS['IN_CREATE'] |
-                EventsCodes.ALL_FLAGS['IN_MOVED_TO'],
-            rec = False
-        )
-        
-        self.running = True
-        while self.running:
-            self._lock.acquire()
-            try:
-                self._process_queue()
-            finally:
-                self._lock.release()
-            time.sleep(0.2)
-            
-        notifier.stop()
-        
-    def stop(self):
-        self.running = False
-        
-    def _process_queue(self):
-        while len(self._jobs) and len(self._threads) <= self._max_threads:
-            self._threads.append(self._process(self._jobs.pop()))
-        if len(self._jobs):
-            for i in range(self._max_threads):
-                if not self._threads[i].isAlive():
-                    try:
-                        self._threads[i] = self._process(self._jobs.pop())
-                    except IndexError:
-                        pass
-        
-    def enqueue(self, path):
-        self._lock.acquire()
-        try:
-            self._jobs.insert(0, path)
-        finally:
-            self._lock.release()
-        
-    def _process(self, path):
-        t = MediaImporterThread(self.nestor, self.logger, self.helper,
-            os.path.join(self.lobby, path), True)
-        self.nestor.add_thread(t)
-        return t
         
