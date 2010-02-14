@@ -387,34 +387,24 @@ class MusicPlaylistColumn(e.AppElement):
             self.obj.do_action("media", "mpd-item-play", element.objref)
             self.playlist.reload()
             
-    def playlist_drop_handler(self, tgt, objref):
-        self.debug("drop %s on %s" % (objref, tgt.id))
-    
+    def playlist_drop_handler(self, tgt, objref):    
         pl_changed = False
         tgt_pos = -1
         obj = self.obj.get_object(objref)
         props = obj.getprops()
         objpos = props.get("mpd-position", -1)
-        self.debug("tgt_pos=%d, objpos=%d" % (tgt_pos, objpos))
         
         if isinstance(tgt, ol.ObjectListItem):
             tgt_pos = tgt.data["mpd-position"]
-            self.debug("target is OLI > tgt_pos=%d, objpos=%d" % (tgt_pos, objpos))
             if objref.startswith("media:mpd-item|") and tgt_pos > objpos:
-                self.debug("target is OLI -1")
                 tgt_pos -= 1
         else:
-            self.debug("target is not OLI")
             if objref.startswith("media:mpd-item|"):
-                self.debug("obj is MPD item => -1")
                 tgt_pos = tgt.count - 1
             else:
-                self.debug("obj is not MPD item")
                 tgt_pos = tgt.count
                 
         if obj and tgt_pos != -1:
-            self.debug("obj present, tgt_pos != -1")
-        
             params = {"position": tgt_pos}
             if objref.startswith("media:mpd-item|"):
                 if props["mpd-position"] != tgt_pos:
