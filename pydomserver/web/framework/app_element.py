@@ -59,7 +59,7 @@ class ImageElement(AppElement):
         else:
             classes = ''
             
-        return '<img id="%s" src="%s"%s>\n' % (id, self.src, classes)
+        return '<img id="%s" src="%s"%s>' % (id, self.src, classes)
         
     def render(self):
         self.set_dom("src", self.src)

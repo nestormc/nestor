@@ -569,10 +569,10 @@ var $drag = {
         
         do
         {
-            if ($drop_targets[candidate.id]) return candidate;  
-            candidate = candidate.offsetParent;
+            if ($drop_targets[candidate.id]) return candidate;
+            candidate = candidate.parentNode;
         }
-        while (candidate);
+        while (candidate && candidate.id);
         
         return null;
     },

@@ -97,7 +97,6 @@ body, html {
 }
 
 .app_summary_title {
-    font-family: "DejaVu Sans Condensed";
     font-weight: bold;
     text-transform: uppercase;
 }
@@ -123,13 +122,13 @@ body, html {
 /* Progress bar */
 
 .progress_bar {
-    background-color: #000000;
+    background-color: black;
     height: 0.4em;
     overflow: hidden;
 }
 
 .progress_bar_content {
-    background-color: #FFFFFF;
+    background-color: white;
     height: 0.4em;
     overflow: hidden;
 }
@@ -208,8 +207,6 @@ body, html {
     float:left;
     position: relative;
     left: -3px;
-    
-    font-family: "DejaVu Sans Condensed";
 }
 
 .list_item {
@@ -230,7 +227,7 @@ body, html {
 }
 
 .selected, .selected.odd {
-    background-color: #000000;
+    background-color: black;
     color: #FFD200;
 }
 
@@ -255,17 +252,13 @@ div.domserver_fatal_error {
 }
 
 .drag_label {
-    background-color: #000000;
+    background-color: black;
     color: #FFD200;
 }
 
 /********************************************************************/
 /*                      Application-specific                        */
 /********************************************************************/
-
-#music_playlistcol_playlist_BDY > div.drag_hover {
-    border-top: 1px solid black;
-}
 
 #music_playlistcol_playlist_BDY.drag_hover > div#music_playlistcol_playlist_BDY_END {
     border-top: 1px solid black;
@@ -275,12 +268,91 @@ div.domserver_fatal_error {
     font-size: 0.8em;
 }
 
+.playlist_item.drag_hover {
+    border-top: 1px solid black;
+}
+
 .playlist_item span {
     background-color: white;
 }
 
-.playlist_item span.playing {
+.playlist_item.playing span {
     background-color: #FFD200;
     font-size: 1.75em;
 }
+
+.playlist_item .artist {
+    font-weight: bold;
+}
+
+.playlist_item.playing .separator {
+    visibility: hidden;
+    white-space: pre;
+}
+
+.download_item {
+    position: relative;
+    height: 3em;
+    
+    border-bottom: 1px solid black;
+}
+
+.download_bar {
+    background-color: #FFD200;
+    position: absolute;
+    top: 0;
+    left: 0;
+    bottom: 0;
+}
+
+.download_item.finished .download_bar {
+    background-color: black;
+}
+
+.download_item.finished {
+    color: white;
+}
+
+.download_item.finished .done {
+    border-bottom: 1px solid white;
+}
+
+.download_ctn {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+}
+
+.download_ctn div {
+    text-overflow: ellipsis;
+}
+
+.download_ctn>div {
+    line-height: 3em;
+}
+
+.download_ctn>div>div {
+    line-height: 1.5em;
+}
+
+.download_item .size, .download_item .done, .download_item .speed, .download_item .percent {
+    text-align: right;
+}
+
+.download_item .done {
+    border-bottom: 1px solid black;
+}
+
+.download_item .seeds {
+    text-align: center;
+}
+
+.download_item .percent_value {
+    font-size: 2em;
+    line-height: 1.5em;
+    font-weight: bold;
+}
+
 

@@ -13,13 +13,15 @@
 # You should have received a copy of the GNU General Public License
 # along with domserver.  If not, see <http://www.gnu.org/licenses/>.
 
-
+import inspect
 import re
 
 from ..webui import WebUI
 
 DEBUG = True
 DEBUG_OPCODES = []
+TRACE_OPCODE_CALLERS = False
+TRACE_OPCODE_CALLERS_DEPTH = 6
 
 
 class WebOutputManager:
@@ -126,7 +128,13 @@ class WebOutputManager:
             self.cssheets.append(sheet)
         
     def add_op(self, opcode, params):
-        self.ops.append([opcode, params])
+        if TRACE_OPCODE_CALLERS:
+            caller = []
+            for i in range(TRACE_OPCODE_CALLERS_DEPTH):
+                caller.append(inspect.stack()[2 + i])
+        else:
+            caller = None
+        self.ops.append([opcode, params, caller])
         if DEBUG and (opcode in DEBUG_OPCODES or '*' in DEBUG_OPCODES):
             dparams = []
             for p in params:
@@ -146,7 +154,7 @@ class WebOutputManager:
         ops = []
         prev_id = None
         
-        for opcode, params in self.ops:
+        for opcode, params, caller in self.ops:
             id = self._dom_id(params[0])
             if id != prev_id:
                 if prev_id: ops.append("}")
@@ -164,7 +172,7 @@ class WebOutputManager:
                     
             elif opcode in ('content', 'dom'):
                 if opcode == 'content':
-                    params.append(params[1])
+                    params.append(params[1].replace("\n", "\\n"))
                     params[1] = 'innerHTML'
                     self.unregister_children(params[0])
                 prop = params[1]
@@ -301,7 +309,7 @@ class WebOutputManager:
         if re.match('/^(\s|\n)*$', children):
             return elems[root]['obj'].render_html(root, elems[root]['classes'], html)
         else:
-            return elems[root]['obj'].render_html(root, elems[root]['classes'], self._indent("%s\n%s" % (html, children)))
+            return elems[root]['obj'].render_html(root, elems[root]['classes'], "%s%s" % (html, children))
             
     def render_page(self):
         root = self.elements['DOMSERVER_ROOT']
@@ -327,92 +335,97 @@ class WebOutputManager:
             js.append("$debug_enable();")
             
         root.render()
-        for opcode, params in self.ops:
-            id = self._dom_id(params[0])
-            
-            if opcode == 'style':
-                pseudo = params[3]
-                if pseudo:
-                    selector = "#%s:%s" % (id, pseudo)
-                else:
-                    selector = "#%s" % id
-                    
-                if selector not in css:
-                    css[selector] = []
-                css[selector].append("%s: %s;" % (params[1], params[2]))
+        try:
+            for opcode, params, caller in self.ops:
+                id = self._dom_id(params[0])
                 
-            elif opcode == 'dom':
-                val = self._json_value(params[2])
-                js.append('if ($("%s")) $("%s").%s = %s;' % (id, id, params[1], val))
-                
-            elif opcode == 'content':
-                elems[id]["children"] = []
-                elems[id]["content"] = params[1]
-                self.unregister_children(params[0])
-            
-            elif opcode == "child":
-                child = params[1]
-                self.register_element(child)
-                cid = self._dom_id(child)
-                elems[cid] = {
-                    "children": [],
-                    "content": "",
-                    "classes": [],
-                    "obj": child
-                }
-                elems[id]['children'].append(cid)
-                
-            elif opcode == 'unchild':
-                child = params[1]
-                cid = self._dom_id(child)
-                self.unregister_element(child)
-                js.append('if ($("%s")) $("%s").removeChild($("%s"));' % (cid, id, cid))
-                
-            elif opcode == 'swap':
-                sibling = params[1]
-                sid = self._dom_id(sibling)
-                js.append('$swap($("%s"), $("%s"));' % (id, sid))
-                
-            elif opcode == 'sched_update':
-                interval = params[1]
-                js.append('$scheduler.schedule(%d, "%s");' % (interval, id))
-                
-            elif opcode == 'class':
-                cls = params[1]
-                if cls not in elems[id]["classes"]:
-                    elems[id]["classes"].append(cls)
-                    
-            elif opcode == 'unclass':
-                cls = params[1]
-                if cls in elems[id]["classes"]:
-                    elems[id]["classes"].remove(cls)
-                    
-            elif opcode == 'event':
-                event = params[1]
-                handlerid = self.handler_id(params[2])
-                arg = self._json_value(params[3])
-                js.append('if ($("%s")) $("%s").%s = function (e) { '
-                    '$method(%d, %s); e.stopPropagation(); };' %
-                        (id, id, event, handlerid, arg))
+                if opcode == 'style':
+                    pseudo = params[3]
+                    if pseudo:
+                        selector = "#%s:%s" % (id, pseudo)
+                    else:
+                        selector = "#%s" % id
                         
-            elif opcode == 'jsevent':
-                event = params[1]
-                handler = params[2]
-                js.append('if ($("%s")) $("%s").%s = %s;' % (id, id, event, handler))
+                    if selector not in css:
+                        css[selector] = []
+                    css[selector].append("%s: %s;" % (params[1], params[2]))
+                    
+                elif opcode == 'dom':
+                    val = self._json_value(params[2])
+                    js.append('if ($("%s")) $("%s").%s = %s;' % (id, id, params[1], val))
+                    
+                elif opcode == 'content':
+                    elems[id]["children"] = []
+                    elems[id]["content"] = params[1]
+                    self.unregister_children(params[0])
                 
-            elif opcode == 'jscode':
-                code = params[1].replace("{id}", '"%s"' % id)
-                code = code.replace("{this}", '$("%s")' % id)
-                js.append("%s;" % code)
-                
-            elif opcode == 'drag_src':
-                drag_src[id] = {'objref': params[1], 'label': params[2]}
-                js.append('if ($("%s")) $drag.init($("%s"));' % (id, id))
-                
-            elif opcode == 'drop_target':
-                handlerid = self.handler_id(params[1])
-                drop_tgt[id] = {'handler': handlerid}
-                
+                elif opcode == "child":
+                    child = params[1]
+                    self.register_element(child)
+                    cid = self._dom_id(child)
+                    elems[cid] = {
+                        "children": [],
+                        "content": "",
+                        "classes": [],
+                        "obj": child
+                    }
+                    elems[id]['children'].append(cid)
+                    
+                elif opcode == 'unchild':
+                    child = params[1]
+                    cid = self._dom_id(child)
+                    self.unregister_element(child)
+                    js.append('if ($("%s")) $("%s").removeChild($("%s"));' % (cid, id, cid))
+                    
+                elif opcode == 'swap':
+                    sibling = params[1]
+                    sid = self._dom_id(sibling)
+                    js.append('$swap($("%s"), $("%s"));' % (id, sid))
+                    
+                elif opcode == 'sched_update':
+                    interval = params[1]
+                    js.append('$scheduler.schedule(%d, "%s");' % (interval, id))
+                    
+                elif opcode == 'class':
+                    cls = params[1]
+                    if cls not in elems[id]["classes"]:
+                        elems[id]["classes"].append(cls)
+                        
+                elif opcode == 'unclass':
+                    cls = params[1]
+                    if cls in elems[id]["classes"]:
+                        elems[id]["classes"].remove(cls)
+                        
+                elif opcode == 'event':
+                    event = params[1]
+                    handlerid = self.handler_id(params[2])
+                    arg = self._json_value(params[3])
+                    js.append('if ($("%s")) $("%s").%s = function (e) { '
+                        '$method(%d, %s); e.stopPropagation(); };' %
+                            (id, id, event, handlerid, arg))
+                            
+                elif opcode == 'jsevent':
+                    event = params[1]
+                    handler = params[2]
+                    js.append('if ($("%s")) $("%s").%s = %s;' % (id, id, event, handler))
+                    
+                elif opcode == 'jscode':
+                    code = params[1].replace("{id}", '"%s"' % id)
+                    code = code.replace("{this}", '$("%s")' % id)
+                    js.append("%s;" % code)
+                    
+                elif opcode == 'drag_src':
+                    drag_src[id] = {'objref': params[1], 'label': params[2]}
+                    js.append('if ($("%s")) $drag.init($("%s"));' % (id, id))
+                    
+                elif opcode == 'drop_target':
+                    handlerid = self.handler_id(params[1])
+                    drop_tgt[id] = {'handler': handlerid}
+        except KeyError, e:
+            self.ops = []
+            self.debug_msgs = []
+            return "KeyError %s in op:\n%s (%r)\nCalled in %r" % (e, opcode, params, caller)
+            
         if self.fatal:
             js.append('$fatal(%s);' % self._json_value(self.fatal))
             
@@ -449,7 +462,7 @@ class WebOutputManager:
         css_block = self._indent(css_out)
         
         # HTML block
-        html_block = self._indent(self._render_htmltree(self._dom_id(root), elems))
+        html_block = self._render_htmltree(self._dom_id(root), elems)
         
         self.debug_msgs = []
         self.ops = []
@@ -464,7 +477,8 @@ class WebOutputManager:
 %s
 </head>
 <body>
-%s</body>
+%s
+</body>
 </html>
 """ % (css_block, js_block, html_block)
 

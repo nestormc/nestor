@@ -108,6 +108,11 @@ class ObjectListItem(e.AppElement):
         self.label = self.data[self.s["main_field"]]
         e.AppElement.__init__(self, app, om, id)
         
+    def set_label(self, label):
+        if label != self.label:
+            self.label = label
+            self.make_draggable(self.objref, self.label)
+            
     def update_data(self, updated):
         for f in updated:
             v = updated[f]
@@ -175,10 +180,6 @@ class CellsObjectListItem(ObjectListItem):
         })
         self.set_dom("title", self.label)
         self.column_layout(ordered_cells, "hidden")
-        self.make_draggable(self.objref, self.label)
-        
-        if "item_drop_handler" in self.s:
-            self.make_drop_target(self.s["item_drop_handler"])
             
     def set_cell_value(self, field, value):
         fs = self.s["fields"][field]
@@ -323,6 +324,10 @@ class ObjectListBody(e.AppElement):
         self.count += 1
         
         self.add_child(child)
+        child.make_draggable(child.objref, child.label)
+        if "item_drop_handler" in self.s:
+            child.make_drop_target(self.s["item_drop_handler"])
+        
         if id == self.selected_id:
             child.set_class("selected")
         if self.count % 2:
@@ -421,7 +426,7 @@ class FixedObjectListBody(RefreshObjectListBody):
 
     def reload(self):
         expr = self._get_filter_expr()
-        
+        self.debug("reload")
         RefreshObjectListBody.fetch(self, expr)
 
     def fetch(self, expr):
@@ -463,17 +468,23 @@ class FixedObjectListBody(RefreshObjectListBody):
 
 class ObjectListTitle(e.AppElement):
 
+    def __init__(self, app, om, id, settings):
+        self.s = settings
+        e.AppElement.__init__(self, app, om, id)
+
     def init(self):
+        self.boundtype = self.s.get("title_bound", "round")
+    
         self.lbound = self.create(
             e.ImageElement,
             "%s_L" % self.id,
-            self.skin.image("roundb_left")
+            self.skin.image("%sb_left" % self.boundtype)
         )
         self.title = self.create(e.SpanElement, "%s_S" % self.id)
         self.rbound = self.create(
             e.ImageElement,
             "%s_R" % self.id,
-            self.skin.image("roundb_right")
+            self.skin.image("%sb_right" % self.boundtype)
         )
 
     def render(self):
@@ -585,7 +596,7 @@ class ObjectList(e.AppElement):
         self.scroll = self.create(e.ScrollContainerElement, "%s_S" % self.id)
         self.lst = self.get_list_body()
         self.lst.set_scroll_container(self.scroll)
-        self.title = self.create(ObjectListTitle, "%s_TIT" % self.id)
+        self.title = self.create(ObjectListTitle, "%s_TIT" % self.id, self.s)
         
     def set_filter(self, filter):
         self.lst.set_filter(filter)

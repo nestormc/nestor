@@ -46,6 +46,118 @@ class DownloadSummary(e.AppElement):
         self.debug("[DownloadSummary] %s_%s received %s" % (tgt.app_id, tgt.id, objref))
         
         
+class DownloadItem(ol.ObjectListItem):
+
+    def init(self):
+        self.bar = self.create(e.DivElement, "%s_B" % self.id)
+        self.ctn = self.create(e.DivElement, "%s_C" % self.id)
+        self.details = {
+            "name": self.create(e.DivElement, "%s_name" % self.id),
+            "speed": self.create(e.DivElement, "%s_speed" % self.id),
+            "seeds": self.create(e.DivElement, "%s_seeds" % self.id),
+            "scnt": self.create(e.DivElement, "%s_SC" % self.id),
+            "done": self.create(e.DivElement, "%s_done" % self.id),
+            "size": self.create(e.DivElement, "%s_size" % self.id),
+            "percent": self.create(e.DivElement, "%s_pct" % self.id),
+            "pcval": self.create(e.SpanElement, "%s_pcv" % self.id),
+            "pcsign": self.create(e.SpanElement, "%s_pcs" % self.id)
+        }
+        
+    def update_progress(self):
+        self.bar.set_css({"right": "%F%%" % (100 - self.data["progress"])})
+        self.details["pcval"].set_content("%d" % self.data["progress"])
+
+    def update_name(self):
+        self.details["name"].set_content(self.data["name"])
+        
+    def update_size(self):
+        sz = u.human_size(self.data["size"])
+        self.details["size"].set_content(sz)
+        
+    def update_done(self):
+        sz = u.human_size(self.data["done"])
+        self.details["done"].set_content(sz)
+        
+    def update_speed(self):
+        spd = u.human_speed(self.data["speed"])
+        self.details["speed"].set_content(spd)
+    
+    def update_seeds(self):
+        self.details["seeds"].set_content(self.data["seeds"])
+        
+    def update_status(self):
+        if self.data["status"] == 6:
+            self.set_class("finished")
+        else:
+            self.unset_class("finished")
+
+    def render(self):
+        self.set_class("download_item")
+    
+        self.add_child(self.bar)
+        self.bar.set_class("download_bar")
+        self.add_child(self.ctn)
+        self.ctn.set_class("download_ctn")
+        
+        self.ctn.add_child(self.details["name"])
+        self.details["name"].set_class("name")
+        self.ctn.add_child(self.details["speed"])
+        self.details["speed"].set_class("speed")
+        self.ctn.add_child(self.details["seeds"])
+        self.details["seeds"].set_class("seeds")
+        self.ctn.add_child(self.details["scnt"])
+        self.ctn.add_child(self.details["percent"])
+        self.details["percent"].set_class("percent")
+        
+        self.ctn.column_layout([
+            {"element": self.details["name"], "weight": 6},
+            {"element": self.details["speed"], "weight": 1},
+            {"element": self.details["seeds"], "weight": 1},
+            {"element": self.details["scnt"], "weight": 1},
+            {"element": self.details["percent"], "weight": 1}
+        ], "hidden")
+        
+        self.details["scnt"].add_child(self.details["done"])
+        self.details["done"].set_class("done")
+        self.details["scnt"].add_child(self.details["size"])
+        self.details["size"].set_class("size")
+        self.details["scnt"].row_layout([
+            {"element": self.details["done"], "weight": 1},
+            {"element": self.details["size"], "weight": 1}
+        ], "hidden")
+        
+        self.details["percent"].add_child(self.details["pcval"])
+        self.details["pcval"].set_class("percent_value")
+        self.details["percent"].add_child(self.details["pcsign"])
+        self.details["pcsign"].set_content("%")
+        self.details["pcsign"].set_class("percent_sign")
+        
+        self.update_progress()
+        self.update_name()
+        self.update_size()
+        self.update_done()
+        self.update_speed()
+        self.update_seeds()
+        self.update_status()
+    
+    def update_data(self, updated):
+        ol.ObjectListItem.update_data(self, updated)
+        if "progress" in updated:
+            self.update_progress()
+        if "name" in updated:
+            self.update_name()
+        if "size" in updated:
+            self.update_size()
+        if "done" in updated:
+            self.update_done()
+        if "speed" in updated:
+            self.update_speed()
+        if "seeds" in updated:
+            self.update_seeds()
+        if "status" in updated:
+            self.update_status()
+        
+        
 class DownloadWorkspace(e.AppElement):
 
     def _status_xform(self, status):
@@ -65,6 +177,9 @@ class DownloadWorkspace(e.AppElement):
             "apps": ["bt", "amule"],
             "otype": ["download"],
             "refresh": 1000,
+            
+            "title_bound": "up",
+            "custom_item": DownloadItem,
             
             "fields": {
                 "0app": {

@@ -46,7 +46,7 @@ class UIElement:
         else:
             classes = "";
             
-        return '<%s id="%s"%s>%s</%s>\n' % (self.tagname, id, classes, content,
+        return '<%s id="%s"%s>%s</%s>' % (self.tagname, id, classes, content,
             self.tagname)
         
     def add_child(self, child):
@@ -209,7 +209,7 @@ class UIImageElement(UIElement):
         else:
             classes = ''
             
-        return '<img id="%s" src="%s"%s>\n' % (id, self.src, classes)
+        return '<img id="%s" src="%s"%s>' % (id, self.src, classes)
         
     def render(self):
         self.set_dom("src", self.src)

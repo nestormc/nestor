@@ -116,12 +116,7 @@ class MusicSummary(e.AppElement):
         self.cur_song = {}
         e.AppElement.__init__(self, app, om, id)
         
-    def update_playlist(self):
-        if self.musicui.workspace and self.musicui.workspace.playlist_rendered:
-            self.musicui.workspace.playlist.playlist.reload()
-        
     def update_status(self):
-        self.debug("UPDATE STATUS")
         mpd = self.obj.get_object("media:mpd")
         self.oldmpd = self.mpd
         self.oldsong = self.cur_song
@@ -193,11 +188,7 @@ class MusicSummary(e.AppElement):
         self.update()
         
     def update(self):
-        self.debug("Calling update_status from update()")
         self.update_status()
-        
-        if self.cur_song != self.oldsong:
-            self.update_playlist()
     
         for e in self.elems:
             self.elems[e].update()
@@ -245,7 +236,13 @@ class MusicCover(e.ImageElement):
 
 class MusicCoverBlock(e.AppElement):
 
+    mpd = {}
+    cur_song = {}
+
     def update_status(self):
+        self.oldmpd = self.mpd
+        self.oldsong = self.cur_song
+    
         mpd = self.obj.get_object("media:mpd")
         self.mpd = mpd.getprops()
         
@@ -264,39 +261,69 @@ class MusicCoverBlock(e.AppElement):
         self.set_css({"text-align": "center"})
         self.cover.set_css({"height": "18em", "width": "18em"})
         
-        self.update()
-        
-    def update(self):   
         self.update_status()
         self.cover.update()
+        self.schedule_update(1000)
+        
+    def update(self):   
+        # FIXME find a way to trigger updates from player
+        self.update_status()
+        self.cover.update()
+        
+        # FIXME make this cleaner
+        if self.cur_song != self.oldsong:
+            self.output.elements["music_playlistcol_playlist"].reload()
+        
         self.schedule_update(1000)
         
         
 class MusicPlaylistItem(ol.ObjectListItem):
 
     def init(self):
-        self.span = self.create(e.SpanElement, "%s_S" % self.id)
+        self.artist = self.create(e.SpanElement, "%s_A" % self.id)
+        self.sep = self.create(e.SpanElement, "%s_S" % self.id)
+        self.title = self.create(e.SpanElement, "%s_T" % self.id)
         
     def update_label(self):
-        self.span.set_content("<b>%s</b> %s" % (self.data["artist"],
-            self.data["title"]))
+        self.set_label("%s - %s" % (self.data["artist"], self.data["title"]))
+        
+    def update_artist(self):
+        self.update_label()
+        self.artist.set_content(self.data["artist"])
+        
+    def update_title(self):
+        self.update_label()
+        self.title.set_content(self.data["title"])
         
     def update_playing(self):
         if self.data["mpd-playing"]:
-            self.span.set_class("playing")
+            self.set_class("playing")
         else:
-            self.span.unset_class("playing")
+            self.unset_class("playing")
 
     def render(self):
         self.set_class("playlist_item")
-        self.add_child(self.span)
-        self.update_label()
+        
+        self.add_child(self.artist)
+        self.artist.set_class("artist")
+        
+        self.add_child(self.sep)
+        self.sep.set_content(" -\n")
+        self.sep.set_class("separator")
+        
+        self.add_child(self.title)
+        self.title.set_class("title")
+        
+        self.update_artist()
+        self.update_title()
         self.update_playing()
     
     def update_data(self, updated):
         ol.ObjectListItem.update_data(self, updated)
-        if "artist" in updated or "title" in updated:
-            self.update_label()
+        if "artist" in updated:
+            self.update_artist()
+        if "title" in updated:
+            self.update_title()
         if "mpd-playing" in updated:
             self.update_playing()
         
@@ -361,23 +388,33 @@ class MusicPlaylistColumn(e.AppElement):
             self.playlist.reload()
             
     def playlist_drop_handler(self, tgt, objref):
+        self.debug("drop %s on %s" % (objref, tgt.id))
+    
         pl_changed = False
         tgt_pos = -1
         obj = self.obj.get_object(objref)
         props = obj.getprops()
         objpos = props.get("mpd-position", -1)
+        self.debug("tgt_pos=%d, objpos=%d" % (tgt_pos, objpos))
         
         if isinstance(tgt, ol.ObjectListItem):
             tgt_pos = tgt.data["mpd-position"]
+            self.debug("target is OLI > tgt_pos=%d, objpos=%d" % (tgt_pos, objpos))
             if objref.startswith("media:mpd-item|") and tgt_pos > objpos:
+                self.debug("target is OLI -1")
                 tgt_pos -= 1
         else:
+            self.debug("target is not OLI")
             if objref.startswith("media:mpd-item|"):
+                self.debug("obj is MPD item => -1")
                 tgt_pos = tgt.count - 1
             else:
+                self.debug("obj is not MPD item")
                 tgt_pos = tgt.count
                 
         if obj and tgt_pos != -1:
+            self.debug("obj present, tgt_pos != -1")
+        
             params = {"position": tgt_pos}
             if objref.startswith("media:mpd-item|"):
                 if props["mpd-position"] != tgt_pos:
@@ -504,19 +541,16 @@ class MusicWorkspace(e.AppElement):
         )
         
         self.playlist= self.create(MusicPlaylistColumn, "playlistcol")
-        self.playlist_rendered = False
 
     def render(self):
-        self.add_child(self.playlist)
-        self.playlist_rendered = True
-        
         self.add_child(self.artists)
         self.add_child(self.albtrk)
+        self.add_child(self.playlist)
         
         self.column_layout([
-            {"element": self.playlist, "weight": 1},
             {"element": self.artists, "weight": 1},
-            {"element": self.albtrk, "weight": 1}
+            {"element": self.albtrk, "weight": 1},
+            {"element": self.playlist, "weight": 1}
         ])
         
     def medialib_dblclick_handler(self, element):
