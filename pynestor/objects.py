@@ -577,13 +577,36 @@ class ObjectProcessor:
             
         return self.execute(actwrapper)
         
+        
+class Notification:
+
+    def __init__(self, name, objref, details):
+        self.name = name
+        self.objref = objref,
+        self.details = details
+        self.time = time.time()
+        
 
 class ObjectAccessor:
     def __init__(self, nestor):
         self.nestor = nestor
         self.providers = {}
         self.processors = {}
+        self.notified = {}
         self.cache = ObjectCache(self.nestor)
+        
+    def notify(self, name, objref=None, details=None):
+        """Publish notification"""
+        
+        notif = Notification(name, objref, details)
+        if name in self.notified:
+            for callback in self.notified[name]:
+                callback(notif)
+        
+    def register_notification(self, name, callback):
+        if name not in self.notified:
+            self.notified[name] = []
+        self.notified[name].append(callback)
         
     def register_interface(self, **kwargs):
         try:

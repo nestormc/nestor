@@ -240,6 +240,12 @@ class Nestor:
     def register_object_interface(self, **kwargs):
         self._obj.register_interface(**kwargs)
         
+    def notify(self, *args):
+        self._obj.notify(*args)
+        
+    def register_notification(self, *args):
+        self._obj.register_notification(*args)
+        
     def get_object(self, objref):
         return self._obj.get_obj(objref)
         
