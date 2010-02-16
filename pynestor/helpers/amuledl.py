@@ -170,14 +170,15 @@ class Amule:
             self.connected = False
             
     def __getitem__(self, key):
-        self._update()
-        kind, hash = key.split("|", 1)
-        if kind == 'download':
-            if hash in self.downloads:
-                return DictDownload(self.nestor, self, hash)
-        elif kind == 'result':
-            if hash in self.results:
-                return DictResult(self.nestor, self, hash)
+        if self.connected:
+            self._update()
+            kind, hash = key.split("|", 1)
+            if kind == 'download':
+                if hash in self.downloads:
+                    return DictDownload(self.nestor, self, hash)
+            elif kind == 'result':
+                if hash in self.results:
+                    return DictResult(self.nestor, self, hash)
         raise KeyError(key)
             
     def _update(self):
@@ -316,6 +317,7 @@ class AmuleObjectProvider(ObjectProvider):
         for oid in self.am.keys():
             if oid.startswith('download|'):
                 data = {
+                    "hash": self.am[oid]["hash"],
                     "name": self.am[oid]["name"],
                     "size": self.am[oid]["size"],
                     "done": self.am[oid]["done"],
@@ -354,6 +356,7 @@ class AmuleObjectProvider(ObjectProvider):
             
             # Save finishing status
             self.save_object(oid, {
+                "hash": hash,
                 "name": self.am[oid]["name"],
                 "size": self.am[oid]["size"],
                 "done": self.am[oid]["size"],
