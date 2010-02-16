@@ -14,9 +14,9 @@
 # along with nestor.  If not, see <http://www.gnu.org/licenses/>.
 
 import pynestor.web.framework.app_element as e
-from ...objects import OExpression, OCriterion
-
-
+import pynestor.objects as o
+        
+        
 class ObjectListActionCell(e.AppElement):
 
     def __init__(self, app, om, id, settings, data):
@@ -302,20 +302,20 @@ class ObjectListBody(e.AppElement):
             expr = None
             for field in self.s["filter"]:
                 if expr:
-                    expr = OExpression(
+                    expr = o.OExpression(
                         'and',
                         expr,
-                        OCriterion(field, '==', filter[field])
+                        o.OCriterion(field, '==', filter[field])
                     )
                 else:
-                    expr = OCriterion(field, '==', filter[field])
+                    expr = o.OCriterion(field, '==', filter[field])
                     
-            if isinstance(expr, OExpression):
+            if isinstance(expr, o.OExpression):
                 return expr
             else:
-                return OExpression('', expr)
+                return o.OExpression('', expr)
                     
-        return OExpression('', None)
+        return o.OExpression('', None)
         
     def add_item(self, child, id, data):
         self.children[id] = child
@@ -378,7 +378,9 @@ class ObjectListBody(e.AppElement):
 class RefreshObjectListBody(ObjectListBody):
 
     def fetch(self, expr):
-        objs = self.obj.match_objects(self.s["apps"], expr, self.s["otype"])
+        sortfield = self.s.get("sort_field", None)
+        sortrev = self.s.get("sort_reverse", False)
+        objs = self.obj.match_objects(self.s["apps"], expr, types=self.s["otype"], sortfield=sortfield, sortrev=sortrev)
         
         removed_ids = self.children.keys()
         positions = {}
@@ -435,7 +437,9 @@ class FixedObjectListBody(RefreshObjectListBody):
         else:
             offset = self.count
             limit = self.s.get("limit", -1)
-            objs = self.obj.match_objects(self.s["apps"], expr, self.s["otype"], offset, limit)
+            sortfield = self.s.get("sort_field", None)
+            sortrev = self.s.get("sort_reverse", False)
+            objs = self.obj.match_objects(self.s["apps"], expr, types=self.s["otype"], offset=offset, limit=limit, sortfield=sortfield, sortrev=sortrev)
             
             for o in objs:
                 objref = o.objref
@@ -507,6 +511,7 @@ class ObjectList(e.AppElement):
     - draggable objects
     - links between lists (ie. what B displays depends on what is selected in A)
     - objects and the list itself can be made drop targets
+    - actions in a contextual drop-down menu
     
     The constructor settings parameter is a dict with the following keys (keys
     marked with * are optional):
