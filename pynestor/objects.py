@@ -652,9 +652,15 @@ class ObjectAccessor:
         o, s = self.get(objref, True)
         return o
     
-    def match_objects(self, owners, expr, types=None, offset=0, limit=-1):
+    def match_objects(self, owners, expr, **kwargs):
+        types = kwargs.get("types", None)
+        offset = kwargs.get("offset", 0)
+        limit = kwargs.get("limit", -1)
+        sortfield = kwargs.get("sortfield", None)
+        sortrev = kwargs.get("sortrev", False)
+
         self.nestor.perf("Starting matchquery")
-        oids = []
+        objs = []
         for owner in owners:  
             if owner not in self.providers:
                 raise ObjectError("invalid-provider:%s" % owner)
@@ -663,19 +669,24 @@ class ObjectAccessor:
                     (owner, types, expr.dump()))
             
             self.providers[owner].on_query_start()
-            oids.extend([[owner, oid]
-                for oid in self.providers[owner].match_oids(expr, types)])
+            objs.extend([
+                self.providers[owner].get(oid)
+                for oid in self.providers[owner].match_oids(expr, types)
+            ])
+            #oids.extend([[owner, oid]
+            #    for oid in self.providers[owner].match_oids(expr, types)])
                 
-        self.nestor.perf("Matching oids retrieved")
+        self.nestor.perf("Matching objects retrieved")
         
         if limit == -1:
-            oids = oids[offset:]
+            objs = objs[offset:]
         else:
-            oids = oids[offset:offset + limit]
-            
-        objs = [self.providers[owner].get(oid) for owner, oid in oids]
-            
-        self.nestor.perf("Matching objects wrapped, returning")
+            objs = objs[offset:offset + limit]
+        
+        if sortfield:
+            objs.sort(key=lambda x:x[sortfield], reverse=sortrev)
+ 
+        self.nestor.perf("Matching objects sorted, returning")
         
         for owner in owners:
             self.providers[owner].on_query_end()
