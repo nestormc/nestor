@@ -311,6 +311,7 @@ div.nestor_fatal_error {
 
 .download_item.finished {
     color: white;
+    border-bottom: 1px solid white;
 }
 
 .download_item.finished .done {
@@ -321,12 +322,18 @@ div.nestor_fatal_error {
     background-color: white;
 }
 
-.download_item.paused {
+.download_item.paused, .download_item.stopped {
     color: #9C9C9C;
 }
 
-.download_item.paused .done {
+.download_item.paused .done, .download_item.stopped .done {
     border-bottom: 1px solid 9C9C9C;
+}
+
+.download_item.paused .speed, .download_item.paused .seeds,
+.download_item.stopped .speed, .download_item.stopped .seeds,
+.download_item.finished .speed, .download_item.finished .seeds {
+    visibility: hidden;
 }
 
 .download_ctn {

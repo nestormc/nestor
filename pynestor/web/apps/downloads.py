@@ -192,6 +192,8 @@ class DownloadWorkspace(e.AppElement):
             "apps": ["bt", "amule"],
             "otype": ["download"],
             "refresh": 1000,
+            "sort_field": "progress",
+            "sort_reverse": True,
             
             "title_bound": "up",
             "custom_item": DownloadItem,
