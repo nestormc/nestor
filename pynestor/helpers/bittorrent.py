@@ -199,13 +199,15 @@ class BTDownloadObj(ObjectWrapper):
     
     def describe(self):
         self.types = ['download', 'torrent']
-        self._props = ('name', 'files', 'hash', 'speed', 'seeds', 'status',
+        self._props = ('name', 'hash', 'speed', 'seeds', 'status',
             'seed', 'cancel', 'date_started', 'size', 'done', 'progress',
             'magnet-uri', 'path')
+        self._files = []
         
         try:
             self.provider.bt[self.oid]
             found_active = 1
+            self._files = self.provider.bt[self.oid]['files']
         except KeyError:
             found_active = 0
         
@@ -231,9 +233,10 @@ class BTDownloadObj(ObjectWrapper):
         
         proplist = ['speed', 'seeds', 'status', 'cancel', 'seed', 'done',
             'progress', 'path']
-        if len(self.props["files"]) == 0:
+        if found_active and len(self._files) == 0:
             # Torrent metadata was not available last time, retry now
-            proplist.extend(['files', 'size', 'name'])
+            self._files = self.provider.bt[self.oid]['files']
+            proplist.extend(['size', 'name'])
             
         for p in proplist:
             if found_active and p in self.provider.bt[self.oid].keys():
@@ -293,8 +296,7 @@ class BTObjectProvider(ObjectProvider):
                 "seeds": 0,
                 "progress": bt[hash]["progress"],
                 "speed": 0,
-                "status": 0,
-                "files": bt[hash]["files"]
+                "status": 0
             }
             self.save_object(hash, tdata)
         
@@ -378,7 +380,7 @@ class BTObjectProcessor(ObjectProcessor):
             hashes = self.objs.list_objects()
             for h in hashes:
                 if self.objs.load_object_property(h, 'status') == 6:
-                    self.objs.cache.remove(h)
+                    self.objs.cache.remove("bt:%s" % h)
                     self.objs.remove_object(h)
         elif name == 'bt-download-magnet':
             ddir = os.path.join(self.nestor.config['bt.run_dir'], '%s')
@@ -514,7 +516,6 @@ class BTWatcherThread(Thread):
                     "progress": self.bt[hash]["progress"],
                     "speed": 0,
                     "status": 5,
-                    "files": self.bt[hash]["files"],
                 }
                 self.objs.save_object(hash, d)
                 
