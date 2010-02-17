@@ -25,26 +25,26 @@ import urllib
 
 from .framework.outputmanager import WebOutputManager
 from .webui import WebUI
-from ..objects import ObjectError
+from ..objects import ObjectError, OExpression
 from ..thread import Thread
 
 
 class RequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
 
     def context(self, key):
-        ds = self.server.nestor
+        ns = self.server.nestor
         
-        if key == 'ds':
-            return ds
+        if key == 'ns':
+            return ns
         elif key == 'obj':
-            return ds._obj
+            return ns._obj
         elif key == 'config':
-            return ds.config
+            return ns.config
         elif key == 'output':
             return self.om
         
     def set_client_data(self, key, value):
-        db = self.ds.get_main_db()
+        db = self.ns.get_main_db()
         query = """INSERT OR REPLACE INTO web_values(session_name, key, value)
                     VALUES(?, ?, ?)"""
         db.execute(query, (self.sid, key, repr(value)))
@@ -52,7 +52,7 @@ class RequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
         db.close()
         
     def get_client_data(self, key, default):
-        db = self.ds.get_main_db()
+        db = self.ns.get_main_db()
         query = "SELECT value FROM web_values WHERE session_name=? AND key=?"
         ret = db.execute(query, (self.sid, key)).fetchall()
         db.close()
@@ -110,7 +110,7 @@ class RequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
     def do_GET(self, head=False):
         self.headers_done = False
         
-        ds = self.server.nestor
+        ns = self.server.nestor
         
         split = self.path.lstrip('/').split('/')
         req = split[0]
@@ -180,6 +180,7 @@ class RequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
             for p in range(len(parm)):
                 parm[p] = urllib.unquote(parm[p])
             ns.notify(*parm[1:])
+            
         elif parm[0] == 'action':
             for p in range(len(parm)):
                 parm[p] = urllib.unquote(parm[p])
@@ -197,6 +198,24 @@ class RequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
             
             # Execute action
             ns._obj.do_action(proc, name, objref, aparams)
+            
+        elif parm[0] == 'list':
+            owner = parm[1]
+            try:
+                objs = ns._obj.match_objects([owner], OExpression('', None))
+            except ObjectError, e:
+                self.wfile.write("ObjectError: %s" % e)
+                return
+                
+            self.wfile.write("<pre>")
+            for o in objs:
+                self.wfile.write("<b>Object %s</b> types=%r<br><br>" % (o.objref,
+                    o.types))
+                for p in o.props:
+                    self.wfile.write("%s = %r<br>" % (p, o.props[p]))
+                self.wfile.write("<br><br>")
+            self.wfile.write("</pre>")
+                
         else:
             try:
                 o, s = ns._obj.get(urllib.unquote('/'.join(parm)), True)
@@ -223,7 +242,7 @@ class RequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
             self._404()
         
     def _session_exists(self, sid):
-        db = self.ds.get_main_db()
+        db = self.ns.get_main_db()
         query = "DELETE FROM web_sessions WHERE expires <= ?"
         db.execute(query, (time.time(),))
         db.commit()
@@ -241,10 +260,10 @@ class RequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
         if sid:
             sid = sid.value
         if sid and not self._session_exists(sid):
-            sid = None    
+            sid = None
             
         expires = int(self.server.nestor.config["web.session_expires"])
-        db = self.ds.get_main_db()
+        db = self.ns.get_main_db()
         if not sid:
             chost, cport = self.client_address
             sid = hashlib.sha256(
@@ -273,7 +292,7 @@ class RequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
         return sid
             
     def _do_ui(self, req, parm, head):        
-        self.ds = self.server.nestor
+        self.ns = self.server.nestor
         
         # Start session and send headers
         self.send_response(200)
@@ -356,5 +375,4 @@ class HTTPServerThread(Thread):
     def stop(self):
         self.running = False
         self.https.server_close()
-        
 
