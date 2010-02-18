@@ -15,11 +15,14 @@
 
 from .downloads import WebDownloadsApp
 from .music import WebMusicApp
+from .files import WebFilesApp
 
 __all__ = [
+    'downloads',
+    'files',
     'music'
 ]
 
-WEB_APPS = [WebMusicApp, WebDownloadsApp]
+WEB_APPS = [WebMusicApp, WebDownloadsApp, WebFilesApp]
 
 
