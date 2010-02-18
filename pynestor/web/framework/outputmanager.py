@@ -18,7 +18,7 @@ import re
 
 from ..webui import WebUI
 
-DEBUG = True
+DEBUG = False
 DEBUG_OPCODES = []
 TRACE_OPCODE_CALLERS = False
 TRACE_OPCODE_CALLERS_DEPTH = 0
@@ -260,7 +260,7 @@ class WebOutputManager:
                 objref = self._json_value(params[1])
                 label = self._json_value(params[2])
                 ops.extend([
-                    '$drag.init($("%s"));' % id,
+                    '$drag.init_object($("%s"));' % id,
                     '$element_objrefs["%s"]=%s;' % (id, objref),
                     '$element_labels["%s"]=%s;' % (id, label)
                 ])
@@ -469,7 +469,7 @@ class WebOutputManager:
                     objref = self._json_value(params[1])
                     label = self._json_value(params[2])
                     js.extend([
-                        'if ($("%s")) $drag.init($("%s"));' % (id, id),
+                        'if ($("%s")) $drag.init_object($("%s"));' % (id, id),
                         '$element_objrefs["%s"] = %s;' % (id, objref),
                         '$element_labels["%s"] = %s;' % (id, label)
                     ])

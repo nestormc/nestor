@@ -454,6 +454,8 @@ function $scroll_declare(sce_id)
         $scroll_containers.push(sce_id);
         
     $scroll_move(sce_id);
+    var bar = $(sce_id + "_B");
+    $drag.init_scrollbar(bar);
 }
  
 /* ScrollContainerElement scroll handler */
@@ -463,8 +465,11 @@ function $scroll()
 }
 
 /* Move and resize a ScrollContainerElement scrollbar */
+$scroll_inhibit_move = false;
 function $scroll_move(sce_id)
 {
+    if ($scroll_inhibit_move) return;
+
     var sce = $(sce_id);
     var bar = $(sce_id + "_B");
     var wrap = $(sce_id + "_W");
@@ -488,12 +493,47 @@ function $scroll_move(sce_id)
     }
 }
 
+/* Scroll a ScrollContainerElement according to its bar position
+    (this is quite the reverse of $scroll_move) */
+function $scroll_scroll(bar)
+{
+    var sce_id = bar.id.replace(/_B$/, "");
+    
+    var sce = $(sce_id);
+    var wrap = $(sce_id + "_W");
+    var cnt = $(sce_id + "_C");
+    
+    if (sce && bar && wrap && cnt)
+    {
+        var sz = parseInt(bar.style.height);
+        var top = parseInt(bar.style.top);
+        $scroll_inhibit_move = true;
+        wrap.scrollTop = top * (cnt.offsetHeight - sce.offsetHeight) / (sce.offsetHeight - sz);
+        $scroll_inhibit_move = false;
+    }
+}
+
 /* Refresh all scrollbar dimensions */
 function $scroll_refresh_all()
 {
     for (var i = 0; i < $scroll_containers.length; i++)
     {
         $scroll_move($scroll_containers[i]);
+    }
+}
+
+/* Get maximum scrollbar top attribute */
+function $scroll_get_maxY(bar)
+{
+    var sce_id = bar.id.replace(/_B$/, "");
+    var sce = $(sce_id);
+    var wrap = $(sce_id + "_W");
+    var cnt = $(sce_id + "_C");
+    
+    if (sce && bar && wrap && cnt)
+    {
+        var sz = parseInt(bar.style.height);
+        return sce.offsetHeight - sz;
     }
 }
 
@@ -558,6 +598,7 @@ var $drop_targets = {};
 
 var $drag = {
 
+    mode : null,        // Drag mode : 'object' for element dragging, 'bar' for progress bars
     obj : null,         // Drag origin element
     label : null,       // Drag label element
     labelX : null,      // Drag label X position
@@ -569,32 +610,22 @@ var $drag = {
     popdelay : 200,     // Milliseconds before showing popup
     poptimeout : null,  // Popup show timeout handler
 
-    init : function(o)
+    /* Fix event parameter and its properties */
+    fixE : function(e)
     {
-        o.onmousedown = $drag.start;
-        o.onDragStart = new Function();
-        o.onDragEnd = new Function();
-        o.onDrag = new Function();
-    },
-
-    start : function(e)
-    {
-        var o = $drag.obj = this;
-        e = $drag.fixE(e);
-        o.firstMouseX = o.lastMouseX = e.clientX;
-        o.firstMouseY = o.lastMouseY = e.clientY;
-        document.onmousemove = $drag.drag;
-        document.onmouseup = $drag.end;
-        
-        $drag.schedulepopup();
-        return false;
+        if (typeof e == 'undefined') e = window.event;
+        if (typeof e.layerX == 'undefined') e.layerX = e.offsetX;
+        if (typeof e.layerY == 'undefined') e.layerY = e.offsetY;
+        return e;
     },
     
+    /* Schedule popup menu display */
     schedulepopup : function()
     {
         $drag.poptimeout = window.setTimeout($drag.popup, $drag.popdelay);
     },
     
+    /* Cancel popup menu display schedule */
     cancelpopup : function()
     {
         if ($drag.poptimeout)
@@ -604,12 +635,14 @@ var $drag = {
         }
     },
     
+    /* Display popup menu and cancel drag */
     popup : function()
     {
         $popup_menu($drag.obj);
         $drag.end();
     },
     
+    /* Find drop target at point (x, y) */
     find_target : function(x, y)
     {
         var candidate = document.elementFromPoint(x, y);
@@ -625,93 +658,157 @@ var $drag = {
         return null;
     },
 
+    /* Initialize object dragging for element o */
+    init_object : function(o)
+    {
+        o.onmousedown = $drag.start_object;
+    },
+    
+    /* Initialize scrollbar dragging */
+    init_scrollbar : function(o)
+	{
+		o.onmousedown = $drag.start_scrollbar;
+	},
+
+    start_object : function(e)
+    {
+        e = $drag.fixE(e);
+        $drag.mode = 'object';
+        $drag.obj = this;
+        return $drag.start(e);
+    },
+
+    start_scrollbar : function(e)
+    {
+        e = $drag.fixE(e);
+        $drag.mode = 'bar';
+        $drag.obj = this;
+        return $drag.start(e);
+    },
+    
+    start : function(e)
+    {
+        var o = $drag.obj;
+        e = $drag.fixE(e);
+        o.lastMouseX = e.clientX;
+        o.lastMouseY = e.clientY;
+        document.onmousemove = $drag.drag;
+        document.onmouseup = $drag.end;
+        
+        if ($drag.mode == 'object') $drag.schedulepopup();
+        if ($drag.mode == 'bar')
+        {
+            o.maxMouseX = o.minMouseX = e.clientX;
+            o.minMouseY = e.clientY - parseInt(o.style.top);
+            o.maxMouseY = o.minMouseY + $scroll_get_maxY(o);
+        }
+        
+        return false;
+    },
+
     drag : function(e)
     {
         e = $drag.fixE(e);
         var o = $drag.obj;
-        var l = $drag.label;
-        
-        $drag.cancelpopup();
-    
-        if (l == null)
-        {
-            /* Create drag label */
-            l = document.createElement("span");
-            l.className = "drag_label";
-            l.innerHTML = $element_labels[o.id];
-            l.style.position = "absolute";
-            document.documentElement.appendChild(l);
-            $drag.label = l;
-            
-            /* Position it under the cursor */
-            l.style.left = o.lastMouseX + $drag.offX;
-            l.style.top = o.lastMouseY + $drag.offY;
-        }
-
         var ey = e.clientY;
         var ex = e.clientX;
-        var y = parseInt(l.style.top);
-        var x = parseInt(l.style.left);
+        var dobj = null;
+        
+        if ($drag.mode == 'object')
+        {
+            dobj = $drag.label;
+            $drag.cancelpopup();
+        
+            if (dobj == null)
+            {
+                /* Create drag label */
+                dobj = document.createElement("span");
+                dobj.className = "drag_label";
+                dobj.innerHTML = $element_labels[o.id];
+                dobj.style.position = "absolute";
+                document.documentElement.appendChild(dobj);
+                $drag.label = dobj;
+                
+                /* Position it under the cursor */
+                dobj.style.left = o.lastMouseX + $drag.offX;
+                dobj.style.top = o.lastMouseY + $drag.offY;
+            }
+        }
+        
+        if ($drag.mode == 'bar')
+        {
+            dobj = o;
+            ex = Math.max(ex, o.minMouseX);
+		    ex = Math.min(ex, o.maxMouseX);
+            ey = Math.max(ey, o.minMouseY);
+		    ey = Math.min(ey, o.maxMouseY);
+        }
+        
+        var y = parseInt(dobj.style.top);
+        var x = parseInt(dobj.style.left);
         var nx, ny;
 
         nx = x + (ex - o.lastMouseX);
         ny = y + (ey - o.lastMouseY);
 
-        $drag.label.style.left = nx + "px";
-        $drag.label.style.top = ny + "px";
+        if ($drag.mode != 'bar') dobj.style.left = nx + "px";
+        dobj.style.top = ny + "px";
         $drag.obj.lastMouseX = ex;
         $drag.obj.lastMouseY = ey;
         
-        var dx = nx - $drag.offX;
-        var dy = ny - $drag.offY;
+        if ($drag.mode == 'object')
+        {    
+            var dx = nx - $drag.offX;
+            var dy = ny - $drag.offY;
         
-        var target = $drag.find_target(dx, dy);
-        if ($drag.hoverObj && target != $drag.hoverObj) $remC($drag.hoverObj, "drag_hover");
-        if (target) $addC(target, "drag_hover");
-        $drag.hoverObj = target;
+            var target = $drag.find_target(dx, dy);
+            if ($drag.hoverObj && target != $drag.hoverObj) $remC($drag.hoverObj, "drag_hover");
+            if (target) $addC(target, "drag_hover");
+            $drag.hoverObj = target;
+        }
+        
+        if ($drag.mode == 'bar')
+        {
+            $scroll_scroll(o);
+        }
         
         return false;
     },
 
     end : function()
     {
-        $drag.cancelpopup();
         
         document.onmousemove = null;
         document.onmouseup = null;
         
-        if ($drag.label != null)
+        if ($drag.mode == 'object')
         {
-            var x = parseInt($drag.label.style.left) - $drag.offX;
-            var y = parseInt($drag.label.style.top) - $drag.offY;
-            
-            var target = $drag.find_target(x, y);
-            if (target)
+            $drag.cancelpopup();
+            if ($drag.label != null)
             {
-                var targetinfo = $drop_targets[target.id];
-                var objref = $element_objrefs[$drag.obj.id];
+                var x = parseInt($drag.label.style.left) - $drag.offX;
+                var y = parseInt($drag.label.style.top) - $drag.offY;
                 
-                $drop(targetinfo["handler"], target.id, objref)
-            }
+                var target = $drag.find_target(x, y);
+                if (target)
+                {
+                    var targetinfo = $drop_targets[target.id];
+                    var objref = $element_objrefs[$drag.obj.id];
+                    
+                    $drop(targetinfo["handler"], target.id, objref)
+                }
 
-            document.documentElement.removeChild($drag.label);
-            $drag.label = null;
-            
-            if ($drag.hoverObj)
-            {
-                $remC($drag.hoverObj, "drag_hover");
-                $drag.hoverObj = null;
+                document.documentElement.removeChild($drag.label);
+                $drag.label = null;
+                
+                if ($drag.hoverObj)
+                {
+                    $remC($drag.hoverObj, "drag_hover");
+                    $drag.hoverObj = null;
+                }
             }
         }
         
         $drag.obj = null;
-    },
-
-    fixE : function(e)
-    {
-        if (typeof e == 'undefined') e = window.event;
-        if (typeof e.layerX == 'undefined') e.layerX = e.offsetX;
-        if (typeof e.layerY == 'undefined') e.layerY = e.offsetY;
-        return e;
     }
 };
