@@ -499,25 +499,75 @@ function $scroll_refresh_all()
 
 window.onresize = $scroll_refresh_all;
 
+var $popup_menus = {};
+var $popup_menuitems = {};
+var $popup_shown = [];
+var $popup_cur_objref = undefined;
+
+function $popup_menu(obj)
+{
+    var menuid = $popup_menus[obj.id];
+    var visible_items = $popup_menuitems[obj.id];
+    $popup_cur_objref = $element_objrefs[obj.id];
+    
+    if (menuid && visible_items && visible_items.length)
+    {
+        var items = $(menuid).childNodes;
+        for (var i=0; i<items.length; i++)
+        {
+            var aid = items[i].id.replace(menuid + "_", "");
+            items[i].style.display = visible_items.indexOf(aid) == -1 ? 'none' : 'block';
+        }
+        
+        $(menuid).style.display = "block";
+        $(menuid).style.left = obj.lastMouseX + "px";
+        $(menuid).style.top = obj.lastMouseY + "px";
+        
+        if ($popup_shown.indexOf(menuid) == -1) $popup_shown.push(menuid);
+    }
+}
+
+function $popup_click(action, handlerid)
+{
+    $method(handlerid, action + " " + $popup_cur_objref);
+    $popup_cur_objref = undefined;
+}
+
+function $popup_hide()
+{
+    for (var i=0; i<$popup_shown.length; i++)
+    {
+        var popupid = $popup_shown[i];
+        if ($(popupid)) $(popupid).style.display = "none";
+    }
+    
+    $popup_shown = [];
+}
+
+window.addEventListener("click", $popup_hide, true);
+
+var $element_labels = {};
+var $element_objrefs = {}
 
 
 /********************************************************************
  *                          DRAG AND DROP                           *
  *     Code adapted from Aaron Boodman's public domain library      *
  ********************************************************************/
-var $drag_src = {};
 var $drop_targets = {};
 
 var $drag = {
 
-    obj : null,
-    label : null,
-    labelX : null,
-    labelY : null,
-    offX : 16,
-    offY : 0,
-    hoverObj : null,
-    poptimeout : null,
+    obj : null,         // Drag origin element
+    label : null,       // Drag label element
+    labelX : null,      // Drag label X position
+    labelY : null,      // Drag label Y position
+    offX : 16,          // Drag label X offset from mouse position
+    offY : 0,           // Drag label Y offset from mouse position
+    minDist : 10,       // Minimum distance to initiate drag
+    hoverObj : null,    // Currently hovered drop target
+    popdelay : 200,     // Milliseconds before showing popup
+    poptimeout : null,  // Popup show timeout handler
 
     init : function(o)
     {
@@ -531,20 +581,18 @@ var $drag = {
     {
         var o = $drag.obj = this;
         e = $drag.fixE(e);
-        
-        $drag.schedulepopup();
-
-        o.lastMouseX = e.clientX;
-        o.lastMouseY = e.clientY;
-
+        o.firstMouseX = o.lastMouseX = e.clientX;
+        o.firstMouseY = o.lastMouseY = e.clientY;
         document.onmousemove = $drag.drag;
         document.onmouseup = $drag.end;
+        
+        $drag.schedulepopup();
         return false;
     },
     
     schedulepopup : function()
     {
-        $drag.poptimeout = window.setTimeout($drag.popup, 1000);
+        $drag.poptimeout = window.setTimeout($drag.popup, $drag.popdelay);
     },
     
     cancelpopup : function()
@@ -558,8 +606,8 @@ var $drag = {
     
     popup : function()
     {
+        $popup_menu($drag.obj);
         $drag.end();
-        window.alert("POPUP !");
     },
     
     find_target : function(x, y)
@@ -590,7 +638,7 @@ var $drag = {
             /* Create drag label */
             l = document.createElement("span");
             l.className = "drag_label";
-            l.innerHTML = $drag_src[o.id]["label"];
+            l.innerHTML = $element_labels[o.id];
             l.style.position = "absolute";
             document.documentElement.appendChild(l);
             $drag.label = l;
@@ -641,7 +689,7 @@ var $drag = {
             if (target)
             {
                 var targetinfo = $drop_targets[target.id];
-                var objref = $drag_src[$drag.obj.id]["objref"];
+                var objref = $element_objrefs[$drag.obj.id];
                 
                 $drop(targetinfo["handler"], target.id, objref)
             }

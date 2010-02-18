@@ -240,33 +240,35 @@ class DownloadWorkspace(e.AppElement):
             "actions": {
                 "torrent-pause": {
                     "title": "Pause",
-                    "handler": self.action_execute,
-                    "icon": "pause"
+                    "handler": self.action_execute
                 },
                 "torrent-resume": {
                     "title": "Resume",
-                    "handler": self.action_execute,
-                    "icon": "play"
+                    "handler": self.action_execute
                 },
                 "torrent-cancel": {
                 	"title": "Cancel",
-                	"handler": self.action_execute,
-                	"icon": "delete"
+                	"handler": self.action_execute
                 },
                 "torrent-clear": {
                 	"title": "Clear",
-                	"handler": self.action_execute,
-                	"icon": "delete"
+                	"handler": self.action_execute
                 },
                 "partfile-pause": {
                     "title": "Pause",
-                    "handler": self.action_execute,
-                    "icon": "pause"
+                    "handler": self.action_execute
                 },
                 "partfile-resume": {
                     "title": "Resume",
-                    "handler": self.action_execute,
-                    "icon": "play"
+                    "handler": self.action_execute
+                },
+                "partfile-cancel": {
+                	"title": "Cancel",
+                	"handler": self.action_execute
+                },
+                "partfile-clear": {
+                	"title": "Clear",
+                	"handler": self.action_execute
                 },
             },
             "action_filter": self.action_filter
@@ -274,7 +276,8 @@ class DownloadWorkspace(e.AppElement):
         self.list = self.create(ol.RefreshObjectList, "list", dlsetup)
         
     def action_filter(self, action, objref, data):
-        amule  = ["partfile-pause", "partfile-resume"]
+        amule  = ["partfile-pause", "partfile-resume", "partfile-cancel",
+            "partfile-clear"]
         bt = ["torrent-pause", "torrent-resume", "torrent-seed",
             "torrent-unseed", "torrent-cancel", "torrent-clear"]
         
@@ -282,6 +285,8 @@ class DownloadWorkspace(e.AppElement):
             if action not in amule: return False
             if action == "partfile-resume" and data["status"] != 2: return False
             if action == "partfile-pause" and data["status"] in (0, 2, 6): return False
+            if action == "partfile-cancel" and data["status"] > 4: return False
+            if action == "partfile-clear" and data["status"] != 6: return False
             
         elif objref.startswith("bt:"):
             if action not in bt: return False

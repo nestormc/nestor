@@ -56,6 +56,13 @@ class UIElement:
     def remove_child(self, child):
         self.output.add_op("unchild", [self, child])
         
+    def add_popup(self, popup):
+        self.output.add_op("popup", [self, popup])
+        popup.render()
+        
+    def remove_popup(self, popup):
+        self.output.add_op("unpopup", [self, popup])
+        
     def swap_with(self, sibling):
         self.output.add_op("swap", [self, sibling])
         

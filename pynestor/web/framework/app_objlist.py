@@ -15,76 +15,40 @@
 
 import pynestor.web.framework.app_element as e
 import pynestor.objects as o
-        
-        
-class ObjectListActionCell(e.AppElement):
 
-    def __init__(self, app, om, id, settings, data):
-        self.s = settings
-        self.data = data
-        self.objref = data["0ref"]
-        
-        if not "actions" in self.s:
-            self.s["actions"] = []
-            
-        e.AppElement.__init__(self, app, om, id)
+
+class ObjectListActionMenu(e.AppElement):
     
-    def init(self):
-        self.icons = {}
-        self.displayed = self.load("displayed", [])
+    def __init__(self, app, om, id, settings):
+        self.s = settings
+        e.AppElement.__init__(self, app, om, id)
         
-        for action in self.s["actions"]:        
+    def init(self):
+        self.actions = {}
+        for action in self.s.get("actions", {}):
             aid = action.replace("-", "")
-            self.icons[action] = self.create(
-                e.IconElement,
-                "%s_%s" % (self.id, aid), 
-                self.s["actions"][action]["icon"]
+            self.actions[action] = self.create(
+                e.DivElement,
+                "%s_%s" % (self.id, aid)
+            )
+    
+    def render(self):
+        self.set_class("object_list_menu")
+        hid = self.output.handler_id(self.click_handler)
+        
+        for action in self.actions:
+            self.add_child(self.actions[action])
+            self.actions[action].set_content(self.s["actions"][action]["title"])
+            self.actions[action].set_class("object_list_menuitem")
+            self.actions[action].set_jshandler(
+                "onclick",
+                "function(){$popup_click('%s',%d);return false;}" % (action,hid)
             )
             
-    def render(self):
-        self.set_css({"text-overflow": "ellipsis"})
-        self.displayed = []
+    def click_handler(self, arg):
+        action, objref = arg.split(" ", 1)
+        self.s["actions"][action]["handler"](action, objref)
         
-        for action in self.icons:
-            icon = self.icons[action]
-            self.add_child(icon)
-            icon.set_dom("title", self.s["actions"][action]["title"])
-            icon.set_css({"cursor": "hand"})
-            icon.set_handler("onclick", self.click_action, action)
-            
-        self.update(True)
-        
-    def update(self, first=False):
-        displayed = []
-        
-        for action in self.s["actions"]:
-            if "action_filter" in self.s:
-                display = self.s["action_filter"](action, self.objref, self.data)
-            else:
-                display = True
-                
-            icon = self.icons[action]
-            
-            if display:
-                displayed.append(action)
-                if action not in self.displayed:
-                    icon.set_css({"display": "inline"})
-            else:
-                if first or action in self.displayed:
-                    icon.set_css({"display": "none"})
-                    
-        self.save("displayed", displayed)
-        
-    def click_action(self, action):
-        desc = self.s["actions"][action]
-        self.debug("Clicked action %s on objref %s" % (action, self.objref))
-        desc["handler"](action, self.objref)
-        
-    def update_data(self, data):
-        self.data = data
-        if "action_filter" in self.s:
-            self.update()
-            
 
 class ObjectListCell(e.AppElement):
     
@@ -114,6 +78,18 @@ class ObjectListItem(e.AppElement):
             self.make_draggable(self.objref, self.label)
             
     def update_data(self, updated):
+        # FIXME make valid action list update incremental
+        if "actions" in self.s:
+            actions = self.s["actions"].keys()
+            if "action_filter" in self.s:
+                for a in self.s["actions"].keys():
+                    if not self.s["action_filter"](a, self.objref, self.data):
+                        actions.remove(a)
+            self.add_jscode('$popup_menuitems["%s"]=%s' % (
+                self.output._dom_id(self),
+                self.output._json_value([a.replace('-','') for a in actions])
+            ))
+    
         for f in updated:
             v = updated[f]
             self.data[f] = v
@@ -137,15 +113,7 @@ class CellsObjectListItem(ObjectListItem):
                 
             fid = f.replace("-", "")
             
-            if f == "0act":
-                cell = self.create(
-                    ObjectListActionCell,
-                    "%s_%s" % (self.id, fid),
-                    self.s,
-                    self.data
-                )
-                self.actioncell = cell
-            elif fs.get("display", None) == "progress":
+            if fs.get("display", None) == "progress":
                 cell = self.create(
                     e.ProgressBarElement,
                     "%s_%s" % (self.id, fid)
@@ -234,6 +202,7 @@ class ObjectListBody(e.AppElement):
         self.selected_id = self.load("selected_id", '')
         self.count = len(self.children)
         self.closer = self.create(e.DivElement, "%s_END" % self.id)
+        self.menu = self.create(ObjectListActionMenu, "%s_M" % self.id, self.s)
         
     def set_scroll_container(self, scroll):
         self.scroll = scroll
@@ -250,6 +219,7 @@ class ObjectListBody(e.AppElement):
         self.children_data = {}
         
         self.set_content("")
+        self.add_popup(self.menu)
         self.add_child(self.closer)
         self.update()
             
@@ -341,6 +311,23 @@ class ObjectListBody(e.AppElement):
         if "item_events" in self.s:
             for ev in self.s["item_events"]:
                 child.set_handler(ev, self.item_event, "%s %s" % (ev, id))
+                
+        if "actions" in self.s:
+            self.add_jscode('$popup_menus["%s"]="%s"' % (
+                self.output._dom_id(child),
+                self.output._dom_id(self.menu)
+            ))
+            
+            actions = self.s["actions"].keys()
+            if "action_filter" in self.s:
+                for a in self.s["actions"].keys():
+                    if not self.s["action_filter"](a, child.objref, data):
+                        actions.remove(a)
+            self.add_jscode('$popup_menuitems["%s"]=%s' % (
+                self.output._dom_id(child),
+                self.output._json_value([a.replace('-','') for a in actions])
+            ))
+                
                 
     def remove_item(self, id):
         if id in self.children:
@@ -570,8 +557,7 @@ class ObjectList(e.AppElement):
           }
           ...
       }
-      Enable action buttons for each item.  Actions will be displayed in the
-      "0act" column.
+      Enable actions for each items. Actions will be available in a popup menu.
       
     * "action_filter": callback receving (action-name, objref, object-props),
                        must return a boolean telling if the action must be
@@ -586,7 +572,6 @@ class ObjectList(e.AppElement):
     The following special fields are available for all objects:
         "0app": name of owner application
         "0ref": complete object reference
-        "0act": column holding action buttons
     """
 
     def __init__(self, app, om, id, settings):
@@ -601,7 +586,7 @@ class ObjectList(e.AppElement):
         self.scroll = self.create(e.ScrollContainerElement, "%s_S" % self.id)
         self.lst = self.get_list_body()
         self.lst.set_scroll_container(self.scroll)
-        self.title = self.create(ObjectListTitle, "%s_TIT" % self.id, self.s)
+        self.title = self.create(ObjectListTitle, "%s_T" % self.id, self.s)
         
     def set_filter(self, filter):
         self.lst.set_filter(filter)

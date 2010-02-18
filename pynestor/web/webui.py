@@ -64,7 +64,7 @@ class WebAppSummaryContainer(UIElement):
 class WebApplist(UIElement):
 
     workspace = None
-    app_order = ['music', 'dl']
+    app_order = ['music', 'dl', 'files']
     
     def init(self):
         self.nestor = self.create(WebNestor, "%s_N" % self.id)
@@ -79,7 +79,8 @@ class WebApplist(UIElement):
         for appid in apps:
             boundary = {
                 'music': 'round',
-                'dl': 'up'
+                'dl': 'up',
+                'files': 'round',
             }[appid]
             self.appcs[appid] = self.create(
                 WebAppSummaryContainer,
@@ -118,34 +119,37 @@ class WebApplist(UIElement):
             
         self.workspace.set_active_app(appid)
         
-        
-class WebWorkspace(UIElement):
-
-    def _get_app_workspace(self):
-        appid = self.load("app", None)
-        if appid:
-            self.ws = self.ui.app_workspace(appid)
-        else:
-            self.ws = None
             
+class WebWorkspace(UIElement):
+    
+    def init(self):
+        self.apps = {}
+        self.app = self.load('app', None)
+        
+    def render(self):
+        self.apps = {}
+        self._display_app()
+    
     def _display_app(self):
-        if self.ws:
-            self.set_content("")
-            self.add_child(self.ws)
-            self.ws.set_class("app_workspace")
+        if self.app:
+            if self.app not in self.apps:
+                ws = self.ui.app_workspace(self.app)
+                self.apps[self.app] = ws
+                self.add_child(ws)
+                ws.set_class('app_workspace')
+                
+            for app in self.apps:
+                if app == self.app:
+                    self.apps[app].set_css({"display": "block"})
+                else:
+                    self.apps[app].set_css({"display": "none"})
         else:
             self.set_content("no app selected")
             
-    def init(self):
-        self._get_app_workspace()
-        
-    def render(self):
-        self._display_app()
-        
-    def set_active_app(self, appid):
-        if appid != self.load("app", None):
-            self.save("app", appid)
-            self._get_app_workspace()
+    def set_active_app(self, app):
+        if app != self.app:
+            self.save('app', app)
+            self.app = app
             self._display_app()
         
 

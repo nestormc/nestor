@@ -18,7 +18,7 @@ import re
 
 from ..webui import WebUI
 
-DEBUG = False
+DEBUG = True
 DEBUG_OPCODES = []
 TRACE_OPCODE_CALLERS = False
 TRACE_OPCODE_CALLERS_DEPTH = 0
@@ -34,6 +34,7 @@ class WebOutputManager:
         self.cssheets = []
         self.elements = {}
         self.el_children = {}
+        self.el_popups = {}
         self.handlers = []
         
         self.add_js("web/nestor.js")
@@ -72,7 +73,10 @@ class WebOutputManager:
         
     def _json_aarray(self, arr):
         """Get dict JSON string"""
-        defs = ["%s:%s" % (k, self._json_value(arr[k])) for k in arr]
+        defs = [
+            "%s:%s" % (self._json_value(k), self._json_value(arr[k]))
+            for k in arr
+        ]
         return "{%s}" % ','.join(defs)
         
     def _json_value(self, val):
@@ -107,10 +111,12 @@ class WebOutputManager:
     def register_element(self, element):
         self.elements[self._dom_id(element)] = element
         self.el_children[self._dom_id(element)] = []
+        self.el_popups[self._dom_id(element)] = []
         
     def unregister_children(self, element):
         eid = self._dom_id(element)
-        for cid in self.el_children[eid]:
+        for child in self.el_children[eid] + self.el_popups[eid]:
+            cid = self._dom_id(child)
             self.unregister_element(self.elements[cid])
         
     def unregister_element(self, element):
@@ -118,6 +124,7 @@ class WebOutputManager:
         eid = self._dom_id(element)
         del self.elements[eid]
         del self.el_children[eid]
+        del self.el_popups[eid]
         
     def add_js(self, script):
         if script not in self.scripts:
@@ -188,12 +195,32 @@ class WebOutputManager:
                     'c.id="%s";' % cid,
                     '$("%s").appendChild(c);' % id
                 ])
-                
+                #self.el_children[id].append(child)
+            
             elif opcode == 'unchild':
                 child = params[1]
                 cid = self._dom_id(child)
                 self.unregister_element(child)
                 ops.append('if($("%s"))$("%s").removeChild($("%s"));' % (cid, id, cid))
+                #self.el_children[id].remove(child)
+                
+            elif opcode == 'popup':
+                popup = params[1]
+                self.register_element(popup)
+                pid = self._dom_id(popup)
+                ops.extend([
+                    'var p=document.createElement("%s");' % popup.tagname,
+                    'p.id="%s";' % pid,
+                    'document.documentElement.appendChild(p);'
+                ])
+                #self.el_popups[id].append(popup)
+            
+            elif opcode == 'unpopup':
+                popup = params[1]
+                pid = self._dom_id(popup)
+                self.unregister_element(popup)
+                ops.append('if($("%s"))document.documentElement.removeChild($("%s"));' % (pid, pid))
+                #self.el_popups[id].remove(popup)
                 
             elif opcode == 'swap':
                 sibling = params[1]
@@ -230,10 +257,12 @@ class WebOutputManager:
                 ops.append("%s;" % code)
                 
             elif opcode == 'drag_src':
-                info = self._json_value({'objref': params[1], 'label': params[2]})
+                objref = self._json_value(params[1])
+                label = self._json_value(params[2])
                 ops.extend([
                     '$drag.init($("%s"));' % id,
-                    '$drag_src["%s"]=%s;' % (id, info)
+                    '$element_objrefs["%s"]=%s;' % (id, objref),
+                    '$element_labels["%s"]=%s;' % (id, label)
                 ])
                 
             elif opcode == 'drop_target':
@@ -325,10 +354,10 @@ class WebOutputManager:
                 "obj": root
             }
         }
+        popups = []
         
         css = {}
         js = []
-        drag_src = {}
         drop_tgt = {}
         
         if DEBUG:
@@ -370,12 +399,34 @@ class WebOutputManager:
                         "obj": child
                     }
                     elems[id]['children'].append(cid)
+                    #self.el_children[id].append(child)
                     
                 elif opcode == 'unchild':
                     child = params[1]
                     cid = self._dom_id(child)
                     self.unregister_element(child)
                     js.append('if ($("%s")) $("%s").removeChild($("%s"));' % (cid, id, cid))
+                    #self.el_children[id].remove(child)
+                
+                elif opcode == "popup":
+                    popup = params[1]
+                    self.register_element(popup)
+                    pid = self._dom_id(popup)
+                    elems[pid] = {
+                        "children": [],
+                        "content": "",
+                        "classes": [],
+                        "obj": popup
+                    }
+                    popups.append(pid)
+                    #self.el_popups[id].append(popup)
+                    
+                elif opcode == 'unpopup':
+                    popup = params[1]
+                    pid = self._dom_id(popup)
+                    self.unregister_element(popup)
+                    js.append('if ($("%s")) document.documentElement.removeChild($("%s"));' % (pid, pid))
+                    #self.el_popups[id].remove(popup)
                     
                 elif opcode == 'swap':
                     sibling = params[1]
@@ -415,8 +466,13 @@ class WebOutputManager:
                     js.append("%s;" % code)
                     
                 elif opcode == 'drag_src':
-                    drag_src[id] = {'objref': params[1], 'label': params[2]}
-                    js.append('if ($("%s")) $drag.init($("%s"));' % (id, id))
+                    objref = self._json_value(params[1])
+                    label = self._json_value(params[2])
+                    js.extend([
+                        'if ($("%s")) $drag.init($("%s"));' % (id, id),
+                        '$element_objrefs["%s"] = %s;' % (id, objref),
+                        '$element_labels["%s"] = %s;' % (id, label)
+                    ])
                     
                 elif opcode == 'drop_target':
                     handlerid = self.handler_id(params[1])
@@ -435,7 +491,6 @@ class WebOutputManager:
                 
         # JS block
         js.extend([
-            '$drag_src = %s;' % self._json_value(drag_src),
             '$drop_targets = %s;' % self._json_value(drop_tgt)
         ]);
         
@@ -463,6 +518,9 @@ class WebOutputManager:
         
         # HTML block
         html_block = self._render_htmltree(self._dom_id(root), elems)
+        html_popups = ""
+        for pid in popups:
+            html_popups += self._render_htmltree(pid, elems)        
         
         self.debug_msgs = []
         self.ops = []
@@ -478,7 +536,8 @@ class WebOutputManager:
 </head>
 <body>
 %s
+%s
 </body>
 </html>
-""" % (css_block, js_block, html_block)
+""" % (css_block, js_block, html_block, html_popups)
 

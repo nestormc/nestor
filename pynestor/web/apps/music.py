@@ -337,7 +337,8 @@ class MusicPlaylistColumn(e.AppElement):
             "title": "Playlist",
             "apps": ["media"],
             "otype": ["mpd-item"],
-            "limit": 50,
+            #"limit": 50,
+            "delay_fetch": True,
             
             "custom_item": MusicPlaylistItem,
             
@@ -352,7 +353,20 @@ class MusicPlaylistColumn(e.AppElement):
             
             "item_drop_handler": self.playlist_drop_handler,
             "drop_handler": self.playlist_drop_handler,
-            "item_events": {"ondblclick": self.playlist_dblclick_handler}
+            "item_events": {"ondblclick": self.playlist_dblclick_handler},
+            
+            "actions": {
+                "mpd-item-remove": {
+                    "title": "Remove",
+                    "handler": self.playlist_action_handler,
+                    "icon": "cancel"
+                },
+                "mpd-item-play": {
+                    "title": "Play",
+                    "handler": self.playlist_action_handler,
+                    "icon": "play"
+                }
+            },
         }
     
         self.cover = self.create(MusicCoverBlock, "%s_cover" % self.id)
@@ -378,8 +392,8 @@ class MusicPlaylistColumn(e.AppElement):
             "right": 0
         })
         
-    def playlist_remove_handler(self, action, objref):
-        self.obj.do_action("media", "mpd-item-remove", objref)
+    def playlist_action_handler(self, action, objref):
+        self.obj.do_action("media", action, objref)
         self.playlist.reload()
         
     def playlist_dblclick_handler(self, element):
@@ -432,7 +446,8 @@ class MusicAlbumTracksColumn(e.AppElement):
             "title": "Tracks",
             "apps": ["media"],
             "otype": ["music-track"],
-            "limit": 50,
+            #"limit": 50,
+            "delay_fetch": True,
             
             "fields": {
                 "num": {
@@ -464,7 +479,8 @@ class MusicAlbumTracksColumn(e.AppElement):
             "title": "Albums",
             "apps": ["media"],
             "otype": ["music-album"],
-            "limit": 50,
+            #"limit": 50,
+            "delay_fetch": True,
             
             "fields": {
                 "year": {
@@ -512,7 +528,8 @@ class MusicWorkspace(e.AppElement):
             "title": "Artists",
             "apps": ["media"],
             "otype": ["music-artist"],
-            "limit": 30,
+            "limit": 50,
+            "delay_fetch": True,
             
             "fields": {"artist": {"weight": 1}},
             "unique_field": "artist_id",
@@ -565,5 +582,4 @@ class WebMusicApp(WebApp):
     def get_workspace_element(self):
         self.workspace = self.create(MusicWorkspace, 'workspace')
         return self.workspace
-        
-    
+
