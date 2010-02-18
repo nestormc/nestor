@@ -338,8 +338,8 @@ div.nestor_fatal_error {
     border-bottom: 1px solid white;
 }
 
-.download_item.paused .download_bar {
-    background-color: white;
+.download_item.paused .download_bar, .download_item.stopped .download_bar  {
+    background-color: #E5E5E5;
 }
 
 .download_item.paused, .download_item.stopped {
@@ -347,7 +347,7 @@ div.nestor_fatal_error {
 }
 
 .download_item.paused .done, .download_item.stopped .done {
-    border-bottom: 1px solid 9C9C9C;
+    border-bottom: 1px solid #9C9C9C;
 }
 
 .download_item.paused .speed, .download_item.paused .seeds,
