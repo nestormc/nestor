@@ -141,7 +141,7 @@ class FileObject(o.ObjectWrapper):
         self.props = {
             'path': self.oid,
             'basename': os.path.basename(self.oid),
-            'dirname': os.path.dirname(self, oid),
+            'dirname': os.path.dirname(self.oid),
             'size': statinfo.st_size,
             'owner': statinfo.st_uid,
             'group': statinfo.st_gid,
