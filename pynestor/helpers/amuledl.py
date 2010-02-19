@@ -116,7 +116,7 @@ class DictResult:
         elif key == 'seeds':
             return self.am.results[self.hash]['src_count']
         elif key == 'downloading':
-            return self.am.results[self.hash]['src_count_xfer']
+            return int(self.hash in self.am.downloads)
         elif key == 'hash':
             return self.hash
         else:
@@ -226,6 +226,8 @@ class AmuleDownloadObj(ObjectWrapper):
                     if p in ('date_started', 'seeds', 'status', 'size', 'done',
                         'progress', 'speed'):
                         val = 0
+                    elif p == 'name':
+                        val = '(waiting for metadata)'
                     else:
                         val = ''
                 self.props[p] = val
@@ -237,7 +239,12 @@ class AmuleDownloadObj(ObjectWrapper):
         except KeyError:
             amdl = None
         
-        for p in ('speed', 'seeds', 'status', 'progress', 'done', 'path'):
+        proplist = ('speed', 'seeds', 'status', 'progress', 'done', 'path')
+        if self.props['name'] == '(waiting for metadata)':
+            # Metadata not yet fetched
+            proplist = self._props
+        
+        for p in proplist:
             if amdl and p in amdl.keys():
                 self.props[p] = amdl[p]
             else:
@@ -247,6 +254,8 @@ class AmuleDownloadObj(ObjectWrapper):
                     if p in ('date_started', 'seeds', 'status', 'size', 'done',
                         'progress', 'speed'):
                         val = 0
+                    elif p == 'name':
+                        val = '(waiting for metadata)'
                     else:
                         val = ''
                 self.props[p] = val
@@ -263,6 +272,7 @@ class AmuleResultObj(ObjectWrapper):
     
         for p in self._props:
             self.props[p] = self.provider.am[self.oid][p]
+        self.props["name"] = self.props["name"].decode("utf-8")
     
     def update(self):
         for p in ('size', 'seeds', 'downloading'):
@@ -448,7 +458,7 @@ class AmuleObjectProcessor(ObjectProcessor):
             for objref in ors:
                 self.objs.cache.remove(objref)
                 
-            ac = self.objs.am.client            
+            ac = self.objs.am.client
             ac.search_start(act['query'], act['search-type'], act['min-size'],
                 act['max-size'], act['file-type'], act['avail'],
                 act['file-ext'])
