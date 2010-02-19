@@ -179,7 +179,9 @@ class RequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
         if parm[0] == 'notify':
             for p in range(len(parm)):
                 parm[p] = urllib.unquote(parm[p])
-            ns.notify(*parm[1:])
+            notif_name = parm[1]
+            nofif_obj = '/'.join(parm[2:])
+            ns.notify(notif_name, notif_obj)
             
         elif parm[0] == 'action':
             for p in range(len(parm)):
