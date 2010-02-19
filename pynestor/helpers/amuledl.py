@@ -77,7 +77,10 @@ class DictDownload:
         elif key == 'progress':
             size = self.am.downloads[self.hash]['size']
             done = self.am.downloads[self.hash]['size_done']
-            return done / size * 100.0 if size > 0 else 0
+            if size == 0:
+                return 0.0
+            else:
+                return 100.0 * float(done) / float(size)
         elif key == 'hash':
             return self.hash
         else:
@@ -241,7 +244,6 @@ class AmuleDownloadObj(ObjectWrapper):
         
         proplist = ('speed', 'seeds', 'status', 'progress', 'done', 'path')
         if self.props['name'] == '(waiting for metadata)':
-            # Metadata not yet fetched
             proplist = self._props
         
         for p in proplist:
