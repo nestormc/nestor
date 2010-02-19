@@ -265,7 +265,7 @@ class ActionWrapper:
         for name in self.params:
             if name in params:
                 self.params[name]["value"] = params[name]
-            elif self.params[name]['optional']:
+            elif not self.params[name]['optional']:
                 raise ObjectError("missing-param:%s" % name)
         return self.processor._execute(self)
             
