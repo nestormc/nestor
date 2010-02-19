@@ -282,6 +282,7 @@ class AmuleObj(ObjectWrapper):
     
     def update(self):
         am = self.provider.am
+        am._update()
         
         for p in self._props:
             if am.connected:
@@ -535,9 +536,10 @@ class AmuleHelper:
                                 "amule.conf")
         ec_password = self.nestor.config["amule.ec_password"]
         webhost = self.nestor.config["web.host"]
+        webport = int(self.nestor.config["web.port"])
         if webhost == '':
             webhost = 'localhost'
-        notifurl = "http://%s/obj/notify/amule-finished" % webhost
+        notifurl = "http://%s:%d/obj/notify/amule-finished" % (webhost, webport)
         settings = {
             "[eMule]": {
                 "Port": self.nestor.config["amule.tcp_port"],
