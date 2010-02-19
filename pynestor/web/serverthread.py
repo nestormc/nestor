@@ -159,6 +159,8 @@ class RequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
         Available URLs:
             obj/<objref>
                 displays object types and properties
+            obj/list/<app>
+                list objects from <app> and display their types/properties
             obj/notify/<name>[/<objref>[/<details]]
                 publish a notification
             obj/action/<app>/<action>/<objref>[/<param>=<value>,...]
@@ -180,7 +182,7 @@ class RequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
             for p in range(len(parm)):
                 parm[p] = urllib.unquote(parm[p])
             notif_name = parm[1]
-            nofif_obj = '/'.join(parm[2:])
+            notif_obj = '/'.join(parm[2:])
             ns.notify(notif_name, notif_obj)
             
         elif parm[0] == 'action':
