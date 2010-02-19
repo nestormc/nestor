@@ -37,13 +37,37 @@ class DivElement(AppElement):
     def render(self):
         pass
 
+
 class SpanElement(AppElement):
 
     tagname = "span"
 
     def render(self):
         pass
-                
+        
+
+class InputElement(AppElement):
+    
+    tagname = "input"
+    
+    def __init__(self, app, om, id, type):
+        AppElement.__init__(self, app, om, id)
+        self.type = type
+        
+    def render_html(self, id, classes, content):
+        if classes:
+            classes = ' class="%s"' % " ".join(classes)
+        else:
+            classes = ''
+            
+        return '<input id="%s" type="%s"%s>' % (id, self.type, classes)
+    
+    def render(self):
+        self.set_dom("type", self.type)
+        
+    def set_value(self, value):
+        self.set_dom("value", value)
+        
         
 class ImageElement(AppElement):
 

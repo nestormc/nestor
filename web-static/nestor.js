@@ -587,7 +587,7 @@ function $popup_hide()
 window.addEventListener("click", $popup_hide, true);
 
 var $element_labels = {};
-var $element_objrefs = {}
+var $element_objrefs = {};
 
 
 /********************************************************************

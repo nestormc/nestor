@@ -171,6 +171,72 @@ class DownloadItem(ol.ObjectListItem):
             self.update_seeds()
         if "status" in updated:
             self.update_status()
+            
+
+class DownloadSearchField(e.DivElement):
+    
+    def init(self):
+        self.field = self.create(e.InputElement, "%s_F" % self.id, "text")
+        self.btn = self.create(e.InputElement, "%s_B" % self.id, "button")
+        self.status = self.create(e.DivElement, "%s_S" % self.id)
+    
+    def render(self):
+        self.add_child(self.field)
+        self.field.set_css({"width": "100%"})
+        self.add_child(self.btn)
+        self.btn.set_css({"float": "right"})
+        self.btn.set_value("Search")
+        self.add_child(self.status)
+        
+        hid = self.output.handler_id(self.search_handler)
+        sfid = self.output._dom_id(self.field)
+        bid = self.output._dom_id(self.btn)
+        self.add_jscode('dl_search_handlerid=%d' % hid)
+        self.add_jscode('dl_searchfield_id="%s"' % sfid)
+        self.add_jscode('dl_searchbtn_id="%s"' % bid)
+        self.add_jscode('dl_searchfield_blur()')
+        self.field.set_jshandler("onkeyup", "dl_searchfield_change")
+        self.field.set_jshandler("onfocus", "dl_searchfield_focus")
+        self.field.set_jshandler("onblur", "dl_searchfield_blur")
+        self.btn.set_jshandler("onclick", "dl_searchbtn_click")
+        
+    def search_handler(self, arg):
+        action, parm = arg.split(' ', 1)
+        status = ""
+        
+        if action == 'search':
+            params = {
+                "query": parm,
+                "search-type": 2, # Kad
+                "file-type": "", # All files
+                "avail": 1 # At least 1 complete seed
+            }
+            try:
+                self.obj.do_action("amule", "amule-search", "amule:", params)
+                status = "Searching for '%s'..." % parm
+            except Exception, e:
+                status = "Error: %s" % e
+                
+        elif action == 'ed2k':
+            params = {"ed2k-link": parm}
+            try:
+                self.obj.do_action("amule", "amule-download-ed2k", "amule:", params)
+                status = "Ed2k download started."
+            except Exception, e:
+                status = "Error: %s" % e
+                
+        elif action == 'torrent':
+            status = "Not yet supported (use magnet links instead)"
+            
+        elif action == 'magnet':
+            params = {"magnet-link": parm}
+            try:
+                self.obj.do_action("bt", "bt-download-magnet", "bt:", params)
+                status = "Magnet download started."
+            except Exception, e:
+                status = "Error: %s" % e
+                
+        self.status.set_content(status)
         
         
 class DownloadWorkspace(e.AppElement):
@@ -275,6 +341,41 @@ class DownloadWorkspace(e.AppElement):
         }
         self.list = self.create(ol.RefreshObjectList, "list", dlsetup)
         
+        resultsetup = {
+            "title": "Search",
+            "apps": ["amule"],
+            "otype": ["result"],
+            "refresh": 1000,
+            "sort_field": "seeds",
+            "sort_reverse": True,
+            
+            "title_bound": "up",
+            
+            "fields": {
+                "name": {"weight": 4},
+                "size": {
+                    "weight": 1,
+                    "xform": u.human_size,
+                    "style": {"text-align": "center"}
+                },
+                "seeds": {
+                    "weight": 1,
+                    "style": {"text-align": "center"}
+                },
+            },
+            "unique_field": "hash",
+            "main_field": "name",
+            "field_order": ["name", "size", "seeds"],            
+            
+            "item_events": {"ondblclick": self.result_dblclick_handler}
+        }
+        self.results = self.create(ol.RefreshObjectList, "results", resultsetup)
+        self.sfield = self.create(DownloadSearchField, "search")
+        
+    def result_dblclick_handler(self, element):
+        if isinstance(element, ol.ObjectListItem):
+            self.obj.do_action("amule", "result-download", element.objref)
+        
     def action_filter(self, action, objref, data):
         amule  = ["partfile-pause", "partfile-resume", "partfile-cancel",
             "partfile-clear"]
@@ -305,7 +406,22 @@ class DownloadWorkspace(e.AppElement):
 
     def render(self):
         self.add_child(self.list)
-        self.column_layout([{"element": self.list, "weight": 1}])
+        self.add_child(self.results)
+        self.column_layout([
+            {"element": self.list, "weight": 2},
+            {"element": self.results, "weight": 1}
+        ])
+        
+        # FIXME remove objectlist hack, add feature in objectlist instead
+        self.results.ctn.add_child(self.sfield)
+        self.sfield.set_css({
+            "height": "5em",
+            "position": "absolute",
+            "bottom": "1em",
+            "left": "1em",
+            "right": "1em",
+        })
+        self.results.scroll.set_css({"bottom": "7em"})
 
                 
 class WebDownloadsApp(WebApp):
@@ -315,6 +431,7 @@ class WebDownloadsApp(WebApp):
         
     def renew(self, om):
         WebApp.renew(self, om)
+        self.om.add_js("web/apps/download.js")
         
     def get_summary_element(self):
         return self.create(DownloadSummary, 'summary')
