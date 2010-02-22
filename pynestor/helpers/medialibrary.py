@@ -266,8 +266,8 @@ class MLObjectProvider(ObjectProvider):
 
 class MLObjectProcessor(ObjectProcessor):
 
-    def __init__(self, nestor, helper):
-        ObjectProcessor.__init__(self, nestor, 'media')
+    def __init__(self, nestor, helper, logger):
+        ObjectProcessor.__init__(self, nestor, 'media', logger)
         self.objs = helper['objs']
         self.music = helper['music']
         self.mpd = helper['mpd']
@@ -303,15 +303,15 @@ class MLObjectProcessor(ObjectProcessor):
         
         # Metadata edition
         if name == 'edit-artist':
-            act.add_param('name', False, obj['artist'])
-        elif name == 'edit-album':
             act.add_param('artist', False, obj['artist'])
-            act.add_param('title', False, obj['album'])
+        elif name == 'edit-album':
+            act.add_param('artist', True, obj['artist'])
+            act.add_param('album', False, obj['album'])
             act.add_param('year', False, obj['year'])
             act.add_param('genre', False, obj['genre'])
         elif name == 'edit-track':
-            act.add_param('artist', False, obj['artist'])
-            act.add_param('album', False, obj['album'])
+            act.add_param('artist', True, obj['artist'])
+            act.add_param('album', True, obj['album'])
             act.add_param('num', False, obj['num'])
             act.add_param('title', False, obj['title'])
             
@@ -334,31 +334,26 @@ class MLObjectProcessor(ObjectProcessor):
         # Metadata edition
         if name.startswith('edit-'):            
             if name == 'edit-artist':
+                self.debug("edit-artist on %s" % obj.objref)
                 meta = self.music.get_artist_metadata(obj['artist_id'])
-                meta['artist'] = act['name']
+                meta['artist'] = act['artist']
                 id = obj['artist_id']
                 type = MusicTypes.ARTIST
 
             elif name == 'edit-album':
+                self.debug("edit-album on %s" % obj.objref)
                 meta = self.music.get_album_metadata(obj['album_id'])
-                
-                # FIXME add support for SIGNED ints
-                if act['year'] >> 31:
-                    act['year'] = 2**32 - act['year']
                     
                 meta['artist'] = act['artist']
-                meta['album'] = act['title']
+                meta['album'] = act['album']
                 meta['year'] = act['year']
                 meta['genre'] = act['genre']
                 id = obj['album_id']
                 type = MusicTypes.ALBUM
             
             elif name == 'edit-track':
+                self.debug("edit-track on %s" % obj.objref)
                 meta = self.music.get_track_metadata(obj['track_id'])
-                
-                # FIXME add support for SIGNED ints
-                if act['num'] >> 31:
-                    act['num'] = 2**32 - act['num']
                 
                 meta['artist'] = act['artist']
                 meta['album'] = act['album']
@@ -373,18 +368,22 @@ class MLObjectProcessor(ObjectProcessor):
                 raise ObjectError("update-error:%s" % e)
                 
             # Invalidate changed objects
+            self.debug("Invalidate artists %r" % arids)
             for id in arids:
-                o = self.objs.get("music-artist|%d" % id)
-                self.objs.cache.invalidate(o)
+                self.objs.cache.remove("media:music-artist|%d" % id)
+                
+            self.debug("Invalidate albums %r" % alids)
             for id in alids:
-                o = self.objs.get("music-album|%d" % id)
-                self.objs.cache.invalidate(o)
+                self.objs.cache.remove("media:music-album|%d" % id)
+                
+            self.debug("Invalidate tracks %r" % trids)
             for id in trids:
-                o = self.objs.get("music-track|%d" % id)
-                self.objs.cache.invalidate(o)
+                self.objs.cache.remove("media:music-track|%d" % id)
+                
+            # FIXME update MPD
             
         # MPD Player controls
-        if name == 'mpd-player-play':
+        elif name == 'mpd-player-play':
             self.mpd.play()
         elif name == 'mpd-player-pause':
             self.mpd.pause()
@@ -538,7 +537,7 @@ class MediaLibraryHelper:
         ret = self.nestor.add_thread(self.import_thread, True)
         
         self.objs = MLObjectProvider(nestor, self, self.logger)
-        self.proc = MLObjectProcessor(nestor, self)
+        self.proc = MLObjectProcessor(nestor, self, self.logger)
         
         nestor.register_object_interface(
             name='media',
