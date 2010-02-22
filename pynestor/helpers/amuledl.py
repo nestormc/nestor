@@ -15,6 +15,7 @@
 
 import hashlib
 import os
+import shutil
 import StringIO
 import time
 import threading
@@ -94,6 +95,44 @@ class DictDownload:
             return []
             
             
+class DictShared(DictDownload):
+        
+    def pause(self):
+        return False
+    
+    def resume(self):
+        return False
+            
+    def cancel(self):
+        return False
+        
+    def __getitem__(self, key):
+        self.am._update()
+        
+        if key == 'done':
+            key = 'size'
+        
+        if key in ('name', 'size'):
+            return self.am.shared[self.hash][key]
+        elif key in ('speed', 'seeds'):
+            return 0
+        elif key == 'status':
+            return 5
+        elif key == 'progress':
+            return 100.0
+        elif key == 'hash':
+            return self.hash
+        else:
+            raise KeyError("DictShared has no item named '%s'" % key)
+            
+    def keys(self):
+        if self.am.connected:
+            return ['name', 'size', 'done', 'speed', 'status', 'seeds',
+                'progress', 'hash']
+        else:
+            return []
+            
+            
 class DictResult:
 
     def __init__(self, nestor, amule, hash):
@@ -142,6 +181,7 @@ class Amule:
         self.objs = None
         self.last_updated = 0
         self.downloads = {}
+        self.shared = {}
         self.results = {}
         self.status = {}
         self.lock = threading.Condition(threading.Lock())
@@ -172,6 +212,11 @@ class Amule:
             self.client.disconnect()
             self.connected = False
             
+    def reload_shared(self):
+        if self.connected:
+            self.client.reload_shared_files()
+            self._update(True)
+            
     def __getitem__(self, key):
         if self.connected:
             self._update()
@@ -179,19 +224,28 @@ class Amule:
             if kind == 'download':
                 if hash in self.downloads:
                     return DictDownload(self.nestor, self, hash)
+                elif hash in self.shared:
+                    return DictShared(self.nestor, self, hash)
             elif kind == 'result':
                 if hash in self.results:
                     return DictResult(self.nestor, self, hash)
         raise KeyError(key)
             
-    def _update(self):
+    def _update(self, force=False):
         interval = int(self.nestor.config['amule.update_interval'])
         self.lock.acquire()
         try:
-            if self.last_updated + interval < time.time():
+            if force or self.last_updated + interval < time.time():
                 self.downloads = self.client.get_download_list()
                 self.results = self.client.get_search_results()
                 self.status = self.client.get_server_status()
+                
+                self.shared = {}
+                shared = self.client.get_shared_list()
+                for h in shared:
+                    if h not in self.downloads:
+                        self.shared[h] = shared[h]
+                
                 self.last_updated = time.time()
         finally:
             self.lock.release()
@@ -200,6 +254,7 @@ class Amule:
         if self.connected:
             self._update()
             d = ["download|%s" % h for h in self.downloads]
+            d += ["download|%s" % h for h in self.shared]
             r = ["result|%s" % h for h in self.results]
             return d + r
         else:
@@ -231,6 +286,8 @@ class AmuleDownloadObj(ObjectWrapper):
                         val = 0
                     elif p == 'name':
                         val = '(waiting for metadata)'
+                    elif p == 'hash':
+                        val = self.oid[len("download|"):]
                     else:
                         val = ''
                 self.props[p] = val
@@ -258,6 +315,8 @@ class AmuleDownloadObj(ObjectWrapper):
                         val = 0
                     elif p == 'name':
                         val = '(waiting for metadata)'
+                    elif p == 'hash':
+                        val = self.oid[len("download|"):]
                     else:
                         val = ''
                 self.props[p] = val
@@ -364,7 +423,7 @@ class AmuleObjectProvider(ObjectProvider):
         """
         
         if notif.objref.startswith("amule:download|"):
-            oid = notif.objref[len("amule:"):]
+            oid = notif.objref[len("amule:"):].lower()
             hash = notif.objref[len("amule:download|"):]
             
             # Save finishing status
@@ -383,13 +442,16 @@ class AmuleObjectProvider(ObjectProvider):
             rundir = self.nestor.config['amule.finished_dir']
             dlpath = os.path.join(rundir, self.am[oid]["name"])
             lobby = self.nestor.config["media.lobby_dir"]
-            destpath = os.path.join(lobby, d.am[oid]["name"])
+            destpath = os.path.join(lobby, self.am[oid]["name"])
             shutil.move(dlpath, destpath)
                 
             # Set finished status and send notification
             self.verbose("Finished amule file '%s'" % self.am[oid]["name"])
             self.objs.save_object(oid, {"status": 6, "path": destpath})
             self.nestor.notify("download-finished", notif.objref)
+            
+            # Reload aMule shared files (to remove deleted file)
+            self.am.reload_shared()
         
         
 class AmuleObjectProcessor(ObjectProcessor):
