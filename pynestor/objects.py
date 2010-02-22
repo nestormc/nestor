@@ -277,6 +277,10 @@ class ObjectCache:
         self.store = {}
         self.size = 0
         
+    def has(self, objref):
+        owner, oid = objref.split(':', 1)
+        return owner in self.store and oid in self.store[owner]
+        
     def get(self, objref):
         """Get ObjectWrapper with reference 'objref' from cache, or raise
         ObjectCacheMiss on cache miss"""
@@ -339,6 +343,10 @@ class ObjectProvider:
         self.name = name
         self.nestor = nestor
         self.log = logger or nestor
+        self.info = self.log.info
+        self.verbose = self.log.verbose
+        self.debug = self.log.debug
+        self.perf = self.log.perf
         
         self.obj = None
         self.cache = None
@@ -552,9 +560,14 @@ class ObjectProcessor:
     
     """
 
-    def __init__(self, nestor, name):
+    def __init__(self, nestor, name, logger=None):
         self.nestor = nestor
         self.name = name
+        self.log = logger or nestor
+        self.info = self.log.info
+        self.verbose = self.log.verbose
+        self.debug = self.log.debug
+        self.perf = self.log.perf
         
     def get_actions(self, obj):
         raise ImplementationError("ObjectProcessor.get_actions() not overriden")
