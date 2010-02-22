@@ -44,6 +44,8 @@ class DictTorrent:
     def __getitem__(self, key):
         if key == 'name':
             return self.h.name()
+        elif key == 'hash':
+            return str(self.h.info_hash())
         elif key == 'size':
             return self.h.status().total_wanted
         elif key == 'done':
@@ -92,7 +94,7 @@ class DictTorrent:
             
     def keys(self):
         return ['name', 'size', 'done', 'seeds', 'progress', 'speed', 'status', 
-            'files', 'magnet-uri']
+            'files', 'magnet-uri', 'hash']
             
         
 class BitTorrent:
@@ -158,6 +160,8 @@ class BitTorrent:
                 dest = destdir_hash % (str(handle.info_hash()))
                 self.log.debug("Moving download to %s" % dest)
                 handle.move_storage(dest.encode('utf-8'))
+                
+            # FIXME fill 'hash' and 'date_started' for object
         
     def add_torrent(self, torrent, destdir):
         if self.is_active():
