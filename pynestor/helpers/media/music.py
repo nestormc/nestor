@@ -24,6 +24,7 @@ import urllib2
 from .errors import MediaImportError, MediaUpdateError
 from .metadata import Metadata
 
+MUSIC_CHECK_SYNC = False
 
 class MusicTypes:
     TRACK = 0
@@ -58,17 +59,38 @@ class MusicLibrary:
     def __init__(self, nestor, logger=None):
         self.nestor = nestor
         self.log = logger if logger else nestor
+        self.info = self.log.info
+        self.verbose = self.log.verbose
+        self.debug = self.log.debug
+        self.perf = self.log.perf
+        
+        if MUSIC_CHECK_SYNC:
+            unsync = self.list_db_unsynced()
+            fp = open("/tmp/nestor_musicdb_sync", "w")
+            fp.write("Missing files:\n")
+            for f in unsync["missing_files"]:
+                fp.write("   %s\n" % f.encode("utf-8"))
+            fp.write("\nMissing DB entries:\n")
+            for f in unsync["missing_db"]:
+                fp.write("   %s\n" % f.encode("utf-8"))
+            fp.write("\nMisplaced files:\n")
+            for f in unsync["misplaced"]:
+                fp.write("   %s\n" % f.encode("utf-8"))
+            fp.write("\nEmpty directories:\n")
+            for f in unsync["empty_dirs"]:
+                fp.write("   %s\n" % f.encode("utf-8"))
+            fp.close()
         
     def fetch_missing_covers(self):
         db = self.nestor.get_media_db()
         aids = [r[0] for r in db.execute("SELECT id FROM music_albums").fetchall()]
         db.close()
         
-        self.log.debug("Refetching album covers...")
+        self.debug("Refetching album covers...")
         for aid in aids:
             if not self.has_album_cover(aid):
                 self.search_album_cover(aid)
-        self.log.debug("Finished fetching album covers")
+        self.debug("Finished fetching album covers")
         
     def cleanup_database(self):
         """Cleanup obsolete data in database (eg. albums w/o tracks or artists
@@ -91,6 +113,77 @@ class MusicLibrary:
         for r, dirs, files in os.walk(mdir, False):
             if r != mdir and not dirs and not files:
                 os.rmdir(r)
+                
+    def list_db_unsynced(self):
+        """List DB entries not in sync with filesystem and filesystem entries
+        not in sync with DB entries"""
+        
+        misplaced = []
+        missing_db = []
+        missing_files = []
+        empty_dirs = []
+        
+        self.debug("Sync check: browsing DB...")
+        for artid in self.get_artistids():
+            for albid in self.get_artist_albumids(artid):
+                for trkid in self.get_album_trackids(albid):
+                    meta = self.get_track_metadata(trkid)
+                    path = self.meta_to_filename(meta)
+                    if not os.path.isfile(path):
+                        missing_files.append(path)
+                        
+        def get_subdirs(path):
+            ret = []
+            for r, d, f in os.walk(path):
+                ret.extend(d)
+                d[0:len(d)] = []
+            return ret
+                
+        def get_files(path):
+            ret = []
+            for r, d, f in os.walk(path):
+                ret.extend(f)
+                d[0:len(d)] = []
+            return ret
+            
+        mpath = self.nestor.config["media.music_dir"]
+        misplaced.extend(get_files(mpath))
+        
+        self.debug("Sync check: browsing files...")
+        for artd in get_subdirs(mpath):
+            self.debug("Sync check: browsing artist dir '%s'..." % artd)
+        
+            artpath = os.path.join(mpath, artd)
+            misplaced.extend(get_files(artpath))
+            subdirs = get_subdirs(artpath)
+            
+            if not subdirs:
+                empty_dirs.append(artpath)
+                
+            for albd in subdirs:
+                albpath = os.path.join(artpath, albd)
+                files = get_files(albpath)
+                
+                if not files:
+                    empty_dirs.append(albpath)
+                    
+                for trkfile in files:
+                    if trkfile == 'cover.jpg':
+                        continue
+                    trkpath = os.path.join(albpath, trkfile)
+                    relpath = trkpath[len("%s/" % mpath):]
+                    meta, mtyp = self.filename_to_meta(relpath)
+                    if not meta:
+                        missing_db.append(trkpath)
+            
+        self.debug("Sync check: done")
+        return {
+            'missing_files': missing_files,
+            'missing_db': missing_db,
+            'misplaced': misplaced,
+            'empty_dirs': empty_dirs
+        }
+        
         
     def get_sortname(self, name):
         """Compute the sortname for a given artist name.
@@ -208,7 +301,7 @@ class MusicLibrary:
         """Write metadata to file tags"""
         
         path = self.meta_to_filename(meta, MusicTypes.TRACK)
-        self.log.debug("Writing tags in '%s'" % path)
+        self.debug("Writing tags in '%s'" % path)
         
         filemeta = Metadata(path)
         filemeta['artist'] = meta['artist']
@@ -240,7 +333,7 @@ class MusicLibrary:
             try:
                 img = op.open(url)
             except urllib2.HTTPError, e:
-                self.log.debug("HTTPError while fetching '%s' (%s)" % (url,e))
+                self.debug("HTTPError while fetching '%s' (%s)" % (url,e))
             else:
                 fimg = open(self.meta_to_coverfile(meta), 'w')
                 fimg.write(img.read())
@@ -291,6 +384,13 @@ class MusicLibrary:
                     ret = track_id
                     break
         return ret
+        
+    def get_artistids(self):
+        query = "SELECT id FROM music_artists"
+        db = self.nestor.get_media_db()
+        rset = db.execute(query).fetchall()
+        db.close()
+        return [r[0] for r in rset]
         
     def get_artist_albumids(self, artist_id):
         query = "SELECT id FROM music_albums WHERE artist_id = ?"
@@ -441,146 +541,173 @@ class MusicLibrary:
         tracks = []
     
         if type == MusicTypes.ARTIST:
+            self.debug("update_metadata on artist %d" % id)
             artists = [id]
             albums, tracks = self.update_artist(meta, id)
         elif type == MusicTypes.ALBUM:
+            self.debug("update_metadata on album %d" % id)
             albums = [id]
             tracks = self.update_album(meta, id)
         elif type == MusicTypes.TRACK:
+            self.debug("update_metadata on track %d" % id)
             tracks = [id]
             self.update_track(meta, id)
             
         self.cleanup_database()        
         return artists, albums, tracks
-                
+        
     def update_artist(self, meta, artist_id):
-        """Update an artist.
+        """Change artist metadata.
         
-        Only the 'artist' key of metadata is needed here.
-        Update metadata in database and move associated files.
-        
-        Return a couple of lists of changed album and track ids
+        Returns a list of changed albumids and a list of changed trackids.
         """
         
+        self.debug("update_artist %d" % artist_id)
         oldmeta = self.get_artist_metadata(artist_id)
         
         changed = False
         for k in oldmeta:
-            if oldmeta[k] != meta[k]:
+            if meta[k] != oldmeta[k]:
                 changed = True
                 break
         if not changed:
+            self.debug("update_artist: nothing changed, returning")
             return [], []
             
-        # Dry-update albums to check for exceptions
-        albumids = self.get_artist_albumids(artist_id)
-        albummeta = {}
-        for album_id in albumids:
-            albummeta[album_id] = self.get_album_metadata(album_id)
-            albummeta[album_id]['artist'] = meta['artist']
-            self.update_album(albummeta[album_id], album_id, True)
+        self.debug("update_artist: dry updating albums")
+                
+        albmeta = {}
+        self.debug("update_album: dry updating tracks")
+        for album_id in self.get_artist_albumids(artist_id):
+            albmeta[album_id] = self.get_album_metadata(album_id)
+            for k in meta:
+                albmeta[album_id][k] = meta[k]
+            self.update_album(albmeta[album_id], album_id, True)
             
-        # Update metadata
-        existing_id = self.get_artist_id(meta['artist'])
-        if not existing_id:
-            self.write_artist_metadata(meta, artist_id)
+        trkids = []
+        self.debug("update_artist: updating albums")
+        for album_id in albmeta:
+            trkids.extend(self.update_album(albmeta[album_id], album_id))
             
-        # Update albums
-        for album_id in albummeta:
-            trackids = self.update_album(albummeta[album_id], album_id)
-            
-        return albumids, trackids
+        self.debug("update_artist: done")
+        return albmeta.keys(), trkids
         
     def update_album(self, meta, album_id, dryrun=False):
-        """Update album metadata.
+        """Change album metadata.
         
-        The metadata keys needed here are artist, album, year and genre.
-        Update metadata in database and move associated files.
-        
-        Return a list of changed track ids
+        Returns a list of changed trackids.
         """
         
+        self.debug("update_album %d %s" % (album_id, "[DRY]" if dryrun else ""))
         oldmeta = self.get_album_metadata(album_id)
         
         changed = False
         for k in oldmeta:
-            if oldmeta[k] != meta[k]:
+            if meta[k] != oldmeta[k]:
                 changed = True
                 break
         if not changed:
+            self.debug("update_album: nothing changed, returning")
             return []
             
-        # Dry-update tracks to check for exceptions
-        trackids = self.get_album_trackids(album_id)
-        trackmeta = {}
-        for track_id in trackids:
-            trackmeta[track_id] = self.get_track_metadata(track_id)
-            for k in ('artist', 'album', 'genre', 'year'):
-                trackmeta[track_id][k] = meta[k]
-            self.update_track(trackmeta[track_id], track_id, True, True)
-            
-        if dryrun: return
-
-        if meta['artist'] != oldmeta['artist']:
-            artist_id = self.get_artist_id(meta['artist'])
-            if not artist_id:
-                artist_id = self.write_artist_metadata(meta)
-                os.makedirs(self.meta_to_filename(meta, MusicTypes.ARTIST))
+        move = False
+        for k in ('artist', 'album'):
+            if meta[k] != oldmeta[k]:
+                move = True
+                break
                 
-        # Update metadata
-        existing_id = self.get_album_id(meta['artist'], meta['album'])
-        if not existing_id:
-            self.write_album_metadata(meta, album_id)
-        
-        # Update tracks
-        for track_id in trackmeta:
+        trackmeta = {}
+        self.debug("update_album: dry updating tracks")
+        for track_id in self.get_album_trackids(album_id):
+            trackmeta[track_id] = self.get_track_metadata(track_id)
+            for k in meta:
+                trackmeta[track_id][k] = meta[k]
             self.update_track(trackmeta[track_id], track_id, True)
             
-        return trackids
+        if dryrun:
+            self.debug("update_album: dry update done")
+            return []
+            
+        self.debug("update_album: updating tracks")
+        for track_id in trackmeta:
+            self.update_track(trackmeta[track_id], track_id)
+            
+        if move:
+            oldpath = self.meta_to_filename(oldmeta, MusicTypes.ALBUM)
+            newpath = self.meta_to_filename(meta, MusicTypes.ALBUM)
+            oldcover = os.path.join(oldpath, "cover.jpg")
+            newcover = os.path.join(newpath, "cover.jpg")
+            if os.path.isfile(os.path.join(oldpath, "cover.jpg")):
+                self.debug("update_album: moving cover")
+                shutil.move(oldcover, newcover)
                 
-    def update_track(self, meta, track_id, fromparent=False, dryrun=False):
-        """Update track metadata.
+        self.debug("update_album: done")
+        return trackmeta.keys()
         
-        Update metadata in database and move the associated file.
-        """
         
+    def update_track(self, meta, track_id, dryrun=False):
+        """Change track metadata."""
+        
+        self.debug("update_track %d %s" % (track_id, "[DRY]" if dryrun else ""))
         oldmeta = self.get_track_metadata(track_id)
         
         changed = False
         for k in oldmeta:
-            if oldmeta[k] != meta[k]:
+            if meta[k] != oldmeta[k]:
                 changed = True
                 break
         if not changed:
+            self.debug("update_track: nothing changed, returning")
             return
-        
-        oldpath = self.meta_to_filename(oldmeta, MusicTypes.TRACK)
-        newpath = self.meta_to_filename(meta, MusicTypes.TRACK)
-        if oldpath == newpath:
-            raise MediaUpdateError("duplicate:%s" % oldpath)
-        
-        if dryrun: return
             
+        move = False
+        for k in ('artist', 'album', 'num', 'title'):
+            if meta[k] != oldmeta[k]:
+                move = True
+                break
+                
+        if move:
+            self.debug("update_track: filename changes")
+            oldpath = self.meta_to_filename(oldmeta, MusicTypes.TRACK)
+            newpath = self.meta_to_filename(meta, MusicTypes.TRACK)
+            if os.path.exists(newpath):
+                raise MediaUpdateError("duplicate:%s" % oldpath)
+                
+        if dryrun:
+            self.debug("update_track: dry run done")
+            return
+                
+        artchanged = False
         if meta['artist'] != oldmeta['artist']:
+            self.debug("update_track: artist changed")
+            artchanged = True
             artist_id = self.get_artist_id(meta['artist'])
             if not artist_id:
                 artist_id = self.write_artist_metadata(meta)
+                self.debug("update_track: new artist %r, id %d" % (meta['artist'], artist_id))
                 os.makedirs(self.meta_to_filename(meta, MusicTypes.ARTIST))
                 
-        if meta['album'] != oldmeta['album']:
-            album_id = self.get_album_id(meta['artist'], meta['album'])
-            if not album_id:
-                album_id = self.write_album_metadata(meta)
+        self.debug("update_track: writing album metadata")
+        newalbum_id = self.get_album_id(meta['artist'], meta['album'])
+        album_id = self.write_album_metadata(meta, newalbum_id)
+        
+        if artchanged or meta['album'] != oldmeta['album']:
+            self.debug("update_track: album or artist changed")
+            if not newalbum_id:
+                self.debug("update_track: new album %r, id %d" % (meta['album'], album_id))
                 os.makedirs(self.meta_to_filename(meta, MusicTypes.ALBUM))
-            
-        # Update metadata
-        if not fromparent:
-            self.write_album_metadata(meta, album_id)
+                
+        self.debug("update_track: writing track metadata")
         self.write_track_metadata(meta, track_id)
         
-        # Move file and write tags
-        shutil.move(oldpath, newpath)
+        if move:
+            self.debug("update_track: moving %s" % oldpath)
+            self.debug("update_track:     to %s" % newpath)
+            shutil.move(oldpath, newpath)
+            
+        self.debug("update_track: writing file tags")
         self.write_file_tags(meta)
+        self.debug("update_track: done")
 
     def import_track(self, path, meta, move=False):
         """Import a music track into the media library
@@ -588,6 +715,13 @@ class MusicLibrary:
         Copy 'path' into the media library folder and insert metadata in
         database.
         """
+        
+        for k in meta:
+            if isinstance(meta[k], (str, unicode)):
+                try:
+                    u'' + meta[k]
+                except UnicodeDecodeError:
+                    meta[k] = meta[k].decode('utf-8')
         
         mlpath = self.meta_to_filename(meta)
         if os.path.exists(mlpath):
@@ -616,13 +750,6 @@ class MusicLibrary:
             self.search_album_cover(album_id)
             
         track_id = self.write_track_metadata(meta)
-        
-        # FIXME do this better
-        db = self.nestor.get_media_db()
-        db.execute("UPDATE music_tracks SET import_filename=? WHERE id=?",
-            (path, track_id))
-        db.commit()
-        db.close()
         
         self.write_file_tags(meta)
         return [track_id, mlpath]
