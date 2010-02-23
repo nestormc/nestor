@@ -57,11 +57,8 @@ class ThreadManager:
             raise RuntimeError("Cannot add thread while stopping")
            
         ret = -1
-        self._lock.acquire()
-        try:
+        with self._lock:
             ret = self._add_safe(thread, stop_fatal)
-        finally:
-            self._lock.release()
         return ret
         
     def _remove_safe(self, tid):
@@ -81,11 +78,8 @@ class ThreadManager:
         if self._stopping:
             raise RuntimeError("Cannot remove thread while stopping")
         
-        self._lock.acquire()
-        try:
+        with self._lock:
             self._remove_safe(tid)
-        finally:
-            self._lock.release()
             
     def _remove_all_safe(self):
         """Stop and remove all threads"""
@@ -103,13 +97,10 @@ class ThreadManager:
         killed."""
             
         # Start all threads
-        self._lock.acquire()
-        try:
+        with self._lock:
             self._started = True
             for t in self._threads.values():
                 t.start()
-        finally:
-            self._lock.release()
             
         nostop_stopped = -1
             
@@ -119,23 +110,17 @@ class ThreadManager:
             except KeyboardInterrupt:
                 self._stop_requested = True
             else:
-                self._lock.acquire()
-                try:
+                with self._lock:
                     for tid in self._threads.keys():
                         t = self._threads[tid]
                         if tid in self._threads_nostop and not t.isAlive():
                             nostop_stopped = tid
                             self._stop_requested = True
-                finally:
-                    self._lock.release()
                     
             if self._stop_requested:
                 self._stopping = True
-                self._lock.acquire()
-                try:
+                with self._lock:
                     self._remove_all_safe()
-                finally:
-                    self._lock.release()
                     
         if nostop_stopped != -1:
             msg = "Thread id %d stopped unexpectedly" % nostop_stopped

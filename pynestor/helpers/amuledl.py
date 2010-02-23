@@ -233,8 +233,7 @@ class Amule:
             
     def _update(self, force=False):
         interval = int(self.nestor.config['amule.update_interval'])
-        self.lock.acquire()
-        try:
+        with self.lock:
             if force or self.last_updated + interval < time.time():
                 self.downloads = self.client.get_download_list()
                 self.results = self.client.get_search_results()
@@ -247,8 +246,6 @@ class Amule:
                         self.shared[h] = shared[h]
                 
                 self.last_updated = time.time()
-        finally:
-            self.lock.release()
             
     def keys(self):
         if self.connected:
