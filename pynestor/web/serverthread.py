@@ -128,6 +128,8 @@ class RequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
                 self._do_ui(req, parm, head)
             elif req == 'cover':
                 self._do_cover(parm, head)
+            elif req == 'debug':
+                self._do_debug(parm, head)
             else:
                 self._404()
         except Exception, e:
@@ -142,11 +144,35 @@ class RequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
                 self.wfile.write(traceback.format_exc())
                 self.wfile.write("</pre>")
                 
+    def _do_debug(self, parm, head):
+        # FIXME that's completely unsecure, use an option to enable/disable
+        if not parm or parm[0] == '':
+            self._404()
+            return
+            
+        self.send_response(200)
+        self.send_header("Content-Type", "text/html")
+        self._end_headers()
+        if head: return
+        
+        varname = parm[0]
+        self.wfile.write("<pre>")
+        ns = self.server.nestor
+        out = "%r" % eval(varname)
+        out = out.replace("&", "&amp;")
+        out = out.replace("<", "&lt;")
+        out = out.replace(">", "&gt;")
+        self.wfile.write(out)
+        self.wfile.write("</pre>")
+        
+                
     def _do_cover(self, parm, head):
         """Cover URL: /cover/<skin name>/<artist>/<album>"""
         mdir = self.server.nestor.config['media.music_dir']
         skinname = parm[0]
         parm.append('cover.jpg')
+        for i in range(len(parm)):
+            parm[i] = parm[i].decode("utf-8")
         path = os.path.abspath(os.path.join(mdir, *parm[1:]))
         if not path.startswith("%s/" % mdir) or not os.path.isfile(path):
             staticpath = self.server.nestor.config["web.static_dir"]
