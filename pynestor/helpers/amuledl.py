@@ -447,7 +447,7 @@ class AmuleObjectProvider(ObjectProvider):
                 
             # Set finished status and send notification
             self.verbose("Finished amule file '%s'" % self.am[oid]["name"])
-            self.objs.save_object(oid, {"status": 6, "path": destpath})
+            self.save_object(oid, {"status": 6, "path": destpath})
             self.nestor.notify("download-finished", notif.objref)
             
             # Reload aMule shared files (to remove deleted file)
@@ -502,18 +502,19 @@ class AmuleObjectProcessor(ObjectProcessor):
         obj = act.obj
         
         if name.startswith("partfile-"):
-            pf = self.objs.am[obj.oid]
-            if name == 'partfile-cancel':
-                pf.cancel()
+            if name == 'partfile-clear':
                 self.objs.remove_object(obj.oid)
-                self.objs.cache.invalidate(obj)
-            elif name == 'partfile-pause':
-                pf.pause()
-            elif name == 'partfile-resume':
-                pf.resume()
-            elif name == 'partfile-clear':
-                self.objs.remove_object(obj.oid)
-                self.objs.cache.invalidate(obj)
+                self.objs.cache.remove(obj.objref)
+            else:
+                pf = self.objs.am[obj.oid]
+                if name == 'partfile-cancel':
+                    pf.cancel()
+                    self.objs.remove_object(obj.oid)
+                    self.objs.cache.invalidate(obj)
+                elif name == 'partfile-pause':
+                    pf.pause()
+                elif name == 'partfile-resume':
+                    pf.resume()
         elif name == 'result-download':
             rs = self.objs.am[obj.oid]
             rs.download()
