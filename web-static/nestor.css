@@ -230,20 +230,17 @@ body, html {
 }
 
 .list_item {
+    position: relative;
     cursor: hand;
+}
+
+.list_item span.cell {
+    /*height: 1.2em;*/
+    text-overflow: ellipsis;
 }
 
 .list_item.odd {
     background-color: #E5E5E5;
-}
-
-.list_item .icon {
-    visibility: hidden;
-    margin-right: 0.1em;
-}
-
-.list_item:hover .icon {
-    visibility: visible;
 }
 
 .selected, .selected.odd {
@@ -299,6 +296,23 @@ input.blurred {
 
 #music_summary_art {
     font-size: 0.8em;
+}
+
+.music_inputlabel {
+    display: block;
+    width: 25%;
+    float: left;
+}
+
+.music_input {
+    width: 75%;
+}
+
+.music_editbtn {
+}
+
+.music_editing {
+    text-align: right;
 }
 
 .playlist_item.drag_hover {

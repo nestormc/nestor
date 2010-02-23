@@ -50,7 +50,7 @@ class ObjectListActionMenu(e.AppElement):
         self.s["actions"][action]["handler"](action, objref)
         
 
-class ObjectListCell(e.AppElement):
+class ObjectListCell(e.SpanElement):
     
     def __init__(self, app, om, id, label):
         self.label = label
@@ -59,7 +59,7 @@ class ObjectListCell(e.AppElement):
     def render(self):
         # FIXME htmlspecialchars on label (cgi.escape?)
         self.set_content(self.label)
-        self.set_css({"text-overflow": "ellipsis"})
+        self.set_class("cell")
         
 
 class ObjectListItem(e.AppElement):
@@ -101,8 +101,9 @@ class CellsObjectListItem(ObjectListItem):
     """List item with pseudo-table-cells for each field"""
         
     def init(self):
+        # Expander forces height to 1 line
+        self.expander = self.create(e.SpanElement, "%s_X" % self.id)
         self.cells = {}
-        self.actioncell = None
         
         for f in self.s["fields"]:
             fs = self.s["fields"][f]
@@ -128,6 +129,9 @@ class CellsObjectListItem(ObjectListItem):
             self.cells[f] = {"element": cell, "weight": fs["weight"]}
             
     def render(self):
+        self.add_child(self.expander)
+        self.expander.set_content("&nbsp;")
+        
         ordered_cells = []
         for f in self.s["field_order"]:
             ordered_cells.append(self.cells[f])
@@ -142,10 +146,6 @@ class CellsObjectListItem(ObjectListItem):
                 cell.set_percent(float(self.data[f]))
                 
         self.set_class("list_item")
-        self.set_css({
-            "position": "relative",
-            "height": "1.3em"
-        })
         self.set_dom("title", self.label)
         self.column_layout(ordered_cells, "hidden")
             
@@ -162,14 +162,10 @@ class CellsObjectListItem(ObjectListItem):
     def update_data(self, updated):
         ObjectListItem.update_data(self, updated)
     
-        if updated:
-            for f in updated:
-                v = updated[f]
-                if f in self.s["fields"]:
-                    self.set_cell_value(f, v)
-                    
-            if self.actioncell:
-                self.actioncell.update_data(self.data)
+        for f in updated:
+            v = updated[f]
+            if f in self.s["fields"]:
+                self.set_cell_value(f, v)
                 
 
 class ObjectListBody(e.AppElement):

@@ -29,7 +29,9 @@ class AppElement(UIElement):
         self.init()
         
     def create(self, cls, id, *args):
-        return cls(self.app, self.output, id, *args)
+        child = cls(self.app, self.output, id, *args)
+        child.set_parent(self)
+        return child
         
 
 class DivElement(AppElement):
@@ -160,6 +162,7 @@ class ScrollContainerElement(AppElement):
         self.wrap.make_drop_target(handler)
         
     def render(self):
+        self.set_jshandler("onscroll", "$scroll_cancel")
         self.set_class("scroll_container")
         self.add_child(self.wrap, True)
         self.wrap.set_class("scroll_container_wrap")

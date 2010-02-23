@@ -280,8 +280,11 @@ function $op(json)
     var obj;
     
     /* Do not use JSON.parse as it doesn't support functions */
-    eval("obj=" + json);
-    obj.op();
+    if (json.length)
+    {
+        eval("obj=" + json);
+        if (obj && obj.op) obj.op();
+    }
 }
 
 /* Update element */
@@ -456,6 +459,13 @@ function $scroll_declare(sce_id)
     $scroll_move(sce_id);
     var bar = $(sce_id + "_B");
     $drag.init_scrollbar(bar);
+}
+
+/* Horizontal scroll inhibiter */
+function $scroll_cancel(e)
+{
+    this.scrollLeft = 0;
+    this.scrollTop = 0;
 }
  
 /* ScrollContainerElement scroll handler */

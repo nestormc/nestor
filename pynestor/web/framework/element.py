@@ -37,8 +37,13 @@ class UIElement:
         self.config = self.rh.context('config')
         self.obj = self.rh.context('obj')
         
+    def set_parent(self, parent):
+        self.parent = parent
+        
     def create(self, cls, id, *args):
-        return cls(self.output, id, *args)
+        child = cls(self.output, id, *args)
+        child.set_parent(self)
+        return child
         
     def render_html(self, id, classes, content):
         if len(classes):
@@ -133,7 +138,7 @@ class UIElement:
         
         self.output.add_op("drop_target", [self, handler])
         
-    def _block_layout(self, blocks, cols=True, overflow="auto"):
+    def _block_layout(self, blocks, cols=True, overflow="auto", fill=True):
         total = 0.0
         for b in blocks:
             total += b['weight']
@@ -147,8 +152,9 @@ class UIElement:
             
             element.set_css({"position": "absolute"})
             element.set_css({"overflow": overflow})
-            element.set_css({"top" if cols else "left": 0})
-            element.set_css({"bottom" if cols else "right": 0})
+            if fill:
+                element.set_css({"top" if cols else "left": 0})
+                element.set_css({"bottom" if cols else "right": 0})
             used = 100.0 - rem
             element.set_css({"left" if cols else "top": "%f%%" % used})
             
@@ -160,7 +166,7 @@ class UIElement:
                 
             element.set_css({"right" if cols else "bottom": "%f%%" % rem})
     
-    def column_layout(self, cols, overflow="auto"):
+    def column_layout(self, cols, overflow="auto", fill=True):
         """Generate CSS for a flexible column layout
     
         'cols' is an array of column specifications which are dicts with keys
@@ -171,15 +177,15 @@ class UIElement:
         weight of an other, it will be twice as wide).
         """
         
-        self._block_layout(cols, True, overflow)
+        self._block_layout(cols, True, overflow, fill)
         
-    def row_layout(self, rows, overflow="auto"):
+    def row_layout(self, rows, overflow="auto", fill=True):
         """Generate CSS for a flexible row layout
         
         Works exactly like column_layout(), but horizontally.
         """
         
-        self._block_layout(rows, False, overflow)
+        self._block_layout(rows, False, overflow, fill)
         
     def debug(self, message):
         self.output.debug(self, message)
