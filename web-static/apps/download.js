@@ -65,5 +65,5 @@ function dl_searchbtn_click()
     
     $method(dl_search_handlerid, action + " " + value);
     $(dl_searchfield_id).value = "";
-    dl_searchfield_blur();
+    $(dl_searchfield_id).blur();
 }

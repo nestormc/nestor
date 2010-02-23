@@ -189,11 +189,9 @@ class DownloadSearchField(e.DivElement):
         self.add_child(self.status)
         
         hid = self.output.handler_id(self.search_handler)
-        sfid = self.output._dom_id(self.field)
-        bid = self.output._dom_id(self.btn)
         self.add_jscode('dl_search_handlerid=%d' % hid)
-        self.add_jscode('dl_searchfield_id="%s"' % sfid)
-        self.add_jscode('dl_searchbtn_id="%s"' % bid)
+        self.field.add_jscode('dl_searchfield_id={id}')
+        self.btn.add_jscode('dl_searchbtn_id={id}')
         self.add_jscode('dl_searchfield_blur()')
         self.field.set_jshandler("onkeyup", "dl_searchfield_change")
         self.field.set_jshandler("onfocus", "dl_searchfield_focus")
@@ -209,7 +207,6 @@ class DownloadSearchField(e.DivElement):
                 "query": parm,
                 "search-type": 2, # Kad
                 "file-type": "", # All files
-                "avail": 1 # At least 1 complete seed
             }
             try:
                 self.obj.do_action("amule", "amule-search", "amule:", params)
