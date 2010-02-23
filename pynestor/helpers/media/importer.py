@@ -30,16 +30,23 @@ class ImporterThread(Thread):
     Implements a file import queue.
     
     """
+    
+    def _dummy(self):
+        pass
 
     def __init__(self, nestor, logger, helper):
         Thread.__init__(self, nestor, logger)
         self.running = False
         self.helper = helper
         self._import_queue = []
+        self._callback = self._dummy
         self._lock = threading.Condition(threading.Lock())
+        
+    def set_callback(self, callback):
+        """Set queue job finished callback"""
+        self._callback = callback
                 
     def nestor_run(self):
-    
         self.running = True
         while self.running:
             self.process_queue()
@@ -50,23 +57,16 @@ class ImporterThread(Thread):
         
     def process_queue(self):
         path = None
-        
-        self._lock.acquire()
-        try:
+        with self._lock:
             if len(self._import_queue):
                 path, delete = self._import_queue.pop()
-        finally:
-            self._lock.release()
-            
         if path:
             self.process(path, delete)
+            self._callback()
         
     def enqueue(self, path, delete=False):
-        self._lock.acquire()
-        try:
+        with self._lock:
             self._import_queue.insert(0, [path, delete])
-        finally:
-            self._lock.release()
         
     def process(self, path, delete=False):
         self.verbose("Processing %s" % path)
@@ -204,9 +204,6 @@ class ImporterThread(Thread):
             mdir = self.nestor.config["media.music_dir"]
             off = 0 if mdir.endswith('/') else 1
             rpath = path[len(mdir)+off:]
-            
-            self.debug("Updating MPD (%s)" % rpath)
-            self.helper.mpd.update(rpath)
         
     def import_directory(self, path, delete=False):
         self.debug("Importing directory %s" % path)

@@ -55,6 +55,10 @@ class MusicLibrary:
     """
     
     fnchars_replace = {'/': '_'}
+    
+    def _dummy(self, *args):
+        """Dummy callback"""
+        pass
 
     def __init__(self, nestor, logger=None):
         self.nestor = nestor
@@ -63,6 +67,12 @@ class MusicLibrary:
         self.verbose = self.log.verbose
         self.debug = self.log.debug
         self.perf = self.log.perf
+        
+        self.cb = {
+            "track_changed": self._dummy,
+            "album_changed": self._dummy,
+            "artist_changed": self._dummy
+        }
         
         if MUSIC_CHECK_SYNC:
             unsync = self.list_db_unsynced()
@@ -80,7 +90,22 @@ class MusicLibrary:
             for f in unsync["empty_dirs"]:
                 fp.write("   %s\n" % f.encode("utf-8"))
             fp.close()
+            
+    def set_callbacks(self, cb):
+        """Set music library event callbacks.
         
+        'cb' is a mapping of names to callback functions.
+        Implemented callback names are:
+        - track_changed: called when a track is added, changed or deleted
+        - album_changed: called when an album is added, changed or deleted
+        - artist_changed: called when an artist is added, changed or deleted
+        
+        All callbacks receive the item id and its relative path as arguments.
+        """
+        
+        for k in cb:
+            self.cb[k] = cb[k]
+            
     def fetch_missing_covers(self):
         db = self.nestor.get_media_db()
         aids = [r[0] for r in db.execute("SELECT id FROM music_albums").fetchall()]
@@ -536,31 +561,20 @@ class MusicLibrary:
         return track_id
         
     def update_metadata(self, meta, id, type):
-        artists = []
-        albums = []
-        tracks = []
-    
         if type == MusicTypes.ARTIST:
             self.debug("update_metadata on artist %d" % id)
-            artists = [id]
-            albums, tracks = self.update_artist(meta, id)
+            self.update_artist(meta, id)
         elif type == MusicTypes.ALBUM:
             self.debug("update_metadata on album %d" % id)
-            albums = [id]
-            tracks = self.update_album(meta, id)
+            self.update_album(meta, id)
         elif type == MusicTypes.TRACK:
             self.debug("update_metadata on track %d" % id)
-            tracks = [id]
             self.update_track(meta, id)
             
-        self.cleanup_database()        
-        return artists, albums, tracks
+        self.cleanup_database()
         
     def update_artist(self, meta, artist_id):
-        """Change artist metadata.
-        
-        Returns a list of changed albumids and a list of changed trackids.
-        """
+        """Change artist metadata."""
         
         self.debug("update_artist %d" % artist_id)
         oldmeta = self.get_artist_metadata(artist_id)
@@ -572,7 +586,7 @@ class MusicLibrary:
                 break
         if not changed:
             self.debug("update_artist: nothing changed, returning")
-            return [], []
+            return
             
         self.debug("update_artist: dry updating albums")
                 
@@ -584,19 +598,14 @@ class MusicLibrary:
                 albmeta[album_id][k] = meta[k]
             self.update_album(albmeta[album_id], album_id, True)
             
-        trkids = []
         self.debug("update_artist: updating albums")
         for album_id in albmeta:
-            trkids.extend(self.update_album(albmeta[album_id], album_id))
+            self.update_album(albmeta[album_id], album_id)
             
         self.debug("update_artist: done")
-        return albmeta.keys(), trkids
         
     def update_album(self, meta, album_id, dryrun=False):
-        """Change album metadata.
-        
-        Returns a list of changed trackids.
-        """
+        """Change album metadata."""
         
         self.debug("update_album %d %s" % (album_id, "[DRY]" if dryrun else ""))
         oldmeta = self.get_album_metadata(album_id)
@@ -608,7 +617,7 @@ class MusicLibrary:
                 break
         if not changed:
             self.debug("update_album: nothing changed, returning")
-            return []
+            return
             
         move = False
         for k in ('artist', 'album'):
@@ -626,7 +635,7 @@ class MusicLibrary:
             
         if dryrun:
             self.debug("update_album: dry update done")
-            return []
+            return
             
         self.debug("update_album: updating tracks")
         for track_id in trackmeta:
@@ -642,7 +651,6 @@ class MusicLibrary:
                 shutil.move(oldcover, newcover)
                 
         self.debug("update_album: done")
-        return trackmeta.keys()
         
         
     def update_track(self, meta, track_id, dryrun=False):
@@ -691,6 +699,9 @@ class MusicLibrary:
         newalbum_id = self.get_album_id(meta['artist'], meta['album'])
         album_id = self.write_album_metadata(meta, newalbum_id)
         
+        albpath = self.meta_to_filename(meta, MusicTypes.ALBUM, True)
+        self.cb["album_changed"](album_id, albpath)
+        
         if artchanged or meta['album'] != oldmeta['album']:
             self.debug("update_track: album or artist changed")
             if not newalbum_id:
@@ -704,9 +715,14 @@ class MusicLibrary:
             self.debug("update_track: moving %s" % oldpath)
             self.debug("update_track:     to %s" % newpath)
             shutil.move(oldpath, newpath)
+            oldpath = self.meta_to_filename(oldmeta, MusicTypes.TRACK, True)
+            newpath = self.meta_to_filename(meta, MusicTypes.TRACK, True)
+            self.cb["track_changed"](track_id, oldpath)
+            self.cb["track_changed"](track_id, newpath)
             
         self.debug("update_track: writing file tags")
         self.write_file_tags(meta)
+        
         self.debug("update_track: done")
 
     def import_track(self, path, meta, move=False):
@@ -750,8 +766,15 @@ class MusicLibrary:
             self.search_album_cover(album_id)
             
         track_id = self.write_track_metadata(meta)
-        
         self.write_file_tags(meta)
+        
+        artpath = self.meta_to_filename(meta, MusicTypes.ARTIST, True)
+        albpath = self.meta_to_filename(meta, MusicTypes.ALBUM, True)
+        trkpath = self.meta_to_filename(meta, MusicTypes.TRACK, True)
+        self.cb["artist_changed"](artist_id, artpath)
+        self.cb["album_changed"](album_id, albpath)
+        self.cb["track_changed"](track_id, mlpath)
+        
         return [track_id, mlpath]
         
     def match(self, expr, typ=0, offset=0, limit=-1):

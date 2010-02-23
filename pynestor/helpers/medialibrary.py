@@ -204,6 +204,13 @@ class MLObjectProvider(ObjectProvider):
         ObjectProvider.__init__(self, nestor, 'media', logger)
         self.music = helper['music']
         self.mpd = helper['mpd']
+        self.changed = {
+            "paths": [],
+            "artists": [],
+            "albums": [],
+            "tracks": []
+        }
+        self.changed_lock = threading.Condition(threading.Lock())
         
     def on_query_start(self):
         self.mpd_playlist = self.mpd.playlist()
@@ -262,6 +269,46 @@ class MLObjectProvider(ObjectProvider):
                 if kind == 'mpd-item':
                     oids.append("music-track|%d" % obj["track_id"])
         return oids
+        
+    def on_artist_changed(self, id, path):
+        with self.changed_lock:
+            if path not in self.changed["paths"]:
+                self.changed["paths"].append(path)
+            if id not in self.changed["artists"]:
+                self.changed["artists"].append(id)
+        
+    def on_album_changed(self, id, path):
+        with self.changed_lock:
+            if path not in self.changed["paths"]:
+                self.changed["paths"].append(path)
+            if id not in self.changed["albums"]:
+                self.changed["albums"].append(id)
+        
+    def on_track_changed(self, id, path):
+        with self.changed_lock:
+            if path not in self.changed["paths"]:
+                self.changed["paths"].append(path)
+            if id not in self.changed["tracks"]:
+                self.changed["tracks"].append(id)
+            
+    def commit_changes(self):
+        with self.changed_lock:
+            changed = self.changed.copy()
+            for k in self.changed:
+                self.changed[k] = []
+                
+        for id in changed["artists"]:
+            self.cache.remove("media:music-artist|%d" % id)
+        for id in changed["albums"]:
+            self.cache.remove("media:music-album|%d" % id)
+        for id in changed["tracks"]:
+            self.cache.remove("media:music-track|%d" % id)
+            
+        paths = []
+        for p in changed["paths"]:
+            if '/' not in p or not os.path.dirname(p) in changed["paths"]:
+                self.debug("Commit: updating mpd for '%s'" % p)
+                self.mpd.update(p)
         
 
 class MLObjectProcessor(ObjectProcessor):
@@ -363,24 +410,12 @@ class MLObjectProcessor(ObjectProcessor):
                 type = MusicTypes.TRACK
                 
             try:
-                arids, alids, trids = self.music.update_metadata(meta, id, type)
+                self.music.update_metadata(meta, id, type)
             except MediaUpdateError, e:
                 raise ObjectError("update-error:%s" % e)
                 
-            # Invalidate changed objects
-            self.debug("Invalidate artists %r" % arids)
-            for id in arids:
-                self.objs.cache.remove("media:music-artist|%d" % id)
-                
-            self.debug("Invalidate albums %r" % alids)
-            for id in alids:
-                self.objs.cache.remove("media:music-album|%d" % id)
-                
-            self.debug("Invalidate tracks %r" % trids)
-            for id in trids:
-                self.objs.cache.remove("media:music-track|%d" % id)
-                
-            # FIXME update MPD
+            # Commit changes
+            self.objs.commit_changes()
             
         # MPD Player controls
         elif name == 'mpd-player-play':
@@ -508,12 +543,9 @@ class MPDWrapper:
                 args_str.append(a)
                 
         # The MPD library is not thread-safe, thus we lock here
-        self.cmdlock.acquire()
-        try:    
+        with self.cmdlock:
             self._connect()
             ret = eval("self.client.%s(*args_str)" % cmd)
-        finally:
-            self.cmdlock.release()
         return ret
         
     def __getattr__(self, attr):
@@ -538,6 +570,14 @@ class MediaLibraryHelper:
         
         self.objs = MLObjectProvider(nestor, self, self.logger)
         self.proc = MLObjectProcessor(nestor, self, self.logger)
+        
+        self.music.set_callbacks({
+            "track_changed": self.objs.on_track_changed,
+            "album_changed": self.objs.on_album_changed,
+            "artist_changed": self.objs.on_artist_changed
+        })
+        
+        self.import_thread.set_callback(self.objs.commit_changes)
         
         nestor.register_object_interface(
             name='media',
