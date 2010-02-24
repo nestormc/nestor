@@ -53,7 +53,9 @@ class DictDownload:
         
     def __getitem__(self, key):
         self.am._update()
-        if key in ('name', 'size', 'speed'):
+        if key == 'name':
+            return self.am.downloads[self.hash]['name'].decode("utf-8")
+        elif key in ('size', 'speed'):
             return self.am.downloads[self.hash][key]
         elif key == 'done':
             return self.am.downloads[self.hash]['size_done']
@@ -112,8 +114,10 @@ class DictShared(DictDownload):
         if key == 'done':
             key = 'size'
         
-        if key in ('name', 'size'):
-            return self.am.shared[self.hash][key]
+        if key == 'name':
+            return self.am.shared[self.hash]['name'].decode("utf-8")
+        elif key == 'size':
+            return self.am.shared[self.hash]['size']
         elif key in ('speed', 'seeds'):
             return 0
         elif key == 'status':
@@ -153,8 +157,10 @@ class DictResult:
         
     def __getitem__(self, key):
         self.am._update()
-        if key in ('name', 'size'):
-            return self.am.results[self.hash][key]
+        if key == 'name':
+            return self.am.results[self.hash]['name'].decode("utf-8")
+        elif key == 'size':
+            return self.am.results[self.hash]['size']
         elif key == 'seeds':
             return self.am.results[self.hash]['src_count']
         elif key == 'downloading':
@@ -330,7 +336,7 @@ class AmuleResultObj(ObjectWrapper):
     
         for p in self._props:
             self.props[p] = self.provider.am[self.oid][p]
-        self.props["name"] = self.props["name"].decode("utf-8")
+        self.props["name"] = self.props["name"]
     
     def update(self):
         for p in ('size', 'seeds', 'downloading'):

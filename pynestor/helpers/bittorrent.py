@@ -43,7 +43,7 @@ class DictTorrent:
         
     def __getitem__(self, key):
         if key == 'name':
-            return self.h.name()
+            return self.h.name().decode('utf-8')
         elif key == 'hash':
             return str(self.h.info_hash())
         elif key == 'size':
