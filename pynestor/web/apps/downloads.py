@@ -299,7 +299,9 @@ class DownloadWorkspace(e.AppElement):
             "main_field": "name",
             "field_order": ["0app", "name", "size", "status", "progress",
                 "speed", "seeds", "0act"],
-            
+                
+            "drop_handler": self.dllist_drop_handler,
+                       
             "actions": {
                 "torrent-pause": {
                     "title": "Pause",
@@ -311,7 +313,8 @@ class DownloadWorkspace(e.AppElement):
                 },
                 "torrent-cancel": {
                 	"title": "Cancel",
-                	"handler": self.action_execute
+                	"handler": self.action_execute,
+                	"confirm": "Cancel downloading '{label}' ?"
                 },
                 "torrent-clear": {
                 	"title": "Clear",
@@ -327,7 +330,8 @@ class DownloadWorkspace(e.AppElement):
                 },
                 "partfile-cancel": {
                 	"title": "Cancel",
-                	"handler": self.action_execute
+                	"handler": self.action_execute,
+                	"confirm": "Cancel downloading '{label}' ?"
                 },
                 "partfile-clear": {
                 	"title": "Clear",
@@ -369,9 +373,16 @@ class DownloadWorkspace(e.AppElement):
         self.results = self.create(ol.RefreshObjectList, "results", resultsetup)
         self.sfield = self.create(DownloadSearchField, "search")
         
+    def dllist_drop_handler(self, target, objref):
+        self.start_download(objref)
+        
     def result_dblclick_handler(self, element):
         if isinstance(element, ol.ObjectListItem):
-            self.obj.do_action("amule", "result-download", element.objref)
+            self.start_download(element.objref)
+            
+    def start_download(self, objref):
+        if objref.startswith("amule:result|"):
+            self.obj.do_action("amule", "result-download", objref)
         
     def action_filter(self, action, objref, data):
         amule  = ["partfile-pause", "partfile-resume", "partfile-cancel",
