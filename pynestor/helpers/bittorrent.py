@@ -103,6 +103,7 @@ class BitTorrent:
         self.log = logger
         self.s = None
         self.options = {}
+        self.on_start = None
         
     def is_active(self):
         return self.s
@@ -161,7 +162,8 @@ class BitTorrent:
                 self.log.debug("Moving download to %s" % dest)
                 handle.move_storage(dest.encode('utf-8'))
                 
-            # FIXME fill 'hash' and 'date_started' for object
+            if self.on_start:
+                self.on_start(str(handle.info_hash()))
         
     def add_torrent(self, torrent, destdir):
         if self.is_active():
@@ -169,6 +171,9 @@ class BitTorrent:
             ret = self.s.add_torrent(info, destdir)
             if ret:
                 return str(ret.info_hash())
+                
+            if self.on_start:
+                self.on_start(str(handle.info_hash()))
                 
     def get_magnet_uri(self, handle):
         magnet = "magnet:?xt=urn:btih:%s" % handle.info_hash()
@@ -289,6 +294,7 @@ class BTObjectProvider(ObjectProvider):
     def __init__(self, nestor, bt):
         ObjectProvider.__init__(self, nestor, 'bt')
         self.bt = bt
+        self.bt.on_start = self.on_torrent_start
                 
     def save_on_stop(self, bt):
         for hash in bt.keys():
@@ -315,6 +321,13 @@ class BTObjectProvider(ObjectProvider):
             return BitTorrentObj(self.nestor, self, '')
         else:
             return BTDownloadObj(self.nestor, self, oid)
+            
+    def on_torrent_start(self, hash):
+        if hash not in self.list_objects():
+            self.save_object(hash, {
+                "hash": hash,
+                "date_started": time.time()
+            })
         
                     
 class BTObjectProcessor(ObjectProcessor):
