@@ -308,7 +308,10 @@ class MLObjectProvider(ObjectProvider):
         for p in changed["paths"]:
             if '/' not in p or not os.path.dirname(p) in changed["paths"]:
                 self.debug("Commit: updating mpd for '%s'" % p)
-                self.mpd.update(p)
+                try:
+                    self.mpd.update(p)
+                except:
+                    pass
         
 
 class MLObjectProcessor(ObjectProcessor):
