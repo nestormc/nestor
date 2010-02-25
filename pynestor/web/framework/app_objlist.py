@@ -297,6 +297,11 @@ class ObjectListBody(e.AppElement):
         child.make_draggable(child.objref, child.label)
         if "item_drop_handler" in self.s:
             child.make_drop_target(self.s["item_drop_handler"])
+            if "item_drop_confirm" in self.s:
+                jsmsg = self.output._json_value(self.s["item_drop_confirm"])
+                child.add_jscode(
+                    "$drop_targets[{id}][\"confirm\"]=%s" % jsmsg
+                )
         
         if id == self.selected_id:
             child.set_class("selected")
@@ -546,11 +551,17 @@ class ObjectList(e.AppElement):
       - the item AppElement
       - the dropped object objref
       
+    * "item_drop_confirm": confirmation message ({label} will be replaced by the
+      dropped element label and {tlabel} by the target item label)
+      
     * "drop_handler": callback
       Same as "item_drop_handler", except it is called when an object is dropped
       on the list itself and only 2 args are passed:
       - the ObjectList element
       - the dropped object objref
+      
+    * "drop_confirm": confirmation message ({label} will be replaced by the
+      dropped element label)
       
     * "actions": {
           "action-name": {
@@ -619,6 +630,11 @@ class ObjectList(e.AppElement):
         
         if "drop_handler" in self.s:
             self.scroll.make_drop_target(self.list_drop_handler)
+            if "drop_confirm" in self.s:
+                jsmsg = self.output._json_value(self.s["drop_confirm"])
+                self.scroll.add_jscode(
+                    "$drop_targets[{id}][\"confirm\"]=%s" % jsmsg
+                )
             
         # Only enable autoscroll if items are drop targets
         if "item_drop_handler" in self.s:

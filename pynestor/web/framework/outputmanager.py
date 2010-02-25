@@ -358,7 +358,6 @@ class WebOutputManager:
         
         css = {}
         js = []
-        drop_tgt = {}
         
         if DEBUG:
             js.append("$debug_enable();")
@@ -476,7 +475,7 @@ class WebOutputManager:
                     
                 elif opcode == 'drop_target':
                     handlerid = self.handler_id(params[1])
-                    drop_tgt[id] = {'handler': handlerid}
+                    js.append('$drop_targets["%s"] = {handler: %d};' % (id, handlerid))
         except KeyError, e:
             self.ops = []
             self.debug_msgs = []
@@ -490,10 +489,6 @@ class WebOutputManager:
                 js.append('$debug(%s);' % self._json_value(d))
                 
         # JS block
-        js.extend([
-            '$drop_targets = %s;' % self._json_value(drop_tgt)
-        ]);
-        
         js_out = ''
         for src in self.scripts:
             js_out += '<script type="text/javascript" src="%s"></script>\n' % src

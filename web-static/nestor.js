@@ -318,12 +318,20 @@ function $method(handlerid, arg)
 }
 
 /* Element drop handler */
-function $drop(handlerid, where, target, objref)
+function $drop(where, target, obj)
 {
-    var url = "/ui/drop/" + handlerid +
+    var targetinfo = $drop_targets[target.id];
+    if (targetinfo["confirm"])
+    {
+        var msg = targetinfo["confirm"].replace(/\{label}/g, $element_labels[obj.id]);
+        msg = msg.replace(/\{tlabel}/g, $element_labels[target.id]);
+        if (!window.confirm(msg)) return;
+    }
+    
+    var url = "/ui/drop/" + targetinfo["handler"] +
         "/" + where +
-        "/" + encodeURIComponent(target) + 
-        "/" + encodeURIComponent(objref);
+        "/" + encodeURIComponent(target.id) + 
+        "/" + encodeURIComponent($element_objrefs[obj.id]);
     $queue.get(url, $op);
 }
 
@@ -933,10 +941,8 @@ var $drag = {
                 if ($drag.hoverObj)
                 {
                     var target = $drag.hoverObj;
-                    var targetinfo = $drop_targets[target.id];
-                    var objref = $element_objrefs[$drag.obj.id];
                     var where = $hasC(target, "drag_above") ? "above" : "below";
-                    $drop(targetinfo["handler"], where, target.id, objref)
+                    $drop(where, target, $drag.obj)
                     
                     $remC(target, "drag_hover");
                     $remC(target, "drag_above");
