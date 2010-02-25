@@ -613,6 +613,9 @@ class ObjectList(e.AppElement):
         
         if "drop_handler" in self.s:
             self.scroll.make_drop_target(self.list_drop_handler)
+            
+        if "drop_handler" in self.s or "item_drop_handler" in self.s:
+            self.scroll.add_jscode("$drop_lists.push({id})")
         
         self.lst.set_css({"width": "100%"})
         

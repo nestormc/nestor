@@ -564,6 +564,12 @@ function $scroll_get_maxY(bar)
     }
 }
 
+function $scroll_inc(sce_id, increment)
+{
+    var wrap = $(sce_id + "_W");
+    if (wrap) wrap.scrollTop += increment;
+}
+
 window.onresize = $scroll_refresh_all;
 
 var $popup_menus = {};
@@ -622,20 +628,30 @@ var $element_objrefs = {};
  *     Code adapted from Aaron Boodman's public domain library      *
  ********************************************************************/
 var $drop_targets = {};
+var $drop_lists = [];
 
 var $drag = {
 
-    mode : null,        // Drag mode : 'object' for element dragging, 'bar' for progress bars
-    obj : null,         // Drag origin element
-    label : null,       // Drag label element
-    labelX : null,      // Drag label X position
-    labelY : null,      // Drag label Y position
-    offX : 16,          // Drag label X offset from mouse position
-    offY : 0,           // Drag label Y offset from mouse position
-    minDist : 10,       // Minimum distance to initiate drag
-    hoverObj : null,    // Currently hovered drop target
-    popdelay : 200,     // Milliseconds before showing popup
-    poptimeout : null,  // Popup show timeout handler
+    mode : null,                // Drag mode : 'object' for element dragging, 'bar' for progress bars
+    obj : null,                 // Drag origin element
+    
+    label : null,               // Drag label element
+    labelX : null,              // Drag label X position
+    labelY : null,              // Drag label Y position
+    offX : 16,                  // Drag label X offset from mouse position
+    offY : 0,                   // Drag label Y offset from mouse position
+    
+    minDist : 10,               // Minimum distance to initiate drag
+    hoverObj : null,            // Currently hovered drop target
+    
+    autoscroll_inc : 20,        // Autoscroll increment (pixels)
+    autoscroll_interval : 100,  // Autoscroll interval (milliseconds)
+    autoscroll_list : null,     // Currently autoscrolling list element
+    autoscroll_dir : null,      // Current autoscroll direction (1: down, -1: up)
+    autoscroll_timeout : null,  // Autoscroll timeout handler
+    
+    popdelay : 200,             // Milliseconds before showing popup
+    poptimeout : null,          // Popup show timeout handler
 
     /* Fix event parameter and its properties */
     fixE : function(e)
@@ -683,6 +699,49 @@ var $drag = {
         while (candidate && candidate.id);
         
         return null;
+    },
+    
+    /* Find drop target objectlist at point (x, y) */
+    find_list_target : function(x, y)
+    {
+        var candidate = document.elementFromPoint(x, y);
+        if (!candidate) return null;
+        
+        do
+        {
+            if ($drop_lists.indexOf(candidate.id) != -1) return candidate;
+            candidate = candidate.parentNode;
+        }
+        while (candidate && candidate.id);
+        
+        return null;
+    },
+    
+    autoscroll_start : function(list_target, direction)
+    {
+        if (!$drag.autoscroll_timeout)
+        {
+            $drag.autoscroll_list = list_target;
+            $drag.autoscroll_dir = direction;
+            $drag.autoscroll_timeout = window.setTimeout($drag.autoscroll, $drag.autoscroll_interval);
+        }
+    },
+    
+    autoscroll_stop : function()
+    {
+        if ($drag.autoscroll_timeout)
+        {
+            $drag.autoscroll_list = null;
+            $drag.autoscroll_dir = null;
+            window.clearTimeout($drag.autoscroll_timeout);
+            $drag.autoscroll_timeout = null;
+        }
+    },
+    
+    autoscroll : function()
+    {
+        $scroll_inc($drag.autoscroll_list.id, $drag.autoscroll_inc * $drag.autoscroll_dir);
+        $drag.autoscroll_timeout = window.setTimeout($drag.autoscroll, $drag.autoscroll_interval);
     },
 
     /* Initialize object dragging for element o */
@@ -814,6 +873,31 @@ var $drag = {
                 }
             }
             $drag.hoverObj = target;
+            
+            var list_target = $drag.find_list_target(dx, dy);
+            if (list_target)
+            {
+                var pos = $abspos(list_target);
+                var height = list_target.offsetHeight;
+                var zonesize = 0.2;
+                
+                if (dy - pos[1] < zonesize * height)
+                {
+                    $drag.autoscroll_start(list_target, -1);
+                }            
+                else if (dy - pos[1] > (1 - zonesize) * height)
+                {
+                    $drag.autoscroll_start(list_target, 1);
+                }
+                else
+                {
+                    $drag.autoscroll_stop();
+                }
+            }
+            else
+            {
+                $drag.autoscroll_stop();
+            }
         }
         
         if ($drag.mode == 'bar')
@@ -832,6 +916,7 @@ var $drag = {
         
         if ($drag.mode == 'object')
         {
+            $drag.autoscroll_stop();
             $drag.cancelpopup();
             if ($drag.label != null)
             {
