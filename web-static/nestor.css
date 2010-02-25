@@ -1,3 +1,53 @@
+/*
+This file is part of nestor.
+
+nestor is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+nestor is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with nestor.  If not, see <http://www.gnu.org/licenses/>.
+*/
+
+/********************************************************************/
+/*                               Fonts                              */
+/********************************************************************/
+
+@font-face {
+    font-family: NestorFont;
+    src: url(/web/fonts/AurulentSans-Regular.otf);
+}
+
+@font-face {
+    font-family: NestorFont;
+    src: url(/web/fonts/AurulentSans-Bold.otf);
+    font-weight: bold;
+}
+
+@font-face {
+    font-family: NestorFont;
+    src: url(/web/fonts/AurulentSans-Italic.otf);
+    font-style: italic;
+}
+
+@font-face {
+    font-family: NestorFont;
+    src: url(/web/fonts/AurulentSans-BoldItalic.otf);
+    font-weight: bold;
+    font-style: italic;
+}
+
+@font-face {
+    font-family: NestorTitleFont;
+    src: url(/web/fonts/Basic5.ttf);
+}
+
 /********************************************************************/
 /*                          General layout                          */
 /********************************************************************/
@@ -10,15 +60,18 @@
     YELLOW          FFD200
 */
 
-body, html {    
-    font-family: sans-serif;
-    font-size: 9pt;
+body, html {
     width: 100%;
     height: 100%;
     margin: 0;
     
     overflow: hidden;
     background-color: #353535;
+}
+
+body, html, input {
+    font-family: NestorFont;
+    font-size: 9pt;
 }
 
 #NESTOR_ROOT {
@@ -97,8 +150,7 @@ body, html {
 }
 
 .app_summary_title {
-    font-weight: bold;
-    text-transform: uppercase;
+    font-family: NestorTitleFont;
 }
 
 .app_summary {
@@ -206,9 +258,9 @@ body, html {
 }
 
 .list_title {
+    font-family: NestorTitleFont;
     margin: 0 1em 0 1em;
     border-bottom: 1px solid;
-    text-transform: uppercase;
 }
 
 .list_title img {
@@ -269,6 +321,7 @@ div.nestor_fatal_error {
 }
 
 .drag_label {
+    font-family: NestorFont;
     background-color: black;
     color: #FFD200;
 }
@@ -286,164 +339,3 @@ input.blurred {
     color: #9C9C9C;
 }
 
-/********************************************************************/
-/*                      Application-specific                        */
-/********************************************************************/
-
-#music_playlistcol_playlist_BDY.drag_hover > div#music_playlistcol_playlist_BDY_END {
-    border-top: 1px solid black;
-}
-
-#music_summary_art {
-    font-size: 0.8em;
-}
-
-.music_inputlabel {
-    display: block;
-    width: 25%;
-    float: left;
-}
-
-.music_input {
-    width: 75%;
-}
-
-.music_editbtn {
-}
-
-.music_editing {
-    text-align: right;
-}
-
-.playlist_item.drag_hover {
-    border-top: 1px solid black;
-}
-
-.playlist_item span {
-    background-color: white;
-}
-
-.playlist_item.playing span {
-    background-color: #FFD200;
-    font-size: 1.75em;
-}
-
-.playlist_item .artist {
-    font-weight: bold;
-}
-
-.playlist_item.playing .separator {
-    visibility: hidden;
-    white-space: pre;
-}
-
-.download_item {
-    position: relative;
-    height: 3em;
-    
-    border-bottom: 1px solid black;
-}
-
-.download_bar {
-    background-color: #FFD200;
-    position: absolute;
-    top: 0;
-    left: 0;
-    bottom: 0;
-}
-
-.download_item.finished .download_bar {
-    background-color: black;
-}
-
-.download_item.finished {
-    color: white;
-    border-bottom: 1px solid white;
-}
-
-.download_item.finished .done {
-    border-bottom: 1px solid white;
-}
-
-.download_item.paused .download_bar, .download_item.stopped .download_bar  {
-    background-color: #E5E5E5;
-}
-
-.download_item.paused, .download_item.stopped {
-    color: #9C9C9C;
-}
-
-.download_item.paused .done, .download_item.stopped .done {
-    border-bottom: 1px solid #9C9C9C;
-}
-
-.download_item.paused .speed, .download_item.paused .seeds,
-.download_item.stopped .speed, .download_item.stopped .seeds,
-.download_item.finished .speed, .download_item.finished .seeds {
-    visibility: hidden;
-}
-
-.download_ctn {
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-}
-
-.download_ctn div {
-    text-overflow: ellipsis;
-}
-
-.download_ctn>div {
-    line-height: 3em;
-}
-
-.download_ctn>div>div {
-    line-height: 1.5em;
-}
-
-.download_item .size, .download_item .done, .download_item .speed, .download_item .percent {
-    text-align: right;
-}
-
-.download_item .done {
-    border-bottom: 1px solid black;
-}
-
-.download_item .seeds, .download_item .app {
-    text-align: center;
-}
-
-.download_item .percent_value {
-    font-size: 2em;
-    line-height: 1.5em;
-    font-weight: bold;
-}
-
-.places_item {
-    position: relative;
-    height: 1.2em;
-    border-bottom: 1px solid black;
-    color: #9C9C9C;
-}
-
-.places_item.mounted {
-    color: black;
-}
-
-.places_bar {
-    background-color: #FFD200;
-    position: absolute;
-    top: 0;
-    left: 0;
-    bottom: 0;
-}
-
-.places_ctn {
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-}

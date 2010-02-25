@@ -349,7 +349,7 @@ class RequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
             elif parm[0] == 'handler':
                 out = self.om.call_handler(*parm[1:3])
             elif parm[0] == 'drop':
-                out = self.om.call_drop_handler(*parm[1:4])
+                out = self.om.call_drop_handler(*parm[1:5])
         self.wfile.write(out.encode("utf-8"))
         
             

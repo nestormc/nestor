@@ -15,8 +15,15 @@ You should have received a copy of the GNU General Public License
 along with nestor.  If not, see <http://www.gnu.org/licenses/>.
 */
 
+/* Handler IDs for player seek/volume change */
 var music_playerseek_hid = undefined;
 var music_setvolume_hid = undefined;
+
+/* Handler IDs for music library item edition */
+var music_edit_hids = {};
+
+/* Field IDs for music library item edition */
+var music_edit_fields = {};
 
 function music_playerseek(e)
 {
@@ -33,3 +40,31 @@ function music_setvolume(e)
     $method(music_setvolume_hid, percent);
     e.stopPropagation();
 }
+
+function music_editclick(e)
+{
+    e.stopPropagation();
+}
+
+function music_editnum(e)
+{
+    if ("0123456789".indexOf(String.fromCharCode(e.keyCode)) == -1) return false;
+}
+
+function music_editapply(e)
+{
+    e.stopPropagation();
+    var itemid = this.id.replace(/_IA$/, "");
+    var hid = music_edit_hids[itemid];
+    var fields = music_edit_fields[itemid];
+    var values = [];
+    
+    for (var i=0; i<fields.length; i++)
+    {
+        var esc_value = $(itemid + "_I" + fields[i] + "_I").value.replace(/ /g, "\\ ");
+        values.push(esc_value);
+    }
+    
+    $method(hid, values.join(" "));
+}
+

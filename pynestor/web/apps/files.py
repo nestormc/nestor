@@ -120,6 +120,7 @@ class WebFilesApp(WebApp):
         
     def renew(self, om):
         WebApp.renew(self, om)
+        self.om.add_css("web/apps/files.css")
         
     def get_summary_element(self):
         return self.create(FilesSummary, 'summary')

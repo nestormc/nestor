@@ -15,7 +15,9 @@
 
 import math
 import os.path
+import re
 
+from pynestor.objects import ObjectError
 from pynestor.web.framework.app import WebApp
 import pynestor.web.framework.app_element as e
 import pynestor.web.framework.app_objlist as ol
@@ -351,7 +353,7 @@ class MusicPlaylistColumn(e.AppElement):
             "main_field": "title",
             "field_order": ["artist", "title", "mpd-playing"],
             
-            "item_drop_handler": self.playlist_drop_handler,
+            "item_drop_handler": self.playlist_item_drop_handler,
             "drop_handler": self.playlist_drop_handler,
             "item_events": {"ondblclick": self.playlist_dblclick_handler},
             
@@ -401,24 +403,40 @@ class MusicPlaylistColumn(e.AppElement):
             self.obj.do_action("media", "mpd-item-play", element.objref)
             self.playlist.reload()
             
-    def playlist_drop_handler(self, tgt, objref):    
+    def playlist_item_drop_handler(self, where, tgt, objref):
         pl_changed = False
         tgt_pos = -1
         obj = self.obj.get_object(objref)
         props = obj.getprops()
         objpos = props.get("mpd-position", -1)
         
-        if isinstance(tgt, ol.ObjectListItem):
-            tgt_pos = tgt.data["mpd-position"]
-            if objref.startswith("media:mpd-item|") and tgt_pos > objpos:
-                tgt_pos -= 1
+        tgt_pos = tgt.data["mpd-position"]
+        if where == 'below':
+            tgt_pos += 1
+            
+        if objref.startswith("media:mpd-item|") and tgt_pos > objpos:
+            tgt_pos -= 1
+
+        self._playlist_change(obj, tgt_pos)
+            
+    def playlist_drop_handler(self, tgt, objref):
+        pl_changed = False
+        tgt_pos = -1
+        obj = self.obj.get_object(objref)
+        
+        if objref.startswith("media:mpd-item|"):
+            tgt_pos = tgt.count - 1
         else:
-            if objref.startswith("media:mpd-item|"):
-                tgt_pos = tgt.count - 1
-            else:
-                tgt_pos = tgt.count
+            tgt_pos = tgt.count
+            
+        self._playlist_change(obj, tgt_pos)
+            
+    def _playlist_change(self, obj, tgt_pos):
+        pl_changed = False
+        objref = obj.objref
+        props = obj.props
                 
-        if obj and tgt_pos != -1:
+        if tgt_pos != -1:
             params = {"position": tgt_pos}
             if objref.startswith("media:mpd-item|"):
                 if props["mpd-position"] != tgt_pos:
@@ -430,7 +448,241 @@ class MusicPlaylistColumn(e.AppElement):
                 
         if pl_changed:
             self.playlist.reload()
-      
+    
+        
+        
+class MusicLibInput(e.DivElement):
+    
+    def __init__(self, app, om, id, label, value):
+        e.DivElement.__init__(self, app, om, id)
+        self.label = label
+        self.value = value
+        
+    def init(self):
+        self.lbl = self.create(e.SpanElement, "%s_L" % self.id)
+        self.inp = self.create(e.InputElement, "%s_I" % self.id, "text")
+        
+    def render(self):
+        self.add_child(self.lbl)
+        self.lbl.set_content("%s :" % self.label)
+        self.lbl.set_class("music_inputlabel")
+        self.add_child(self.inp)
+        self.inp.set_value(self.value)
+        self.inp.set_class("music_input")
+        
+        
+class MusicLibObjectListItem(ol.CellsObjectListItem):
+
+    def init(self):
+        ol.CellsObjectListItem.init(self)
+        if self.objref.startswith("media:music-artist|"):
+            self.inputs = {
+                "artist": self.create(
+                    MusicLibInput,
+                    "%s_Iar" % self.id,
+                    "Artist",
+                    self.data["artist"]
+                )
+            }
+            self.iorder = ["artist"]
+            self.inum = []
+            self.fids = ['ar']
+        elif self.objref.startswith("media:music-album|"):
+            year = self.data["year"]
+            if year == -1:
+                year = ''
+            self.inputs = { 
+                "artist": self.create(
+                    MusicLibInput,
+                    "%s_Iar" % self.id,
+                    "Artist",
+                    self.data["artist"]
+                ),
+                "album": self.create(
+                    MusicLibInput,
+                    "%s_Ial" % self.id,
+                    "Album",
+                    self.data["album"]
+                ),
+                "year": self.create(
+                    MusicLibInput,
+                    "%s_Iyr" % self.id,
+                    "Year",
+                    year
+                ),
+                "genre": self.create(
+                    MusicLibInput,
+                    "%s_Ign" % self.id,
+                    "Genre",
+                    self.data["genre"]
+                ),
+            }
+            self.iorder = ["artist", "album", "year", "genre"]
+            self.inum = ["year"]
+            self.fids = ['ar', 'al', 'yr', 'gn']
+        elif self.objref.startswith("media:music-track|"):
+            num = self.data["num"]
+            if num == -1:
+                num = ''
+            self.inputs = {
+                "album": self.create(
+                    MusicLibInput,
+                    "%s_Ial" % self.id,
+                    "Album",
+                    self.data["album"]
+                ),
+                "num": self.create(
+                    MusicLibInput,
+                    "%s_Itn" % self.id,
+                    "Track no.",
+                    num
+                ),
+                "title": self.create(
+                    MusicLibInput,
+                    "%s_Itt" % self.id,
+                    "Title",
+                    self.data["title"]
+                )
+            }
+            self.iorder = ["album", "num", "title"]
+            self.inum = ["num"]
+            self.fids = ['al', 'tn', 'tt']
+            
+        self.cancel = self.create(e.InputElement, "%s_IC" % self.id, "button")
+        self.apply = self.create(e.InputElement, "%s_IA" % self.id, "button")
+        
+    def _inhibit_events(self, element, click=True):
+        if click:
+            element.set_jshandler("onclick", "music_editclick")
+        element.set_jshandler("ondblclick", "music_editclick")
+        element.set_jshandler("onmousedown", "music_editclick")
+            
+    def render(self):
+        ol.CellsObjectListItem.render(self)
+        
+        for inp in self.iorder:
+            self.add_child(self.inputs[inp])
+            self.inputs[inp].set_css({"display": "none"})
+            self._inhibit_events(self.inputs[inp])
+            
+        for inp in self.inum:
+            self.inputs[inp].set_jshandler("onkeypress", "music_editnum")
+            
+        self.add_child(self.apply)
+        self.apply.set_value("Apply")
+        self.apply.set_class("music_editbtn")
+        self.apply.set_css({"display": "none"})
+        self._inhibit_events(self.apply, False)
+        
+        apply_hid = self.output.handler_id(self.apply_edit)
+        self.add_jscode("music_edit_hids[{id}]=%d" % apply_hid)
+        js_fids = self.output._json_value(self.fids)
+        self.add_jscode("music_edit_fields[{id}]=%s" % js_fids)
+        self.apply.set_jshandler("onclick", "music_editapply")
+        
+        self.add_child(self.cancel)
+        self.cancel.set_value("Cancel")
+        self.cancel.set_class("music_editbtn")
+        self.cancel.set_css({"display": "none"})
+        self._inhibit_events(self.cancel, False)
+        self.cancel.set_handler("onclick", self.cancel_edit, "")
+        
+    
+    def update_data(self, updated):
+        ol.CellsObjectListItem.update_data(self, updated)
+        
+        if self.objref.startswith("media:music-artist|"):
+            if "artist" in updated:
+                self.inputs["artist"].set_value(self.data["artist"])
+                
+        elif self.objref.startswith("media:music-album|"):
+            if "artist" in updated:
+                self.inputs["artist"].set_value(self.data["artist"])
+            if "album" in updated:
+                self.inputs["album"].set_value(self.data["album"])
+            if "year" in updated:
+                year = self.data["year"]
+                if year == -1:
+                    year = ''
+                self.inputs["year"].set_value(year)
+            if "genre" in updated:
+                self.inputs["genre"].set_value(self.data["genre"])
+                
+        elif self.objref.startswith("media:music-track|"):
+            if "album" in updated:
+                self.inputs["album"].set_value(self.data["album"])
+            if "num" in updated:
+                num = self.data["num"]
+                if num == -1:
+                    num = ''
+                self.inputs["num"].set_value(num)
+            if "title" in updated:
+                self.inputs["title"].set_value(self.data["title"])
+    
+    def edit(self):
+        # FIXME move this handler to parent element (to lower handler count)
+        self.set_class("music_editing")
+        for c in self.cells:
+            self.cells[c]['element'].set_css({"display": "none"})
+        self.expander.set_css({"display": "none"})
+        for inp in self.inputs:
+            self.inputs[inp].set_css({"display": "block"})
+        self.apply.set_css({"display": "inline"})
+        self.cancel.set_css({"display": "inline"})
+            
+    def cancel_edit(self, arg):
+        # FIXME move this handler to parent element (to lower handler count)
+        self.unset_class("music_editing")
+        for inp in self.inputs:
+            self.inputs[inp].set_css({"display": "none"})
+        self.apply.set_css({"display": "none"})
+        self.cancel.set_css({"display": "none"})
+        for c in self.cells:
+            self.cells[c]['element'].set_css({"display": "block"})
+        self.expander.set_css({"display": "inline"})
+        
+    def apply_edit(self, arg):
+        # FIXME move this handler to parent element (to lower handler count)
+        args = re.split("(?<!\\\\) ", arg)
+        args = [a.replace("\\ ", " ") for a in args]
+        
+        fmap = {
+            "ar": "artist",
+            "al": "album",
+            "yr": "year",
+            "gn": "genre",
+            "tn": "num",
+            "tt": "title"
+        }
+        
+        fconv = {
+            "year": lambda x: -1 if x == '' else int(x),
+            "num": lambda x: -1 if x == '' else int(x),
+        }
+        
+        params = {}
+        for i in range(len(self.fids)):
+            field = fmap[self.fids[i]]
+            conv = fconv.get(field, lambda x:x)
+            params[field] = conv(args[i])
+            
+        if self.objref.startswith("media:music-artist|"):
+            action = "edit-artist"
+        elif self.objref.startswith("media:music-album|"):
+            action = "edit-album"
+        elif self.objref.startswith("media:music-track|"):
+            action = "edit-track"
+        else:
+            return
+        
+        try:
+            self.obj.do_action("media", action, self.objref, params)
+        except ObjectError:
+            # FIXME show error message
+            pass
+        else:
+            self.cancel_edit('')
+        
 
 class MusicAlbumTracksColumn(e.AppElement):
 
@@ -446,8 +698,9 @@ class MusicAlbumTracksColumn(e.AppElement):
             "title": "Tracks",
             "apps": ["media"],
             "otype": ["music-track"],
-            #"limit": 50,
-            "delay_fetch": True,
+            "limit": 30,
+            
+            "custom_item": MusicLibObjectListItem,
             
             "fields": {
                 "num": {
@@ -467,6 +720,14 @@ class MusicAlbumTracksColumn(e.AppElement):
             "field_order": ["num", "title", "len"],
             
             "item_events": {"ondblclick": self.musicws.medialib_dblclick_handler},
+            
+            "actions": {
+                "edit": {
+                    "title": "Edit",
+                    "handler": self.musicws.medialib_edit_handler
+                }
+            },
+            
             "filter": ["artist", "album"]
         }
         self.tracks = self.create(
@@ -479,8 +740,9 @@ class MusicAlbumTracksColumn(e.AppElement):
             "title": "Albums",
             "apps": ["media"],
             "otype": ["music-album"],
-            #"limit": 50,
-            "delay_fetch": True,
+            "limit": 30,
+                        
+            "custom_item": MusicLibObjectListItem,
             
             "fields": {
                 "year": {
@@ -494,6 +756,13 @@ class MusicAlbumTracksColumn(e.AppElement):
             "field_order": ["year", "album"],
             
             "item_events": {"ondblclick": self.musicws.medialib_dblclick_handler},
+            
+            "actions": {
+                "edit": {
+                    "title": "Edit",
+                    "handler": self.musicws.medialib_edit_handler
+                }
+            },
             
             "filter": ["artist"],
             "link": self.tracks,
@@ -531,12 +800,21 @@ class MusicWorkspace(e.AppElement):
             "limit": 50,
             "delay_fetch": True,
             
+            "custom_item": MusicLibObjectListItem,
+            
             "fields": {"artist": {"weight": 1}},
             "unique_field": "artist_id",
             "main_field": "artist",
             "field_order": ["artist"],
             
             "item_events": {"ondblclick": self.medialib_dblclick_handler},
+            
+            "actions": {
+                "edit": {
+                    "title": "Edit",
+                    "handler": self.medialib_edit_handler
+                }
+            },
             
             "link": self.albtrk.albums,
             "link_fields": ["artist"]
@@ -565,6 +843,22 @@ class MusicWorkspace(e.AppElement):
             self.obj.do_action("media", "mpd-play", element.objref)
             self.playlist.playlist.reload()
             
+    def medialib_edit_handler(self, action, objref):
+        if action != 'edit':
+            return
+        if objref.startswith("media:music-artist|"):
+            aid = objref[len("media:music-artist|"):]
+            item = self.artists.lst.children[aid]
+            item.edit()
+        if objref.startswith("media:music-album|"):
+            aid = objref[len("media:music-album|"):]
+            item = self.albtrk.albums.lst.children[aid]
+            item.edit()
+        if objref.startswith("media:music-track|"):
+            aid = objref[len("media:music-track|"):]
+            item = self.albtrk.tracks.lst.children[aid]
+            item.edit()
+            
                 
 class WebMusicApp(WebApp):
     
@@ -575,6 +869,7 @@ class WebMusicApp(WebApp):
     def renew(self, om):
         WebApp.renew(self, om)
         self.om.add_js("web/apps/music.js")
+        self.om.add_css("web/apps/music.css")
         
     def get_summary_element(self):
         return self.create(MusicSummary, 'summary', self)

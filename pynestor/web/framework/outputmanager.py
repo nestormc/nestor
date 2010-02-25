@@ -311,18 +311,18 @@ class WebOutputManager:
                     
         return self.render_json_opcodes()
         
-    def call_drop_handler(self, handlerid, tid, objref):
+    def call_drop_handler(self, handlerid, where, tid, objref):
         try:
             handler = self.handlers[int(handlerid)]
         except IndexError:
             self.debug_msgs.append("no handler %s" % handlerid)
         else:   
             if DEBUG:
-                self.debug_msgs.append("*** DROP %s on %s, calling %s ***" % (
-                    objref, tid, self._dbg_func(handler)))
+                self.debug_msgs.append("*** DROP %s %s %s, calling %s ***" % (
+                    objref, where, tid, self._dbg_func(handler)))
                     
             target = self.elements[tid]
-            handler(target, objref)
+            handler(where, target, objref)
                 
         return self.render_json_opcodes()
         

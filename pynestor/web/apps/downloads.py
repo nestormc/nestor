@@ -429,6 +429,7 @@ class WebDownloadsApp(WebApp):
     def renew(self, om):
         WebApp.renew(self, om)
         self.om.add_js("web/apps/download.js")
+        self.om.add_css("web/apps/download.css")
         
     def get_summary_element(self):
         return self.create(DownloadSummary, 'summary')

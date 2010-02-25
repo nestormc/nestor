@@ -90,6 +90,22 @@ function $swap(a, b)
     }
 }
 
+/* Get element absolute position */
+function $abspos(o)
+{
+    var top = 0;
+    var left = 0;
+    
+    while (o && o.offsetParent)
+    {
+        top += o.offsetTop - o.scrollTop;
+        left += o.offsetLeft - o.scrollLeft;
+        o = o.offsetParent;
+    }
+    
+    return [left, top]
+}
+
 /* Set a stylesheet rule
     Updates rule if existing, creates a new rule otherwise.
  */
@@ -302,9 +318,10 @@ function $method(handlerid, arg)
 }
 
 /* Element drop handler */
-function $drop(handlerid, target, objref)
+function $drop(handlerid, where, target, objref)
 {
     var url = "/ui/drop/" + handlerid +
+        "/" + where +
         "/" + encodeURIComponent(target) + 
         "/" + encodeURIComponent(objref);
     $queue.get(url, $op);
@@ -772,8 +789,30 @@ var $drag = {
             var dy = ny - $drag.offY;
         
             var target = $drag.find_target(dx, dy);
-            if ($drag.hoverObj && target != $drag.hoverObj) $remC($drag.hoverObj, "drag_hover");
-            if (target) $addC(target, "drag_hover");
+            if ($drag.hoverObj && target != $drag.hoverObj)
+            {
+                $remC($drag.hoverObj, "drag_hover");
+                $remC($drag.hoverObj, "drag_above");
+                $remC($drag.hoverObj, "drag_below");
+            }
+            if (target) 
+            {
+                var pos = $abspos(target);
+                var oh = target.offsetHeight;
+                
+                $addC(target, "drag_hover");
+                
+                if (dy > (pos[1] + 0.5*oh))
+                {
+                    $remC(target, "drag_above");
+                    $addC(target, "drag_below");
+                }
+                else
+                {
+                    $addC(target, "drag_above");
+                    $remC(target, "drag_below");
+                }
+            }
             $drag.hoverObj = target;
         }
         
@@ -799,23 +838,22 @@ var $drag = {
                 var x = parseInt($drag.label.style.left) - $drag.offX;
                 var y = parseInt($drag.label.style.top) - $drag.offY;
                 
-                var target = $drag.find_target(x, y);
-                if (target)
+                if ($drag.hoverObj)
                 {
+                    var target = $drag.hoverObj;
                     var targetinfo = $drop_targets[target.id];
                     var objref = $element_objrefs[$drag.obj.id];
+                    var where = $hasC(target, "drag_above") ? "above" : "below";
+                    $drop(targetinfo["handler"], where, target.id, objref)
                     
-                    $drop(targetinfo["handler"], target.id, objref)
+                    $remC(target, "drag_hover");
+                    $remC(target, "drag_above");
+                    $remC(target, "drag_below");
+                    $drag.hoverObj = null;
                 }
 
                 document.documentElement.removeChild($drag.label);
                 $drag.label = null;
-                
-                if ($drag.hoverObj)
-                {
-                    $remC($drag.hoverObj, "drag_hover");
-                    $drag.hoverObj = null;
-                }
             }
         }
         

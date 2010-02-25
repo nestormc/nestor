@@ -537,12 +537,16 @@ class ObjectList(e.AppElement):
     * "link-fields": {"fieldname", ...) fields passed to linked ObjectList (2)
     
     * "item_drop_handler": callback
-      Enables dropping objects on list items. The callback will receive the item
-      e.AppElement and the dropped object objref
+      Enables dropping objects on list items. The callback will receive 3 args:
+      - 'above' or 'below' (ie. on which half of the item something was dropped)
+      - the item AppElement
+      - the dropped object objref
       
     * "drop_handler": callback
       Same as "item_drop_handler", except it is called when an object is dropped
-      on the list itself and the ObjectList element is passed as first argument.
+      on the list itself and only 2 args are passed:
+      - the ObjectList element
+      - the dropped object objref
       
     * "actions": {
           "action-name": {
@@ -612,7 +616,7 @@ class ObjectList(e.AppElement):
         
         self.lst.set_css({"width": "100%"})
         
-    def list_drop_handler(self, target, objref):
+    def list_drop_handler(self, where, target, objref):
         dh = self.s["drop_handler"]
         dh(self.lst, objref)
         

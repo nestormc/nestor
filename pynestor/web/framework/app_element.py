@@ -157,9 +157,6 @@ class ScrollContainerElement(AppElement):
         
     def set_content(self, cnt):
         self.cnt.set_content(cnt)
-    
-    def make_drop_target(self, handler):
-        self.wrap.make_drop_target(handler)
         
     def render(self):
         self.set_jshandler("onscroll", "$scroll_cancel")
