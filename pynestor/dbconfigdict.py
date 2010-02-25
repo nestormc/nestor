@@ -25,6 +25,7 @@ NESTOR_CONFIG_DEFAULTS = {
     'web.session_expires':      365 * 24 * 3600,
     'web.output_expires':       3600,
     'web.static_dir':           '/usr/share/nestor/web',
+    'web.enable_debug_url':     0,
     
     'amule.enabled':            0,
     'amule.log_file':           '/var/log/nestor/nestor.log',

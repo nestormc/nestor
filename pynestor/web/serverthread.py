@@ -145,8 +145,8 @@ class RequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
                 self.wfile.write("</pre>")
                 
     def _do_debug(self, parm, head):
-        # FIXME that's completely unsecure, use an option to enable/disable
-        if not parm or parm[0] == '':
+        disabled = not int(self.server.nestor.config["web.enable_debug_url"])
+        if not parm or parm[0] == '' or disabled:
             self._404()
             return
             
