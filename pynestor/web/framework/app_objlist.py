@@ -44,6 +44,10 @@ class ObjectListActionMenu(e.AppElement):
                 "onclick",
                 "function(){$popup_click('%s',%d);return false;}" % (action,hid)
             )
+            if "confirm" in self.s["actions"][action]:
+                msg = self.s["actions"][action]["confirm"]
+                jsmsg = self.output._json_value(msg)
+                self.add_jscode("$popup_confirm[\"%s\"]=%s" % (action, jsmsg))
             
     def click_handler(self, arg):
         action, objref = arg.split(" ", 1)
@@ -553,6 +557,8 @@ class ObjectList(e.AppElement):
               "title": readable action description
               "handler": callback to launch the action, receives (action-name,
                          objref) as parameters
+              "confirm": confirmation message ({label} will be replaced by 
+                         the element label)
               "icon": action icon name
           }
           ...
@@ -614,7 +620,8 @@ class ObjectList(e.AppElement):
         if "drop_handler" in self.s:
             self.scroll.make_drop_target(self.list_drop_handler)
             
-        if "drop_handler" in self.s or "item_drop_handler" in self.s:
+        # Only enable autoscroll if items are drop targets
+        if "item_drop_handler" in self.s:
             self.scroll.add_jscode("$drop_lists.push({id})")
         
         self.lst.set_css({"width": "100%"})

@@ -575,13 +575,14 @@ window.onresize = $scroll_refresh_all;
 var $popup_menus = {};
 var $popup_menuitems = {};
 var $popup_shown = [];
-var $popup_cur_objref = undefined;
+var $popup_confirm = {};
+var $popup_cur_element = undefined;
 
 function $popup_menu(obj)
 {
     var menuid = $popup_menus[obj.id];
     var visible_items = $popup_menuitems[obj.id];
-    $popup_cur_objref = $element_objrefs[obj.id];
+    $popup_cur_element = obj;
     
     if (menuid && visible_items && visible_items.length)
     {
@@ -602,8 +603,14 @@ function $popup_menu(obj)
 
 function $popup_click(action, handlerid)
 {
-    $method(handlerid, action + " " + $popup_cur_objref);
-    $popup_cur_objref = undefined;
+    if ($popup_confirm[action])
+    {
+        var msg = $popup_confirm[action].replace(/\{label}/g, $element_labels[$popup_cur_element.id]);
+        if (!window.confirm(msg)) return;
+    }
+    
+    $method(handlerid, action + " " + $element_objrefs[$popup_cur_element.id]);
+    $popup_cur_element = undefined;
 }
 
 function $popup_hide()
