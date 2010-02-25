@@ -646,6 +646,7 @@ var $drag = {
     
     autoscroll_inc : 20,        // Autoscroll increment (pixels)
     autoscroll_interval : 100,  // Autoscroll interval (milliseconds)
+    autoscroll_zonesize : 0.15, // Autoscroll-detection zones size (ratio of list element height)
     autoscroll_list : null,     // Currently autoscrolling list element
     autoscroll_dir : null,      // Current autoscroll direction (1: down, -1: up)
     autoscroll_timeout : null,  // Autoscroll timeout handler
@@ -879,13 +880,12 @@ var $drag = {
             {
                 var pos = $abspos(list_target);
                 var height = list_target.offsetHeight;
-                var zonesize = 0.2;
                 
-                if (dy - pos[1] < zonesize * height)
+                if (dy - pos[1] < $drag.autoscroll_zonesize * height)
                 {
                     $drag.autoscroll_start(list_target, -1);
                 }            
-                else if (dy - pos[1] > (1 - zonesize) * height)
+                else if (dy - pos[1] > (1 - $drag.autoscroll_zonesize) * height)
                 {
                     $drag.autoscroll_start(list_target, 1);
                 }
