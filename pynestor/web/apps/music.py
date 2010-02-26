@@ -712,7 +712,7 @@ class MusicAlbumTracksColumn(e.AppElement):
                 "title": {"weight": 4},
                 "len": {
                     "weight": 1,
-                    "xform": u.human_seconds,
+                    "xform": lambda x: u.human_seconds(x) + '&nbsp;',
                     "style": {"text-align": "right"}
                 },
             },

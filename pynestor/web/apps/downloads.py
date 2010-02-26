@@ -141,7 +141,7 @@ class DownloadItem(ol.ObjectListItem):
         self.details["percent"].add_child(self.details["pcval"])
         self.details["pcval"].set_class("percent_value")
         self.details["percent"].add_child(self.details["pcsign"])
-        self.details["pcsign"].set_content("%")
+        self.details["pcsign"].set_content("%&nbsp;")
         self.details["pcsign"].set_class("percent_sign")
         
         self.update_progress()
