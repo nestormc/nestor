@@ -26,7 +26,7 @@ TRACE_OPCODE_CALLERS_DEPTH = 0
 
 class WebOutputManager:
     
-    def __init__(self, resphandler):
+    def __init__(self, resphandler, sid):
         self.ops = []
         self.debug_msgs = []
         self.fatal = False
@@ -40,11 +40,13 @@ class WebOutputManager:
         self.add_js("web/nestor.js")
         self.add_css("web/nestor.css")
         
+        self.sid = sid
         self.rh = resphandler
         self.ui = WebUI(self)
         self.ui.init()
         
-    def renew(self, resphandler):
+    def renew(self, resphandler, sid):
+        self.sid = sid
         self.rh = resphandler
         self.ui.renew(self)
         for e in self.elements:

@@ -15,15 +15,17 @@
 
 from ...errors import ImplementationError
 
+
 class UIElement:
     
     tagname = "div"
+    props_done = False
     
     def __init__(self, om, id):
         self.renew(om)
         
         self.id = id
-        self.appid = "NESTOR"        
+        self.appid = "NESTOR"
         
         self.output.register_element(self)
         self.init()
@@ -34,8 +36,8 @@ class UIElement:
         self.ui = om.ui
         self.skin = om.ui.skin
         
-        self.config = self.rh.context('config')
-        self.obj = self.rh.context('obj')
+        self.config = self.rh.server.nestor.config
+        self.obj = self.rh.server.nestor._obj
         
     def set_parent(self, parent):
         self.parent = parent
@@ -191,10 +193,15 @@ class UIElement:
         self.output.debug(self, message)
         
     def save(self, key, value):
-        self.rh.set_client_data("%s/%s/%s" % (self.appid, self.id, key), value)
+        self.rh.set_client_data(
+            self.output.sid,
+            "%s/%s/%s" % (self.appid, self.id, key),
+            value
+        )
         
     def load(self, key, default):
         return self.rh.get_client_data(
+            self.output.sid,
             "%s/%s/%s" % (self.appid, self.id, key),
             default
         )

@@ -28,33 +28,241 @@ from .webui import WebUI
 from ..objects import ObjectError, OExpression
 from ..thread import Thread
 
+def handle_obj(ns, server, rh, parm, head):
+    """Respond to object request
+        
+    Available URLs:
+        obj/<objref>
+            displays object types and properties
+        obj/list/<app>
+            list objects from <app> and display their types/properties
+        obj/notify/<name>[/<objref>[/<details]]
+            publish a notification
+        obj/action/<app>/<action>/<objref>[/<param>=<value>,...]
+            do action on object
+    """
+    
+    if not parm:
+        rh._404()
+        return
+        
+    rh.send_response(200)
+    rh.send_header("Content-Type", "text/html")
+    rh._end_headers()
+    if head: return
+    
+    if parm[0] == 'notify':
+        for p in range(len(parm)):
+            parm[p] = urllib.unquote(parm[p])
+        notif_name = parm[1]
+        notif_obj = '/'.join(parm[2:])
+        ns.notify(notif_name, notif_obj)
+        
+    elif parm[0] == 'action':
+        for p in range(len(parm)):
+            parm[p] = urllib.unquote(parm[p])
+            
+        proc = parm[1]
+        name = parm[2]
+        objref = parm[3]
+            
+        # Get parameters
+        aparams = {}
+        if len(parm) > 4:
+            for p in parm[4].split(","):
+                pname, pval = p.split("=")
+                aparams[pname] = pval
+        
+        # Execute action
+        ns._obj.do_action(proc, name, objref, aparams)
+        
+    elif parm[0] == 'list':
+        owner = parm[1]
+        try:
+            objs = ns._obj.match_objects([owner], OExpression('', None))
+        except ObjectError, e:
+            rh.wfile.write("ObjectError: %s" % e)
+            return
+            
+        rh.wfile.write("<pre>")
+        for o in objs:
+            rh.wfile.write("<b>Object %s</b> types=%r<br><br>" % (o.objref,
+                o.types))
+            for p in o.props:
+                rh.wfile.write("%s = %r<br>" % (p, o.props[p]))
+            rh.wfile.write("<br><br>")
+        rh.wfile.write("</pre>")
+            
+    else:
+        try:
+            o, s = ns._obj.get(urllib.unquote('/'.join(parm)), True)
+        except ObjectError, e:
+            rh.wfile.write("ObjectError: %s" % e)
+            return
+            
+        rh.wfile.write("<pre><b>Object %s</b> types=%r<br><br>" % (o.objref,
+            o.types))
+        for p in o.props:
+            rh.wfile.write("%s = %r<br>" % (p, o.props[p]))
+        rh.wfile.write("</pre>")
+        
+        
+def handle_web(ns, server, rh, parm, head):
+    """Respond to web file request"""
+    
+    web_dir = ns.config["web.static_dir"]
+    path = os.path.abspath(os.path.join(web_dir, '/'.join(parm)))
+    if path.startswith("%s/" % web_dir) and os.path.isfile(path):
+        # FIXME find out if a different buffer size would be useful
+        # (maybe with respect to its mimetype/size ?)
+        rh._proxy_file(path, head)
+    else:
+        rh._404()
+        
+        
+def _session_exists(ns, sid):
+    """Check if SID exists and has not expired"""
+    
+    db = ns.get_main_db()
+    query = "DELETE FROM web_sessions WHERE expires <= ?"
+    db.execute(query, (time.time(),))
+    db.commit()
+    query = "SELECT COUNT(*) AS C FROM web_sessions WHERE name = ?"
+    ret = db.execute(query, (sid,)).fetchone()[0]
+    db.close()
+    return ret
+    
+    
+def _start_session(ns, rh):
+    """Start session, looking for SID in cookies, or creating a new one"""
+
+    C = Cookie.SimpleCookie()
+    if rh.headers.has_key("cookie"):
+        C.load(rh.headers['cookie'])
+        
+    sid = C.get('nestor_sid', None)
+    if sid:
+        sid = sid.value
+    if sid and not _session_exists(ns, sid):
+        sid = None
+        
+    expires = int(ns.config["web.session_expires"])
+    db = ns.get_main_db()
+    if not sid:
+        chost, cport = rh.client_address
+        sid = hashlib.sha256(
+            "nestor:%f:%s:%d" % (time.time(), chost, cport)
+        ).hexdigest()
+        
+        query = "INSERT INTO web_sessions(name, expires) VALUES (?, ?)"
+        db.execute(query, (sid, time.time() + expires))
+    else:
+        query = "UPDATE web_sessions SET expires = ? WHERE name = ?"
+        db.execute(query, (time.time() + expires, sid))
+    db.commit()
+    db.close()
+    
+    C['nestor_sid'] = sid
+    C['nestor_sid']['expires'] = time.strftime(
+        "%a, %d %b %Y %H:%M:%S +0000",
+        time.gmtime(time.time() + expires)
+    )
+    Cout = C.output().split("\r\n")
+    cprefix = "Set-Cookie: "
+    for cookie in Cout:
+        if cookie.startswith(cprefix):
+            rh.send_header("Set-Cookie", cookie[len(cprefix):])
+    
+    return sid
+        
+        
+def handle_ui(ns, server, rh, parm, head):
+    """Respond to UI requests"""
+    
+    # Start session and send headers
+    rh.send_response(200)
+    rh.send_header("Content-Type", "text/html")
+    sid = _start_session(ns, rh)
+    rh._end_headers()
+    if head:
+        return
+        
+    # Retrieve or create UI
+    om = server.get_om(sid)
+    if not om:
+        om = WebOutputManager(rh, sid)
+        server.set_om(sid, om)
+    else:
+        om.renew(rh, sid)
+        
+    # Render request
+    if not parm:
+        out = om.render_page()
+    else:        
+        if parm[0] == 'update':
+            out = om.update_elements(parm[1].split(','))
+        elif parm[0] == 'handler':
+            out = om.call_handler(*parm[1:3])
+        elif parm[0] == 'drop':
+            out = om.call_drop_handler(*parm[1:5])
+    rh.wfile.write(out.encode("utf-8"))
+    
+                
+def handle_cover(ns, server, rh, parm, head):
+    """Cover URL: /cover/<skin name>/<artist>/<album>"""
+    
+    mdir = ns.config['media.music_dir']
+    skinname = parm[0]
+    parm.append('cover.jpg')
+    for i in range(len(parm)):
+        parm[i] = parm[i].decode("utf-8")
+    path = os.path.abspath(os.path.join(mdir, *parm[1:]))
+    if not path.startswith("%s/" % mdir) or not os.path.isfile(path):
+        staticpath = ns.config["web.static_dir"]
+        path = os.path.join(staticpath, "skins/%s/images/no_cover.svg" % skinname)
+    rh._proxy_file(path, head)
+    
+    
+def handle_debug(ns, server, rh, parm, head):
+    """Debug URL: /debug/<python expression>
+    
+    HIGHLY insecure; must be disabled (web.enable_debug_url=0) in production.
+    """
+    
+    disabled = not int(ns.config["web.enable_debug_url"])
+    if not parm or parm[0] == '' or disabled:
+        rh._404()
+        return
+        
+    rh.send_response(200)
+    rh.send_header("Content-Type", "text/html")
+    rh._end_headers()
+    if head: return
+    
+    varname = parm[0]
+    rh.wfile.write("<pre>")
+    out = "%r" % eval(varname)
+    out = out.replace("&", "&amp;")
+    out = out.replace("<", "&lt;")
+    out = out.replace(">", "&gt;")
+    rh.wfile.write(out)
+    rh.wfile.write("</pre>")
+    
 
 class RequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
 
-    def context(self, key):
-        ns = self.server.nestor
-        
-        if key == 'ns':
-            return ns
-        elif key == 'obj':
-            return ns._obj
-        elif key == 'config':
-            return ns.config
-        elif key == 'output':
-            return self.om
-        
-    def set_client_data(self, key, value):
-        db = self.ns.get_main_db()
+    def set_client_data(self, sid, key, value):
+        db = self.server.nestor.get_main_db()
         query = """INSERT OR REPLACE INTO web_values(session_name, key, value)
                     VALUES(?, ?, ?)"""
-        db.execute(query, (self.sid, key, repr(value)))
+        db.execute(query, (sid, key, repr(value)))
         db.commit()
         db.close()
         
-    def get_client_data(self, key, default):
-        db = self.ns.get_main_db()
+    def get_client_data(self, sid, key, default):
+        db = self.server.nestor.get_main_db()
         query = "SELECT value FROM web_values WHERE session_name=? AND key=?"
-        ret = db.execute(query, (self.sid, key)).fetchall()
+        ret = db.execute(query, (sid, key)).fetchall()
         db.close()
         if ret:
             return eval(ret[0][0])
@@ -73,7 +281,13 @@ class RequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
         self._end_headers()
         
     def _proxy_file(self, path, head, bufsize=4096):
-        """Send a local file"""
+        """Send a local file
+        
+        PLEASE check the path before calling this (ie. deny access to absolute
+        paths or paths containing '..').
+        
+        Set bufsize to None to disable buffering.
+        """
         
         mtime = os.stat(path).st_mtime
         if self.headers.has_key("if-modified-since"):
@@ -110,26 +324,20 @@ class RequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
     def do_GET(self, head=False):
         self.headers_done = False
         
-        ns = self.server.nestor
-        
         split = self.path.lstrip('/').split('/')
         req = split[0]
         parm = split[1:]
         
         for i in range(len(parm)):
             parm[i] = urllib.unquote(parm[i])
-        
+            
+        if self.path == '/':
+            req = ''
+            
+        handler = self.server.handlers.get(req, None)
         try:
-            if req == 'obj':
-                self._do_obj(parm, head)
-            elif req == 'web':
-                self._do_web(parm, head)
-            elif req == 'ui' or self.path == '/':
-                self._do_ui(req, parm, head)
-            elif req == 'cover':
-                self._do_cover(parm, head)
-            elif req == 'debug':
-                self._do_debug(parm, head)
+            if handler:
+                handler(self.server.nestor, self.server, self, parm, head)
             else:
                 self._404()
         except Exception, e:
@@ -137,223 +345,32 @@ class RequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
                 self.send_response(200)
                 self.send_header("Content-Type", "text/html")
                 self._end_headers()
-            self.server.thread.info("Exception in web handler thread :")
+            self.server.thread.info("Web handler exception (%s):" % self.path)
             self.server.thread.log_exception(e)
             if not head:
                 self.wfile.write("<pre>")
                 self.wfile.write(traceback.format_exc())
                 self.wfile.write("</pre>")
                 
-    def _do_debug(self, parm, head):
-        disabled = not int(self.server.nestor.config["web.enable_debug_url"])
-        if not parm or parm[0] == '' or disabled:
-            self._404()
-            return
-            
-        self.send_response(200)
-        self.send_header("Content-Type", "text/html")
-        self._end_headers()
-        if head: return
-        
-        varname = parm[0]
-        self.wfile.write("<pre>")
-        ns = self.server.nestor
-        out = "%r" % eval(varname)
-        out = out.replace("&", "&amp;")
-        out = out.replace("<", "&lt;")
-        out = out.replace(">", "&gt;")
-        self.wfile.write(out)
-        self.wfile.write("</pre>")
-        
-                
-    def _do_cover(self, parm, head):
-        """Cover URL: /cover/<skin name>/<artist>/<album>"""
-        mdir = self.server.nestor.config['media.music_dir']
-        skinname = parm[0]
-        parm.append('cover.jpg')
-        for i in range(len(parm)):
-            parm[i] = parm[i].decode("utf-8")
-        path = os.path.abspath(os.path.join(mdir, *parm[1:]))
-        if not path.startswith("%s/" % mdir) or not os.path.isfile(path):
-            staticpath = self.server.nestor.config["web.static_dir"]
-            path = os.path.join(staticpath, "skins/%s/images/no_cover.svg" % skinname)
-        self._proxy_file(path, head)
-            
-    def _do_obj(self, parm, head):
-        """Respond to object request
-            
-        Available URLs:
-            obj/<objref>
-                displays object types and properties
-            obj/list/<app>
-                list objects from <app> and display their types/properties
-            obj/notify/<name>[/<objref>[/<details]]
-                publish a notification
-            obj/action/<app>/<action>/<objref>[/<param>=<value>,...]
-                do action on object
-        """
-        
-        if not parm:
-            self._404()
-            return
-            
-        self.send_response(200)
-        self.send_header("Content-Type", "text/html")
-        self._end_headers()
-        if head: return
-        
-        ns = self.server.nestor
-        
-        if parm[0] == 'notify':
-            for p in range(len(parm)):
-                parm[p] = urllib.unquote(parm[p])
-            notif_name = parm[1]
-            notif_obj = '/'.join(parm[2:])
-            ns.notify(notif_name, notif_obj)
-            
-        elif parm[0] == 'action':
-            for p in range(len(parm)):
-                parm[p] = urllib.unquote(parm[p])
-                
-            proc = parm[1]
-            name = parm[2]
-            objref = parm[3]
-                
-            # Get parameters
-            aparams = {}
-            if len(parm) > 4:
-                for p in parm[4].split(","):
-                    pname, pval = p.split("=")
-                    aparams[pname] = pval
-            
-            # Execute action
-            ns._obj.do_action(proc, name, objref, aparams)
-            
-        elif parm[0] == 'list':
-            owner = parm[1]
-            try:
-                objs = ns._obj.match_objects([owner], OExpression('', None))
-            except ObjectError, e:
-                self.wfile.write("ObjectError: %s" % e)
-                return
-                
-            self.wfile.write("<pre>")
-            for o in objs:
-                self.wfile.write("<b>Object %s</b> types=%r<br><br>" % (o.objref,
-                    o.types))
-                for p in o.props:
-                    self.wfile.write("%s = %r<br>" % (p, o.props[p]))
-                self.wfile.write("<br><br>")
-            self.wfile.write("</pre>")
-                
-        else:
-            try:
-                o, s = ns._obj.get(urllib.unquote('/'.join(parm)), True)
-            except ObjectError, e:
-                self.wfile.write("ObjectError: %s" % e)
-                return
-                
-            self.wfile.write("<pre><b>Object %s</b> types=%r<br><br>" % (o.objref,
-                o.types))
-            for p in o.props:
-                self.wfile.write("%s = %r<br>" % (p, o.props[p]))
-            self.wfile.write("</pre>")
-        
-    def _do_web(self, parm, head):
-        """Respond to web file request"""
-        
-        web_dir = self.server.nestor.config["web.static_dir"]
-        path = os.path.abspath(os.path.join(web_dir, '/'.join(parm)))
-        if path.startswith("%s/" % web_dir) and os.path.isfile(path):
-            # FIXME find out if a different buffer size would be useful
-            # (maybe with respect to its mimetype/size ?)
-            self._proxy_file(path, head)
-        else:
-            self._404()
-        
-    def _session_exists(self, sid):
-        db = self.ns.get_main_db()
-        query = "DELETE FROM web_sessions WHERE expires <= ?"
-        db.execute(query, (time.time(),))
-        db.commit()
-        query = "SELECT COUNT(*) AS C FROM web_sessions WHERE name = ?"
-        ret = db.execute(query, (sid,)).fetchone()[0]
-        db.close()
-        return ret
-        
-    def _start_session(self):
-        C = Cookie.SimpleCookie()
-        if self.headers.has_key("cookie"):
-            C.load(self.headers['cookie'])
-            
-        sid = C.get('nestor_sid', None)
-        if sid:
-            sid = sid.value
-        if sid and not self._session_exists(sid):
-            sid = None
-            
-        expires = int(self.server.nestor.config["web.session_expires"])
-        db = self.ns.get_main_db()
-        if not sid:
-            chost, cport = self.client_address
-            sid = hashlib.sha256(
-                "nestor:%f:%s:%d" % (time.time(), chost, cport)
-            ).hexdigest()
-            
-            query = "INSERT INTO web_sessions(name, expires) VALUES (?, ?)"
-            db.execute(query, (sid, time.time() + expires))
-        else:
-            query = "UPDATE web_sessions SET expires = ? WHERE name = ?"
-            db.execute(query, (time.time() + expires, sid))
-        db.commit()
-        db.close()
-        
-        C['nestor_sid'] = sid
-        C['nestor_sid']['expires'] = time.strftime(
-            "%a, %d %b %Y %H:%M:%S +0000",
-            time.gmtime(time.time() + expires)
-        )
-        Cout = C.output().split("\r\n")
-        cprefix = "Set-Cookie: "
-        for cookie in Cout:
-            if cookie.startswith(cprefix):
-                self.send_header("Set-Cookie", cookie[len(cprefix):])
-        
-        return sid
-            
-    def _do_ui(self, req, parm, head):        
-        self.ns = self.server.nestor
-        
-        # Start session and send headers
-        self.send_response(200)
-        self.send_header("Content-Type", "text/html")
-        self.sid = self._start_session()
-        self._end_headers()
-        if head:
-            return
-            
-        # Retrieve or create UI
-        self.om = self.server.get_om(self.sid)
-        if not self.om:
-            self.om = WebOutputManager(self)
-            self.server.set_om(self.sid, self.om)
-        else:
-            self.om.renew(self)
-            
-        # Render request
-        if req == '':
-            out = self.om.render_page()
-        elif req == 'ui':        
-            if parm[0] == 'update':
-                out = self.om.update_elements(parm[1].split(','))
-            elif parm[0] == 'handler':
-                out = self.om.call_handler(*parm[1:3])
-            elif parm[0] == 'drop':
-                out = self.om.call_drop_handler(*parm[1:5])
-        self.wfile.write(out.encode("utf-8"))
-        
             
 class NestorHTTPServer(BaseHTTPServer.HTTPServer):
+
+    handlers = {}
+
+    def register_url_handler(self, handler, subdir=None):
+        """Register URL handler
+        
+        subdir: URLs starting with /subdir/ will be handed to handler; None or
+            empty string means handle root URL.
+        handler: URL handler function; will receive the following argument:
+            - the Nestor instance
+            - this server instance
+            - the RequestHandler instance
+            - a list of URL elements after /subdir/ (always empty for root URL)
+            - a boolean telling if only headers are needed
+        """
+        
+        self.handlers[subdir or ''] = handler
 
     def __init__(self, host, rqh, nestor, thread):   
         BaseHTTPServer.HTTPServer.__init__(self, host, rqh)
@@ -387,11 +404,18 @@ class HTTPServerThread(Thread):
         host = self.nestor.config["web.host"]
         port = int(self.nestor.config["web.port"])
         
-        self.nestor.info("Starting web server, listening on %s:%d" % (host,
+        self.nestor.info("Web server listening on %s:%d" % (host,
             port))
         
         self.https = NestorHTTPServer((host, port), RequestHandler,
             self.nestor, self)
+            
+        self.https.register_url_handler(handle_ui)
+        self.https.register_url_handler(handle_ui, 'ui')
+        self.https.register_url_handler(handle_obj, 'obj')
+        self.https.register_url_handler(handle_web, 'web')
+        self.https.register_url_handler(handle_cover, 'cover')
+        self.https.register_url_handler(handle_debug, 'debug')
         
         self.running = True
         try:
