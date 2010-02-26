@@ -34,8 +34,6 @@ def usage():
     
 Options:
     -h, --help          print help and exit
-    --main-db=<FILE>    use main sqlite database <FILE>
-    --object-db=<FILE>  use object sqlite database <FILE>
     
 Actions:
     printopts           prints options and exit
@@ -57,7 +55,7 @@ def parse_options():
     try:
         opts, args = getopt.getopt(sys.argv[1:],
             "h", 
-            ["help", "main-db=", "object-db="])
+            ["help"])
     except getopt.GetoptError, err:
         option_error(str(err))
         
@@ -67,10 +65,6 @@ def parse_options():
         if o in ("-h", "--help"):
             usage()
             sys.exit()
-        elif o in ("--main-db"):
-            ret['kwargs']['main_db'] = a
-        elif o in ("--object-db"):
-            ret['kwargs']['obj_db'] = a
         else:
             assert False, "unhandled option !"
             
