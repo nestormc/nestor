@@ -731,7 +731,7 @@ class ObjectAccessor:
         
         obj, source = self.get(objref, True)
         
-        actions = [ActionWrapper(proc, tag.value, name, obj)
+        actions = [ActionWrapper(proc, source, name, obj)
             for name in proc.get_actions(obj)]
         for a in actions:
             proc.describe(a)
