@@ -258,19 +258,6 @@ class WebOutputManager:
                 code = code.replace('{this}', '$("%s")' % id)
                 ops.append("%s;" % code)
                 
-            elif opcode == 'drag_src':
-                objref = self._json_value(params[1])
-                label = self._json_value(params[2])
-                ops.extend([
-                    '$drag.init_object($("%s"));' % id,
-                    '$element_objrefs["%s"]=%s;' % (id, objref),
-                    '$element_labels["%s"]=%s;' % (id, label)
-                ])
-                
-            elif opcode == 'drop_target':
-                handlerid = self.handler_id(params[1])
-                ops.extend('$drop_targets["%s"]={handler:%d};' % (id, handlerid))
-                
         if ops:
             ops.append("}")
         
@@ -465,19 +452,6 @@ class WebOutputManager:
                     code = params[1].replace("{id}", '"%s"' % id)
                     code = code.replace("{this}", '$("%s")' % id)
                     js.append("%s;" % code)
-                    
-                elif opcode == 'drag_src':
-                    objref = self._json_value(params[1])
-                    label = self._json_value(params[2])
-                    js.extend([
-                        'if ($("%s")) $drag.init_object($("%s"));' % (id, id),
-                        '$element_objrefs["%s"] = %s;' % (id, objref),
-                        '$element_labels["%s"] = %s;' % (id, label)
-                    ])
-                    
-                elif opcode == 'drop_target':
-                    handlerid = self.handler_id(params[1])
-                    js.append('$drop_targets["%s"] = {handler: %d};' % (id, handlerid))
         except KeyError, e:
             self.ops = []
             self.debug_msgs = []

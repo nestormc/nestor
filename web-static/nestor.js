@@ -320,18 +320,20 @@ function $method(handlerid, arg)
 /* Element drop handler */
 function $drop(where, target, obj)
 {
-    var targetinfo = $drop_targets[target.id];
-    if (targetinfo["confirm"])
+    var tprops = $element_props[target.id];
+    var props = $element_props[obj.id];
+    
+    if (tprops["drop_confirm"])
     {
-        var msg = targetinfo["confirm"].replace(/\{label}/g, $element_labels[obj.id]);
-        msg = msg.replace(/\{tlabel}/g, $element_labels[target.id]);
+        var msg = tprops["drop_confirm"].replace(/\{label}/g, props['label']);
+        msg = msg.replace(/\{tlabel}/g, tprops['label']);
         if (!window.confirm(msg)) return;
     }
     
-    var url = "/ui/drop/" + targetinfo["handler"] +
+    var url = "/ui/drop/" + tprops["drop_handler"] +
         "/" + where +
         "/" + encodeURIComponent(target.id) + 
-        "/" + encodeURIComponent($element_objrefs[obj.id]);
+        "/" + encodeURIComponent(props['objref']);
     $queue.get(url, $op);
 }
 
@@ -580,16 +582,16 @@ function $scroll_inc(sce_id, increment)
 
 window.onresize = $scroll_refresh_all;
 
-var $popup_menus = {};
-var $popup_menuitems = {};
 var $popup_shown = [];
 var $popup_confirm = {};
 var $popup_cur_element = undefined;
 
 function $popup_menu(obj)
 {
-    var menuid = $popup_menus[obj.id];
-    var visible_items = $popup_menuitems[obj.id];
+    var props = $element_props[obj.id];
+    var menuid = props['menu'];
+    var visible_items = props['menuitems'];
+    
     $popup_cur_element = obj;
     
     if (menuid && visible_items && visible_items.length)
@@ -611,13 +613,15 @@ function $popup_menu(obj)
 
 function $popup_click(action, handlerid)
 {
+    var props = $element_props[$popup_cur_element.id];
+
     if ($popup_confirm[action])
     {
-        var msg = $popup_confirm[action].replace(/\{label}/g, $element_labels[$popup_cur_element.id]);
+        var msg = $popup_confirm[action].replace(/\{label}/g, props['label']);
         if (!window.confirm(msg)) return;
     }
     
-    $method(handlerid, action + " " + $element_objrefs[$popup_cur_element.id]);
+    $method(handlerid, action + " " + props['objref']);
     $popup_cur_element = undefined;
 }
 
@@ -634,16 +638,26 @@ function $popup_hide()
 
 window.addEventListener("click", $popup_hide, true);
 
-var $element_labels = {};
-var $element_objrefs = {};
+/* Element property dictionnary {id:{prop: value, ...}, ...}
+
+Available properties:
+    label (str): element label (shown when dragging and in confirm messages)
+    objref (str): element label (used when dropping element on something)
+    
+    menu (str): popup menu ID
+    menuitems (str array): available popup menu item IDs
+    
+    drop_handler (int): handler ID to call when receiving a dropped element
+    drop_confirm (str): confirm message when receiving a dropped element
+    drop_list (bool): element is an auto-scrollable list
+*/
+var $element_props = {};
 
 
 /********************************************************************
  *                          DRAG AND DROP                           *
  *     Code adapted from Aaron Boodman's public domain library      *
  ********************************************************************/
-var $drop_targets = {};
-var $drop_lists = [];
 
 var $drag = {
 
@@ -709,7 +723,7 @@ var $drag = {
         
         do
         {
-            if ($drop_targets[candidate.id]) return candidate;
+            if ($element_props[candidate.id] && $element_props[candidate.id]['drop_handler']) return candidate;
             candidate = candidate.parentNode;
         }
         while (candidate && candidate.id);
@@ -725,7 +739,7 @@ var $drag = {
         
         do
         {
-            if ($drop_lists.indexOf(candidate.id) != -1) return candidate;
+            if ($element_props[candidate.id] && $element_props[candidate.id]['drop_list']) return candidate;
             candidate = candidate.parentNode;
         }
         while (candidate && candidate.id);
@@ -826,7 +840,7 @@ var $drag = {
                 /* Create drag label */
                 dobj = document.createElement("span");
                 dobj.className = "drag_label";
-                dobj.innerHTML = $element_labels[o.id];
+                dobj.innerHTML = $element_props[o.id]['label'];
                 dobj.style.position = "absolute";
                 document.documentElement.appendChild(dobj);
                 $drag.label = dobj;
@@ -876,6 +890,7 @@ var $drag = {
                 var oh = target.offsetHeight;
                 
                 $addC(target, "drag_hover");
+                $addC($drag.label, "droppable");
                 
                 if (dy > (pos[1] + 0.5*oh))
                 {
@@ -887,6 +902,10 @@ var $drag = {
                     $addC(target, "drag_above");
                     $remC(target, "drag_below");
                 }
+            }
+            else
+            {
+                $remC($drag.label, "droppable");
             }
             $drag.hoverObj = target;
             

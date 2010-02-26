@@ -286,6 +286,10 @@ body, html, input {
     cursor: hand;
 }
 
+.list_item.drag_hover {
+    font-weight: bold;
+}
+
 .list_item span.cell {
     /*height: 1.2em;*/
     text-overflow: ellipsis;
@@ -322,6 +326,13 @@ div.nestor_fatal_error {
 
 .drag_label {
     font-family: NestorFont;
+    border: 1px solid black;
+    background-color: white;
+}
+
+.drag_label.droppable {
+    font-family: NestorFont;
+    border: 1px solid black;
     background-color: black;
     color: #FFD200;
 }

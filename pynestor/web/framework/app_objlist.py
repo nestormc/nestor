@@ -79,7 +79,7 @@ class ObjectListItem(e.AppElement):
     def set_label(self, label):
         if label != self.label:
             self.label = label
-            self.make_draggable(self.objref, self.label)
+            self.set_property('label', label)
             
     def update_data(self, updated):
         # FIXME make valid action list update incremental
@@ -89,10 +89,7 @@ class ObjectListItem(e.AppElement):
                 for a in self.s["actions"].keys():
                     if not self.s["action_filter"](a, self.objref, self.data):
                         actions.remove(a)
-            self.add_jscode('$popup_menuitems["%s"]=%s' % (
-                self.output._dom_id(self),
-                self.output._json_value([a.replace('-','') for a in actions])
-            ))
+            self.set_property('menuitems', [a.replace('-','') for a in actions])
     
         for f in updated:
             v = updated[f]
@@ -298,10 +295,7 @@ class ObjectListBody(e.AppElement):
         if "item_drop_handler" in self.s:
             child.make_drop_target(self.s["item_drop_handler"])
             if "item_drop_confirm" in self.s:
-                jsmsg = self.output._json_value(self.s["item_drop_confirm"])
-                child.add_jscode(
-                    "$drop_targets[{id}][\"confirm\"]=%s" % jsmsg
-                )
+                child.set_property('drop_confirm', self.s["item_drop_confirm"])
         
         if id == self.selected_id:
             child.set_class("selected")
@@ -318,20 +312,15 @@ class ObjectListBody(e.AppElement):
                 child.set_handler(ev, self.item_event, "%s %s" % (ev, id))
                 
         if "actions" in self.s:
-            self.add_jscode('$popup_menus["%s"]="%s"' % (
-                self.output._dom_id(child),
-                self.output._dom_id(self.menu)
-            ))
+            child.set_property('menu', self.output._dom_id(self.menu))
             
             actions = self.s["actions"].keys()
             if "action_filter" in self.s:
                 for a in self.s["actions"].keys():
                     if not self.s["action_filter"](a, child.objref, data):
                         actions.remove(a)
-            self.add_jscode('$popup_menuitems["%s"]=%s' % (
-                self.output._dom_id(child),
-                self.output._json_value([a.replace('-','') for a in actions])
-            ))
+                        
+            child.set_property('menuitems', [a.replace('-','') for a in actions])
                 
                 
     def remove_item(self, id):
@@ -631,14 +620,11 @@ class ObjectList(e.AppElement):
         if "drop_handler" in self.s:
             self.scroll.make_drop_target(self.list_drop_handler)
             if "drop_confirm" in self.s:
-                jsmsg = self.output._json_value(self.s["drop_confirm"])
-                self.scroll.add_jscode(
-                    "$drop_targets[{id}][\"confirm\"]=%s" % jsmsg
-                )
+                self.scroll.set_property('drop_confirm', self.s["drop_confirm"])
             
         # Only enable autoscroll if items are drop targets
         if "item_drop_handler" in self.s:
-            self.scroll.add_jscode("$drop_lists.push({id})")
+            self.scroll.set_property('drop_list', True)
         
         self.lst.set_css({"width": "100%"})
         

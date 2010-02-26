@@ -129,7 +129,9 @@ class UIElement:
         it on a target will send that target the object objref.
         """
         
-        self.output.add_op("drag_src", [self, objref, label])
+        self.add_jscode("$drag.init_object({this})")
+        self.set_property("objref", objref)
+        self.set_property("label", label)
         
     def make_drop_target(self, handler):
         """Make element a drop target
@@ -138,7 +140,18 @@ class UIElement:
             'handler'(self, 'objref')
         """
         
-        self.output.add_op("drop_target", [self, handler])
+        self.set_property("drop_handler", self.output.handler_id(handler))
+                
+    def set_property(self, prop, val):
+        """Set object element value - See nestor.js for properties usage"""
+        
+        if not self.props_done:
+            self.add_jscode("$element_props[{id}]={};")
+            self.props_done = True
+        
+        jsp = self.output._json_value(prop)
+        jsv = self.output._json_value(val)
+        self.add_jscode("$element_props[{id}][%s]=%s" % (jsp, jsv))
         
     def _block_layout(self, blocks, cols=True, overflow="auto", fill=True):
         total = 0.0
