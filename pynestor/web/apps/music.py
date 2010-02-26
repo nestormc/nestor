@@ -355,6 +355,7 @@ class MusicPlaylistColumn(e.AppElement):
             
             "item_drop_handler": self.playlist_item_drop_handler,
             "drop_handler": self.playlist_drop_handler,
+            
             "item_events": {"ondblclick": self.playlist_dblclick_handler},
             
             "actions": {
@@ -757,6 +758,9 @@ class MusicAlbumTracksColumn(e.AppElement):
             
             "item_events": {"ondblclick": self.musicws.medialib_dblclick_handler},
             
+            "item_drop_handler": self.musicws.music_dropedit_handler,
+            "item_drop_confirm": "Move '{label}' to album '{tlabel}' ?",
+            
             "actions": {
                 "edit": {
                     "title": "Edit",
@@ -809,6 +813,9 @@ class MusicWorkspace(e.AppElement):
             
             "item_events": {"ondblclick": self.medialib_dblclick_handler},
             
+            "item_drop_handler": self.music_dropedit_handler,
+            "item_drop_confirm": "Move '{label}' to artist '{tlabel}' ?",
+            
             "actions": {
                 "edit": {
                     "title": "Edit",
@@ -842,7 +849,7 @@ class MusicWorkspace(e.AppElement):
         if isinstance(element, ol.ObjectListItem):
             self.obj.do_action("media", "mpd-play", element.objref)
             self.playlist.playlist.reload()
-            
+
     def medialib_edit_handler(self, action, objref):
         if action != 'edit':
             return
@@ -858,7 +865,66 @@ class MusicWorkspace(e.AppElement):
             aid = objref[len("media:music-track|"):]
             item = self.albtrk.tracks.lst.children[aid]
             item.edit()
+
+    def music_dropedit_handler(self, where, target, objref):
+        if not objref.startswith("media:music-"):
+            return
             
+        ns = self.output.rh.server.nestor
+        ns.debug("dropedit: obj=%s, target=%s" % (objref, target.objref))
+            
+        # Actions mapping : describes, for each action and each valid target
+        # objref pattern, which metadata keys to copy from the target to the
+        # dropped object
+        actionmap = {
+            "edit-track": {
+                "media:music-album": ["album", "genre", "year"],
+                "media:music-artist": ["artist"]
+            },
+            "edit-album": {
+                "media:music-album": ["album", "genre", "year"],
+                "media:music-artist": ["artist"]
+            },
+            "edit-artist": {
+                "media:music-artist": ["artist"]
+            }
+        }
+            
+        # Get object edit action
+        actions = self.obj.get_actions("media", objref)
+        action = None
+        for a in actions:
+            if a.name in actionmap:
+                action = a
+                break
+        if not action:
+            return
+            
+        ns.debug("dropedit: %s(%s) -> %s" % (action.name, objref, target.objref))
+            
+        # Copy keys to action parameters
+        obj = self.obj.get_object(objref)
+        tprops = self.obj.get_object(target.objref).props
+        found = False
+        params = action.params.copy()
+        for k in params:
+            params[k] = params[k]['value']
+        ns.debug("dropedit: params in %r" % params)
+        for orstart in actionmap[action.name]:
+            if target.objref.startswith(orstart):
+                found = True
+                for key in actionmap[action.name][orstart]:
+                    params[key] = tprops[key]
+                break
+        if not found:
+            return
+                    
+        ns.debug("dropedit: params out %r" % params)
+        ns.debug("dropedit: (abort)")
+        return
+        
+        # Execute action
+        action.execute(params)
                 
 class WebMusicApp(WebApp):
     
