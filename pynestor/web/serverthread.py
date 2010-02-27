@@ -286,7 +286,9 @@ class RequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
         PLEASE check the path before calling this (ie. deny access to absolute
         paths or paths containing '..').
         
-        Set bufsize to None to disable buffering.
+        Set bufsize to None to disable buffering. When buffering is enabled, 
+        content will be chunked (HTTP/1.1 Transfer-Encoding: chunked)
+        
         """
         
         mtime = os.stat(path).st_mtime
@@ -299,7 +301,11 @@ class RequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
                 self.send_response(304)
                 self._end_headers()
                 return
-                
+        
+        if bufsize:
+            # We need 1.1 for chunked encoding
+            self.protocol_version = "HTTP/1.1"
+            
         self.send_response(200)
         type, encoding = mimetypes.guess_type(path)
         if type:
@@ -308,6 +314,10 @@ class RequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
             self.send_header("Content-Encoding", encoding)
         self.send_header("Last-Modified",
             time.strftime("%a, %d %b %Y %H:%M:%S +0000", time.gmtime(mtime)))
+            
+        if bufsize:
+            self.send_header("Transfer-Encoding", "chunked")
+            
         self._end_headers()
         if head: return
         
@@ -317,8 +327,15 @@ class RequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
         else:
             cnt = f.read(bufsize)
             while len(cnt):
-                self.wfile.write(cnt)
+                # Write <chunk len>CRLF<chunk>CRLF
+                self.wfile.write('%x\r\n' % len(cnt))
+                self.wfile.write('%s\r\n' % cnt)
+                self.wfile.flush()
                 cnt = f.read(bufsize)
+                
+            # Write last chunk
+            self.wfile.write("0\r\n")
+            
         f.close()
     
     def do_GET(self, head=False):
