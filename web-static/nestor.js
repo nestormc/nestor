@@ -661,7 +661,7 @@ var $element_props = {};
 
 var $drag = {
 
-    mode : null,                // Drag mode : 'object' for element dragging, 'bar' for progress bars
+    mode : null,                // Current drag mode : 'object' for element dragging, 'bar' for progress bars
     obj : null,                 // Drag origin element
     
     label : null,               // Drag label element
@@ -670,7 +670,6 @@ var $drag = {
     offX : 16,                  // Drag label X offset from mouse position
     offY : 0,                   // Drag label Y offset from mouse position
     
-    minDist : 10,               // Minimum distance to initiate drag
     hoverObj : null,            // Currently hovered drop target
     
     autoscroll_inc : 20,        // Autoscroll increment (pixels)
@@ -713,6 +712,22 @@ var $drag = {
     {
         $popup_menu($drag.obj);
         $drag.end();
+    },
+    
+    /* Are we still on the source element ? */
+    mouse_over_origin : function(x, y)
+    {
+        var candidate = document.elementFromPoint(x, y);
+        if (!candidate) return false;
+        
+        do
+        {
+            if (candidate == $drag.obj) return true;
+            candidate = candidate.parentNode;
+        }
+        while (candidate && candidate != $drag.obj.parentNode);
+        
+        return false;
     },
     
     /* Find drop target at point (x, y) */
@@ -837,6 +852,14 @@ var $drag = {
         
             if (dobj == null)
             {
+                if ($drag.mouse_over_origin(ex, ey))
+                {
+                    /* Mouse is still on origin element */
+                    $drag.obj.lastMouseX = ex;
+                    $drag.obj.lastMouseY = ey;
+                    return;
+                }
+                
                 /* Create drag label */
                 dobj = document.createElement("span");
                 dobj.className = "drag_label";
