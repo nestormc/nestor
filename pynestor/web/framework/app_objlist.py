@@ -25,32 +25,35 @@ class ObjectListActionMenu(e.AppElement):
         
     def init(self):
         self.actions = {}
+        self.aidmap = {}
         for action in self.s.get("actions", {}):
             aid = action.replace("-", "")
-            self.actions[action] = self.create(
+            self.aidmap[aid] = action
+            self.actions[aid] = self.create(
                 e.DivElement,
                 "%s_%s" % (self.id, aid)
             )
     
     def render(self):
         self.set_class("object_list_menu")
-        hid = self.output.handler_id(self.click_handler)
         
-        for action in self.actions:
-            self.add_child(self.actions[action])
-            self.actions[action].set_content(self.s["actions"][action]["title"])
-            self.actions[action].set_class("object_list_menuitem")
-            self.actions[action].set_jshandler(
+        for aid in self.actions:
+            action = self.aidmap[aid]
+            self.add_child(self.actions[aid])
+            self.actions[aid].set_content(self.s["actions"][action]["title"])
+            self.actions[aid].set_class("object_list_menuitem")
+            self.actions[aid].set_jshandler(
                 "onclick",
-                "function(){$popup_click('%s',%d);return false;}" % (action,hid)
+                "function(){$W.$popup_click('%s');return false;}" % aid
             )
             if "confirm" in self.s["actions"][action]:
                 msg = self.s["actions"][action]["confirm"]
                 jsmsg = self.output._json_value(msg)
-                self.add_jscode("$popup_confirm[\"%s\"]=%s" % (action, jsmsg))
+                self.add_jscode("$W.$popup_confirm[\"%s\"]=%s" % (aid, jsmsg))
             
     def click_handler(self, arg):
-        action, objref = arg.split(" ", 1)
+        aid, objref = arg.split(" ", 1)
+        action = self.aidmap[aid]
         self.s["actions"][action]["handler"](action, objref)
         
 
@@ -319,9 +322,21 @@ class ObjectListBody(e.AppElement):
                 for a in self.s["actions"].keys():
                     if not self.s["action_filter"](a, child.objref, data):
                         actions.remove(a)
-                        
-            child.set_property('menuitems', [a.replace('-','') for a in actions])
-                
+            
+            child.set_property(
+                'menu_handler',
+                self.output.handler_id(self.menu.click_handler)
+            )
+            child.set_property(
+                'menuitems',
+                [a.replace('-', '') for a in actions]
+            )
+            
+            if "delete_action" in self.s:
+                child.set_property(
+                    'delete_action',
+                    self.s["delete_action"].replace('-', '')
+                )
                 
     def remove_item(self, id):
         if id in self.children:
@@ -568,6 +583,9 @@ class ObjectList(e.AppElement):
     * "action_filter": callback receving (action-name, objref, object-props),
                        must return a boolean telling if the action must be
                        displayed or not.
+                       
+    * "delete_action": name of action triggered when dropping items on the
+                       trash can
     
     (1) field titles will only be displayed if the "main_field" has a "title"
         attribute

@@ -143,7 +143,7 @@ class ScrollContainerElement(AppElement):
         self.bar = self.create(DivElement, "%s_B" % self.id)
             
     def refresh_scrollbar(self):
-        self.add_jscode("$scroll_move({id})");
+        self.add_jscode("$W.$scroll_move({id})");
         
     def add_child(self, child, internal=False):
         if internal:
@@ -159,14 +159,14 @@ class ScrollContainerElement(AppElement):
         self.cnt.set_content(cnt)
         
     def render(self):
-        self.set_jshandler("onscroll", "$scroll_cancel")
+        self.set_jshandler("onscroll", "$W.$scroll_cancel")
         self.set_class("scroll_container")
         self.add_child(self.wrap, True)
         self.wrap.set_class("scroll_container_wrap")
         self.wrap.add_child(self.cnt)
-        self.wrap.set_jshandler("onscroll", "$scroll")
+        self.wrap.set_jshandler("onscroll", "$W.$scroll")
         self.cnt.set_class("scroll_container_cnt")
         self.add_child(self.bar, True)
         self.bar.set_class("scroll_container_bar")
-        self.add_jscode("$scroll_declare({id})")
+        self.add_jscode("$W.$scroll_declare({id})")
         

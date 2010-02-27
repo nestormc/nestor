@@ -621,7 +621,7 @@ function $popup_click(action, handlerid)
         if (!window.confirm(msg)) return;
     }
     
-    $method(handlerid, action + " " + props['objref']);
+    $method(props['menu_handler'], action + " " + props['objref']);
     $popup_cur_element = undefined;
 }
 
@@ -646,18 +646,51 @@ Available properties:
     
     menu (str): popup menu ID
     menuitems (str array): available popup menu item IDs
+    menu_handler (int): handler ID to call when launching a menu action
+    delete_action (str): menu item ID of action launched when dropping element
+        on the trash can; only triggered when this value is also in 'menuitems'
     
     drop_handler (int): handler ID to call when receiving a dropped element
     drop_confirm (str): confirm message when receiving a dropped element
     drop_list (bool): element is an auto-scrollable list
 */
 var $element_props = {};
+function $set_property(obj, prop, value)
+{
+    if (!$element_props[obj.id]) $element_props[obj.id] = {};
+    $element_props[obj.id][prop] = value;
+}
 
 
 /********************************************************************
  *                          DRAG AND DROP                           *
  *     Code adapted from Aaron Boodman's public domain library      *
  ********************************************************************/
+ 
+/* Show/hide trash icon */
+function $trash_show(show)
+{
+    $("NESTOR_AL_N_I").style.display = show ? 'none' : 'inline';
+    $("NESTOR_AL_N_T").style.display = show ? 'inline' : 'none';
+}
+
+/* Intercept trash drop
+    Called when obj is dropped on target. If target is the trash icon, perform
+    the delete action and return true; else return false
+*/
+function $trash_drop(target, obj)
+{
+    if (target != $("NESTOR_AL_N_T")) return false;
+    
+    var props = $element_props[obj.id];
+    if (props['delete_action'] && props['menuitems'].indexOf(props['delete_action']) != -1)
+    {
+        $popup_cur_element = obj;
+        $popup_click(props['delete_action']);
+    }
+    
+    return true;
+}
 
 var $drag = {
 
@@ -871,6 +904,11 @@ var $drag = {
                 /* Position it under the cursor */
                 dobj.style.left = o.lastMouseX + $drag.offX;
                 dobj.style.top = o.lastMouseY + $drag.offY;
+                
+                /* Enable trash icon if item has a delete_action */
+                var props = $element_props[$drag.obj.id];
+                if (props['delete_action'] && props['menuitems'].indexOf(props['delete_action']) != -1)
+                    $trash_show(true);
             }
         }
         
@@ -984,7 +1022,9 @@ var $drag = {
                 {
                     var target = $drag.hoverObj;
                     var where = $hasC(target, "drag_above") ? "above" : "below";
-                    $drop(where, target, $drag.obj)
+                    
+                    if (!$trash_drop($drag.hoverObj, $drag.obj))
+                        $drop(where, target, $drag.obj)
                     
                     $remC(target, "drag_hover");
                     $remC(target, "drag_above");
@@ -994,9 +1034,13 @@ var $drag = {
 
                 document.documentElement.removeChild($drag.label);
                 $drag.label = null;
+                
+                /* Disable trash icon */
+                $trash_show(false);
             }
         }
         
         $drag.obj = null;
     }
 };
+

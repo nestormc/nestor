@@ -19,6 +19,8 @@ import hashlib
 import mimetypes
 import os
 import os.path
+import socket
+import threading
 import time
 import traceback
 import urllib
@@ -188,23 +190,25 @@ def handle_ui(ns, server, rh, parm, head):
         return
         
     # Retrieve or create UI
-    om = server.get_om(sid)
-    if not om:
+    ctx = server.get_ctx(sid)
+    if not ctx:
         om = WebOutputManager(rh, sid)
-        server.set_om(sid, om)
+        server.set_ctx(sid, {'om': om})
     else:
+        om = ctx['om']
         om.renew(rh, sid)
         
     # Render request
+    out = ''  
     if not parm:
         out = om.render_page()
-    else:        
-        if parm[0] == 'update':
-            out = om.update_elements(parm[1].split(','))
-        elif parm[0] == 'handler':
-            out = om.call_handler(*parm[1:3])
-        elif parm[0] == 'drop':
-            out = om.call_drop_handler(*parm[1:5])
+    elif parm[0] == 'update':
+        out = om.update_elements(parm[1].split(','))
+    elif parm[0] == 'handler':
+        out = om.call_handler(*parm[1:3])
+    elif parm[0] == 'drop':
+        out = om.call_drop_handler(*parm[1:5])
+        
     rh.wfile.write(out.encode("utf-8"))
     
                 
@@ -247,7 +251,7 @@ def handle_debug(ns, server, rh, parm, head):
     out = out.replace(">", "&gt;")
     rh.wfile.write(out)
     rh.wfile.write("</pre>")
-    
+        
 
 class RequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
 
@@ -286,8 +290,8 @@ class RequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
         PLEASE check the path before calling this (ie. deny access to absolute
         paths or paths containing '..').
         
-        Set bufsize to None to disable buffering. When buffering is enabled, 
-        content will be chunked (HTTP/1.1 Transfer-Encoding: chunked)
+        Set bufsize to None (or 0) to disable buffering.  When buffering is
+        enabled, content will be chunked (HTTP/1.1 Transfer-Encoding: chunked)
         
         """
         
@@ -393,26 +397,26 @@ class NestorHTTPServer(BaseHTTPServer.HTTPServer):
         BaseHTTPServer.HTTPServer.__init__(self, host, rqh)
         self.nestor = nestor
         self.thread = thread
-        self.om = {}
-        self.om_access = {}
+        self.ctx = {}
+        self.ctx_access = {}
     
-    def get_om(self, sid):
+    def get_ctx(self, sid):
         expires = int(self.nestor.config["web.output_expires"])
         delete = []
-        for k in self.om_access:
-            if self.om_access[k] + expires < time.time():
+        for k in self.ctx_access:
+            if self.ctx_access[k] + expires < time.time():
                 delete.append(k)
         for k in delete:
-            del self.om[k]
-            del self.om_access[k]
-        if sid in self.om:
-            self.om_access[sid] = time.time()
-            return self.om[sid]            
+            del self.ctx[k]
+            del self.ctx_access[k]
+        if sid in self.ctx:
+            self.ctx_access[sid] = time.time()
+            return self.ctx[sid]            
         return None
         
-    def set_om(self, sid, om):
-        self.om[sid] = om
-        self.om_access[sid] = time.time()
+    def set_ctx(self, sid, ctx):
+        self.ctx[sid] = ctx
+        self.ctx_access[sid] = time.time()
         
 
 class HTTPServerThread(Thread):

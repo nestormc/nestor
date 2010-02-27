@@ -25,10 +25,20 @@ class WebNestor(UIElement):
             "%s_I" % self.id,
             self.skin.image("nestor")
         )
+        self.trash = self.create(
+            UIImageElement,
+            "%s_T" % self.id,
+            self.skin.image("trash")
+        )
         
     def render(self):
         self.set_class("nestor_app")
         self.add_child(self.icon)
+        self.add_child(self.trash)
+        self.trash.set_css({"display": "none"})
+        
+        # Set nonzero drop handler, this handler will not be actually called.
+        self.trash.set_property("drop_handler", -1)
         
 
 class WebAppSummaryContainer(UIElement):

@@ -35,7 +35,7 @@ class WebOutputManager:
         self.elements = {}
         self.el_children = {}
         self.el_popups = {}
-        self.handlers = ['handler-zero']
+        self.handlers = []
         
         self.add_js("web/nestor.js")
         self.add_css("web/nestor.css")
@@ -271,7 +271,7 @@ class WebOutputManager:
         self.debug_msgs = []
         self.ops = []
         
-        return "{op:function(){%s}}" % ''.join(ops)
+        return '<script type="text/javascript">%s</script>' % ''.join(ops)
         
     def update_elements(self, eids):
         for id in eids:
@@ -508,7 +508,7 @@ class WebOutputManager:
 %s
 </head>
 <body>
-<!-- <iframe id="NESTOR_SCRIPTS" src="/ui/scripts"></iframe> -->
+<iframe id="NESTOR_SCRIPTS" src="/ui/scripts"></iframe>
 %s
 %s
 </body>
