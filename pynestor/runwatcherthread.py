@@ -33,7 +33,7 @@ class RunWatcherThread(Thread):
 
     """
 
-    def __init__(self, nestor, logger, command, **kwargs):
+    def __init__(self, name, nestor, command, **kwargs):
         """Watcher initialization
 
         daemon: parent daemon object (for log and config facilities)
@@ -49,7 +49,7 @@ class RunWatcherThread(Thread):
 
         """
 
-        Thread.__init__(self, nestor, logger)
+        Thread.__init__(self, name, nestor)
         self.command = command
         self.sigterm_sent = 0
         self.running = False

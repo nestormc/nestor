@@ -15,9 +15,10 @@
 
 import os
 import shutil
+import threading
 import time
 
-MAX_LOG_SIZE = 1024**2 
+MAX_LOG_SIZE = 5 * 1024**2 
 
 LL_QUIET = 0
 LL_INFO = 1
@@ -64,7 +65,8 @@ class Logger:
         if level == LL_QUIET:
             text = "%s ****************************************" % tm
         else:
-            text = "%s [%s] %s" % (tm, LL_DESC[level], text) 
+            tname = threading.currentThread().name[0:20]
+            text = "%s %-20s [%s] %s" % (tm, tname, LL_DESC[level], text) 
         
         l = open(self.logfile, 'a')
         try:

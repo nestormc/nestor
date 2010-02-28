@@ -29,8 +29,8 @@ class StorageDeviceWatcher(Thread):
     DKPATH = "/org/freedesktop/DeviceKit/Disks"
     DKDOMAIN = "org.freedesktop.DeviceKit.Disks"
 
-    def __init__(self, nestor, objs, logger=None):
-        Thread.__init__(self, nestor, logger)
+    def __init__(self, name, nestor, objs):
+        Thread.__init__(self, name, nestor)
         self.objs = objs
         
         gobject.threads_init()
@@ -297,8 +297,6 @@ class FileManagerHelper:
     def __init__(self, nestor):
         self.nestor = nestor
         self.nestor.info("Initializing file manager helper")
-        self.logger = nestor.get_logger('fileman.log_file', 'fileman.log_level')
-        
         self.objs = FileObjectProvider(self.nestor, 'file')
         self.proc = FileObjectProcessor(self.nestor, 'file')
         nestor.register_object_interface(
@@ -307,7 +305,7 @@ class FileManagerHelper:
             processor=self.proc
         )
         
-        self.dwthread = StorageDeviceWatcher(nestor, self.objs, self.logger)
+        self.dwthread = StorageDeviceWatcher("Device Watcher", nestor, self.objs)
         self.dw_tid = nestor.add_thread(self.dwthread, True)
         
         self.objs.set_devthread(self.dwthread)

@@ -29,6 +29,7 @@ class ThreadManager:
         
         self._threads = {}
         self._threads_nostop = []
+        self._thread_names = {}
         self._last_tid = -1
         self._started = False
         self._stopping = False
@@ -43,6 +44,7 @@ class ThreadManager:
         if stop_fatal:
             self._threads_nostop.append(self._last_tid)
         self._threads[self._last_tid] = thread
+        self._thread_names[self._last_tid] = thread.name
             
         if self._started:
             thread.start()
@@ -102,7 +104,7 @@ class ThreadManager:
             for t in self._threads.values():
                 t.start()
             
-        nostop_stopped = -1
+        stopid = -1
             
         while not self._stopping:
             try:
@@ -114,7 +116,7 @@ class ThreadManager:
                     for tid in self._threads.keys():
                         t = self._threads[tid]
                         if tid in self._threads_nostop and not t.isAlive():
-                            nostop_stopped = tid
+                            stopid = tid
                             self._stop_requested = True
                     
             if self._stop_requested:
@@ -122,8 +124,8 @@ class ThreadManager:
                 with self._lock:
                     self._remove_all_safe()
                     
-        if nostop_stopped != -1:
-            msg = "Thread id %d stopped unexpectedly" % nostop_stopped
+        if stopid != -1:
+            msg = "Thread '%s' stopped unexpectedly" % self._thread_names[stopid]
             raise UnexpectedStopError(msg)
                     
     def stop(self):

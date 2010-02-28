@@ -28,8 +28,8 @@ from ..objects import ObjectProvider, ObjectProcessor, ObjectWrapper
 from ..utils import fileIsOpen
 
 class DictTorrent:
-    def __init__(self, logger, handle, bt):
-        self.log = logger
+    def __init__(self, nestor, handle, bt):
+        self.nestor = nestor
         self.h = handle
         self.bt = bt
         
@@ -76,7 +76,7 @@ class DictTorrent:
             elif state == 'seeding':
                 return 4
             else:
-                self.log.debug("Unknown status : %s, %s" % (repr(pause), state))
+                self.nestor.debug("Unknown status : %s, %s" % (repr(pause), state))
         elif key == 'files':
             try:
                 info = self.h.get_torrent_info()
@@ -98,9 +98,8 @@ class DictTorrent:
             
         
 class BitTorrent:
-    def __init__(self, nestor, logger):
+    def __init__(self, nestor):
         self.nestor = nestor
-        self.log = logger
         self.s = None
         self.options = {}
         self.on_start = None
@@ -146,7 +145,7 @@ class BitTorrent:
         if self.is_active():
             dest = destdir or tempfile.mkdtemp('magnet')
             
-            self.log.debug("Adding magnet %s, store in %s" % (magnet, dest))
+            self.nestor.debug("Adding magnet %s, store in %s" % (magnet, dest))
             
             options = {
                 'save_path': dest.encode('utf-8'),
@@ -159,7 +158,7 @@ class BitTorrent:
             
             if handle and not destdir:
                 dest = destdir_hash % (str(handle.info_hash()))
-                self.log.debug("Moving download to %s" % dest)
+                self.nestor.debug("Moving download to %s" % dest)
                 handle.move_storage(dest.encode('utf-8'))
                 
             if self.on_start:
@@ -195,7 +194,7 @@ class BitTorrent:
         raise KeyError("Torrent hash '%s' not found" % hash)
         
     def __getitem__(self, hash):
-        return DictTorrent(self.log, self._get(hash), self)
+        return DictTorrent(self.nestor, self._get(hash), self)
     
     def keys(self):
         if self.is_active():
@@ -421,8 +420,8 @@ class BTDropCatcher(ProcessEvent):
         
 class BTWatcherThread(Thread):
     
-    def __init__(self, nestor, logger, objs, bt):
-        Thread.__init__(self, nestor, logger)
+    def __init__(self, name, nestor, objs, bt):
+        Thread.__init__(self, name, nestor)
         self.bt = bt
         self.objs = objs
         self.running = False
@@ -591,8 +590,7 @@ class BitTorrentHelper:
         self.reset()
         self.nestor = nestor
         self.nestor.info("Initializing bittorrent helper")
-        self.logger = nestor.get_logger('bt.log_file', 'bt.log_level')
-        self.bt = BitTorrent(self.nestor, self.logger)
+        self.bt = BitTorrent(self.nestor)
         
         self.objs = BTObjectProvider(self.nestor, self.bt)
         self.proc = BTObjectProcessor(self.nestor, 'bt', self.objs)
@@ -630,7 +628,7 @@ class BitTorrentHelper:
         self._tid = None
         
     def enable(self):
-        self._thread = BTWatcherThread(self.nestor, self.logger, self.objs,
+        self._thread = BTWatcherThread("BT Watcher", self.nestor, self.objs,
             self.bt)
         self._tid = self.nestor.add_thread(self._thread, True)
     

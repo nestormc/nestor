@@ -34,8 +34,8 @@ class ImporterThread(Thread):
     def _dummy(self):
         pass
 
-    def __init__(self, nestor, logger, helper):
-        Thread.__init__(self, nestor, logger)
+    def __init__(self, name, nestor, helper):
+        Thread.__init__(self, name, nestor)
         self.running = False
         self.helper = helper
         self._import_queue = []

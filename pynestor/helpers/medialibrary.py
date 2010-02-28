@@ -200,8 +200,8 @@ class MLObjectProvider(ObjectProvider):
         media:mpd-item|<position>
     """
     
-    def __init__(self, nestor, helper, logger=None):
-        ObjectProvider.__init__(self, nestor, 'media', logger)
+    def __init__(self, nestor, helper):
+        ObjectProvider.__init__(self, nestor, 'media')
         self.music = helper['music']
         self.mpd = helper['mpd']
         self.changed = {
@@ -316,8 +316,8 @@ class MLObjectProvider(ObjectProvider):
 
 class MLObjectProcessor(ObjectProcessor):
 
-    def __init__(self, nestor, helper, logger):
-        ObjectProcessor.__init__(self, nestor, 'media', logger)
+    def __init__(self, nestor, helper):
+        ObjectProcessor.__init__(self, nestor, 'media')
         self.objs = helper['objs']
         self.music = helper['music']
         self.mpd = helper['mpd']
@@ -562,17 +562,15 @@ class MediaLibraryHelper:
 
     def __init__(self, nestor):
         self.nestor = nestor
-        self.nestor.info("Initializing media library helper")
-        self.logger = nestor.get_logger('media.log_file', 'media.log_level')
-        
+        self.nestor.info("Initializing media library helper")        
         self.mpd = MPDWrapper(self.nestor)
-        self.music = MusicLibrary(self.nestor, self.logger)
+        self.music = MusicLibrary(self.nestor)
         
-        self.import_thread = ImporterThread(self.nestor, self.logger, self)
+        self.import_thread = ImporterThread('Media Importer', self.nestor, self)
         ret = self.nestor.add_thread(self.import_thread, True)
         
-        self.objs = MLObjectProvider(nestor, self, self.logger)
-        self.proc = MLObjectProcessor(nestor, self, self.logger)
+        self.objs = MLObjectProvider(nestor, self)
+        self.proc = MLObjectProcessor(nestor, self)
         
         self.music.set_callbacks({
             "track_changed": self.objs.on_track_changed,

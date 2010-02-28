@@ -245,9 +245,9 @@ class SIPacket:
         
 class SIServerThread(Thread):
 
-    def __init__(self, nestor, logger, host, port,
+    def __init__(self, name, nestor, host, port,
                     max_conn = SIC.MAX_CONNECTIONS):
-        Thread.__init__(self, nestor, logger)
+        Thread.__init__(self, name, nestor)
         self.host = host
         self.port = port
         self.max_conn = max_conn
@@ -273,8 +273,8 @@ class SIServerThread(Thread):
             else:
                 self._sock.settimeout(None)
                 clithread = SIClientThread(
+                    "SI Client %r" % address,
                     self.nestor,
-                    self.logger,
                     clisock,
                     address,
                     self._handlers
@@ -330,8 +330,8 @@ class SIServerThread(Thread):
 
 class SIClientThread(Thread):
 
-    def __init__(self, nestor, logger, sock, address, handlers):
-        Thread.__init__(self, nestor, logger)
+    def __init__(self, name, nestor, sock, address, handlers):
+        Thread.__init__(self, name, nestor)
         self._sock = sock
         self.address = address
         self._rfile = sock.makefile("rb")

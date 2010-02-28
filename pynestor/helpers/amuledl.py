@@ -179,9 +179,8 @@ class DictResult:
             
 class Amule:
 
-    def __init__(self, nestor, logger):
+    def __init__(self, nestor):
         self.nestor = nestor
-        self.log = logger
         self.connected = False
         self.client = AmuleClient()
         self.objs = None
@@ -206,10 +205,10 @@ class Amule:
                     'TODOversion'
                 )
             except ECConnectionError, e:
-                self.log.info("Could not connect to amule - <%s>" % e)
+                self.nestor.info("Could not connect to amule - <%s>" % e)
                 self.connected = False
             else:
-                self.log.info("Connected to amule")
+                self.nestor.info("Connected to amule")
                 self.connected = True
             
     def disconnect(self):
@@ -537,8 +536,8 @@ class AmuleObjectProcessor(ObjectProcessor):
         
 class AmuleRunWatcherThread(RunWatcherThread):
 
-    def __init__(self, am, nestor, logger, command, **kwargs):
-        RunWatcherThread.__init__(self, nestor, logger, command, **kwargs)
+    def __init__(self, name, am, nestor, command, **kwargs):
+        RunWatcherThread.__init__(self, name, nestor, command, **kwargs)
         self.am = am
         
     def on_start(self):
@@ -564,9 +563,8 @@ class AmuleHelper:
         self._reset()
         self.nestor = nestor
         self.nestor.info("Initializing amule helper")
-        self.logger = nestor.get_logger('amule.log_file', 'amule.log_level')
         
-        self.amule = Amule(self.nestor, self.logger)
+        self.amule = Amule(self.nestor)
         
         self.objs = AmuleObjectProvider(nestor, self.amule)
         self.proc = AmuleObjectProcessor(nestor, 'amule', self.objs)
@@ -594,9 +592,9 @@ class AmuleHelper:
         
     def enable(self):
         self._rw_thread = AmuleRunWatcherThread(
+            'Amule RunWatcher',
             self.amule,
             self.nestor,
-            self.logger,
             '/usr/share/amule/amuled_home_wrapper.sh',
             pidof = 'amuled',
             kill = True,

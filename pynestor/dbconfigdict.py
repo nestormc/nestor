@@ -16,7 +16,7 @@
 NESTOR_CONFIG_DEFAULTS = {
     'nestor.ipc_host':       'localhost',
     'nestor.ipc_port':       21900,
-    'nestor.log_file':       '/var/log/nestor/nestor.log',
+    'nestor.log_file':       '/var/log/nestor.log',
     'nestor.log_level':      3,
     'nestor.use_psyco':      0,
     
@@ -28,8 +28,6 @@ NESTOR_CONFIG_DEFAULTS = {
     'web.enable_debug_url':     0,
     
     'amule.enabled':            0,
-    'amule.log_file':           '/var/log/nestor/nestor.log',
-    'amule.log_level':          3,
     'amule.amule_dir':          '/home/amule/.aMule',
     'amule.finished_dir':       '/home/amule/.aMule/Incoming',
     'amule.tcp_port':           20101,
@@ -42,8 +40,6 @@ NESTOR_CONFIG_DEFAULTS = {
     'amule.update_interval':    1,
     
     'bt.enabled':               0,
-    'bt.log_file':              '/var/log/nestor/bt.log',
-    'bt.log_level':             3,
     'bt.port':                  20111,
     'bt.max_upload':            40,
     'bt.max_download':          600,
@@ -54,15 +50,10 @@ NESTOR_CONFIG_DEFAULTS = {
     
     'media.lobby_dir':          '/nestor/lobby',
     'media.music_dir':          '/nestor/media/music',
-    'media.log_file':           '/var/log/nestor/media.log',
-    'media.log_level':          3,
     'media.deter':              'the,le,la,les',
     'media.mpd_host':           'localhost',
     'media.mpd_port':           6600,
-    'media.mpd_password':       'mpd',
-    
-    'fileman.log_file':         '/var/log/nestor/fileman.log',
-    'fileman.log_level':        3
+    'media.mpd_password':       'mpd'
 }
 
 class DBConfigDict:

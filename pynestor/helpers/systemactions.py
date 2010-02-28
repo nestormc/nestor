@@ -27,8 +27,8 @@ from ..socketinterfacecodes import SIC
             
 class FileOpThread(Thread):
     
-    def __init__(self, nestor, tag):
-        Thread.__init__(self, nestor)
+    def __init__(self, name, nestor, tag):
+        Thread.__init__(self, name, nestor)
         self.tag = tag
         self.apid = -1
         
@@ -205,7 +205,6 @@ class SystemActionsHelper:
     def __init__(self, nestor):
         self.nestor = nestor
         self.nestor.info("Initializing system actions helper")
-        self.logger = nestor
         nestor.register_packet_handler(SIC.OP_ACTIONS, self.handle_sipacket)
         
     def handle_sipacket(self, client, packet):
@@ -222,7 +221,7 @@ class SystemActionsHelper:
             client.answer_success()
             return True
         elif tag.value == 'file':
-            thread = FileOpThread(self.nestor, tag)
+            thread = FileOpThread('Sys Fileop', self.nestor, tag)
             apid = thread.create_action_progress()
             self.nestor.add_thread(thread)
             client.answer_processing(apid)

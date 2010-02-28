@@ -31,20 +31,18 @@ class Thread(threading.Thread):
 
     nestor_init_done = False
 
-    def __init__(self, nestor, logger=None, traceback=True):
+    def __init__(self, name, nestor, traceback=True):
         threading.Thread.__init__(self)
         self.nestor_init_done = True
+        self.name = name
         self.nestor = nestor
         self.traceback = traceback
         
         # Logger aliases
-        self.logger = logger
-        if logger is None:
-            self.logger = self.nestor
-        self.info = logger.info
-        self.verbose = logger.verbose
-        self.debug = logger.debug
-        self.perf = logger.perf
+        self.info = nestor.info
+        self.verbose = nestor.verbose
+        self.debug = nestor.debug
+        self.perf = nestor.perf
 
     def nestor_run(self):
         raise ImplementationError("nestor_run() was not overriden")

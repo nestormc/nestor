@@ -60,13 +60,12 @@ class MusicLibrary:
         """Dummy callback"""
         pass
 
-    def __init__(self, nestor, logger=None):
+    def __init__(self, nestor):
         self.nestor = nestor
-        self.log = logger if logger else nestor
-        self.info = self.log.info
-        self.verbose = self.log.verbose
-        self.debug = self.log.debug
-        self.perf = self.log.perf
+        self.info = self.nestor.info
+        self.verbose = self.nestor.verbose
+        self.debug = self.nestor.debug
+        self.perf = self.nestor.perf
         
         self.cb = {
             "track_changed": self._dummy,

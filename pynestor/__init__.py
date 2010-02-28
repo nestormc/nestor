@@ -188,7 +188,7 @@ class Nestor:
         
         self.config = DBConfigDict(self.get_main_db)
         
-    def get_logger(self, file_key='', level_key=''):
+    def _get_logger(self, file_key='', level_key=''):
         """Create a Logger object using config keys for filename and level"""
         
         try:
@@ -211,7 +211,7 @@ class Nestor:
     def _init_logger(self):
         """Create the main Logger"""
         
-        self._logger = self.get_logger('nestor.log_file', 'nestor.log_level')
+        self._logger = self._get_logger('nestor.log_file', 'nestor.log_level')
         self.info = self._logger.info
         self.verbose = self._logger.verbose
         self.debug = self._logger.debug
@@ -256,7 +256,7 @@ class Nestor:
         """Initialize the socket IPC interface"""
         
         self._si = SIServerThread(
-            self,
+            "SI Server",
             self,
             self.config['nestor.ipc_host'],
             int(self.config['nestor.ipc_port'])
@@ -281,7 +281,7 @@ class Nestor:
         self._si.unregister_packet_handler(opcode)
         
     def _init_web(self):
-        self._web = HTTPServerThread(self, self)
+        self._web = HTTPServerThread("Web Server", self)
         self._web_tid = self.add_thread(self._web, True)
         
     def add_helper(self, helperclass):

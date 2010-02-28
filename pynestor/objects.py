@@ -339,14 +339,13 @@ class ObjectProvider:
     
     """
     
-    def __init__(self, nestor, name, logger=None):
+    def __init__(self, nestor, name):
         self.name = name
         self.nestor = nestor
-        self.log = logger or nestor
-        self.info = self.log.info
-        self.verbose = self.log.verbose
-        self.debug = self.log.debug
-        self.perf = self.log.perf
+        self.info = self.nestor.info
+        self.verbose = self.nestor.verbose
+        self.debug = self.nestor.debug
+        self.perf = self.nestor.perf
         
         self.obj = None
         self.cache = None
@@ -560,14 +559,13 @@ class ObjectProcessor:
     
     """
 
-    def __init__(self, nestor, name, logger=None):
+    def __init__(self, nestor, name):
         self.nestor = nestor
         self.name = name
-        self.log = logger or nestor
-        self.info = self.log.info
-        self.verbose = self.log.verbose
-        self.debug = self.log.debug
-        self.perf = self.log.perf
+        self.info = self.nestor.info
+        self.verbose = self.nestor.verbose
+        self.debug = self.nestor.debug
+        self.perf = self.nestor.perf
         
     def get_actions(self, obj):
         raise ImplementationError("ObjectProcessor.get_actions() not overriden")
