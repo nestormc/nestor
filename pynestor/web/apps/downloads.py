@@ -322,7 +322,7 @@ class DownloadWorkspace(e.AppElement):
                 }
             },
             "action_filter": self.action_filter,
-            "delete_action": "cancel"
+            "delete_actions": ["cancel", "clear"]
         }
         self.list = self.create(ol.RefreshObjectList, "list", dlsetup)
         

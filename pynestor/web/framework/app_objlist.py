@@ -332,10 +332,10 @@ class ObjectListBody(e.AppElement):
                 [a.replace('-', '') for a in actions]
             )
             
-            if "delete_action" in self.s:
+            if "delete_actions" in self.s:
                 child.set_property(
-                    'delete_action',
-                    self.s["delete_action"].replace('-', '')
+                    'delete_actions',
+                    [a.replace('-', '') for a in self.s["delete_actions"]]
                 )
                 
     def remove_item(self, id):
@@ -584,8 +584,10 @@ class ObjectList(e.AppElement):
                        must return a boolean telling if the action must be
                        displayed or not.
                        
-    * "delete_action": name of action triggered when dropping items on the
-                       trash can
+    * "delete_actions": list of action names triggered when dropping items on
+                        the trash can.  If more than one name is specified, only
+                        one must be active on any item at the same time, or the
+                        behavior is undefined.
     
     (1) field titles will only be displayed if the "main_field" has a "title"
         attribute

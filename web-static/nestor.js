@@ -611,7 +611,7 @@ function $popup_menu(obj)
     }
 }
 
-function $popup_click(action, handlerid)
+function $popup_click(action)
 {
     var props = $element_props[$popup_cur_element.id];
 
@@ -647,8 +647,8 @@ Available properties:
     menu (str): popup menu ID
     menuitems (str array): available popup menu item IDs
     menu_handler (int): handler ID to call when launching a menu action
-    delete_action (str): menu item ID of action launched when dropping element
-        on the trash can; only triggered when this value is also in 'menuitems'
+    delete_actions (str array): menu item IDs of potential actions when dropping
+        element on the trash can.
     
     drop_handler (int): handler ID to call when receiving a dropped element
     drop_confirm (str): confirm message when receiving a dropped element
@@ -683,10 +683,24 @@ function $trash_drop(target, obj)
     if (target != $("NESTOR_AL_N_T")) return false;
     
     var props = $element_props[obj.id];
-    if (props['delete_action'] && props['menuitems'].indexOf(props['delete_action']) != -1)
+    if (props['delete_actions'])
     {
-        $popup_cur_element = obj;
-        $popup_click(props['delete_action']);
+        var found = false;
+        
+        for (var i = 0; i < props['delete_actions'].length; i++)
+        {
+            if (props['menuitems'].indexOf(props['delete_actions'][i]) != -1)
+            {
+                found = props['delete_actions'][i];
+                break;
+            }
+        }
+        
+        if (found)
+        {
+            $popup_cur_element = obj;
+            $popup_click(found);
+        }
     }
     
     return true;
@@ -907,8 +921,20 @@ var $drag = {
                 
                 /* Enable trash icon if item has a delete_action */
                 var props = $element_props[$drag.obj.id];
-                if (props['delete_action'] && props['menuitems'].indexOf(props['delete_action']) != -1)
-                    $trash_show(true);
+                if (props['delete_actions'])
+                {
+                    var found = false;
+                    for (var i = 0; i < props['delete_actions'].length; i++)
+                    {
+                        if (props['menuitems'].indexOf(props['delete_actions'][i]) != -1)
+                        {
+                            found = props['delete_actions'][i];
+                            break;
+                        }
+                    }
+                
+                    if (found) $trash_show(true);
+                }
             }
         }
         

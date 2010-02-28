@@ -371,7 +371,7 @@ class MusicPlaylistColumn(e.AppElement):
                 }
             },
             
-            "delete_action": "mpd-item-remove"
+            "delete_actions": ["mpd-item-remove"]
         }
     
         self.cover = self.create(MusicCoverBlock, "%s_cover" % self.id)
