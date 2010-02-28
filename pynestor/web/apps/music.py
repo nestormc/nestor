@@ -473,6 +473,9 @@ class MusicLibInput(e.DivElement):
         self.inp.set_value(self.value)
         self.inp.set_class("music_input")
         
+    def set_value(self, value):
+        self.inp.set_value(value)
+        
         
 class MusicLibObjectListItem(ol.CellsObjectListItem):
 
@@ -577,8 +580,11 @@ class MusicLibObjectListItem(ol.CellsObjectListItem):
         self.apply.set_css({"display": "none"})
         self._inhibit_events(self.apply, False)
         
-        apply_hid = self.output.handler_id(self.apply_edit)
+        itemid = self.objref.split('|', 1)[1]
+        
+        apply_hid = self.output.handler_id(self.objlist.apply_edititem)
         self.add_jscode("$W.music_edit_hids[{id}]=%d" % apply_hid)
+        self.add_jscode("$W.music_edit_iids[{id}]=%s" % self.output._json_value(itemid))
         js_fids = self.output._json_value(self.fids)
         self.add_jscode("$W.music_edit_fields[{id}]=%s" % js_fids)
         self.apply.set_jshandler("onclick", "$W.music_editapply")
@@ -588,8 +594,7 @@ class MusicLibObjectListItem(ol.CellsObjectListItem):
         self.cancel.set_class("music_editbtn")
         self.cancel.set_css({"display": "none"})
         self._inhibit_events(self.cancel, False)
-        self.cancel.set_handler("onclick", self.cancel_edit, "")
-        
+        self.cancel.set_handler("onclick", self.objlist.cancel_edititem, itemid)
     
     def update_data(self, updated):
         ol.CellsObjectListItem.update_data(self, updated)
@@ -623,7 +628,6 @@ class MusicLibObjectListItem(ol.CellsObjectListItem):
                 self.inputs["title"].set_value(self.data["title"])
     
     def edit(self):
-        # FIXME move this handler to parent element (to lower handler count)
         self.set_class("music_editing")
         for c in self.cells:
             self.cells[c]['element'].set_css({"display": "none"})
@@ -633,8 +637,7 @@ class MusicLibObjectListItem(ol.CellsObjectListItem):
         self.apply.set_css({"display": "inline"})
         self.cancel.set_css({"display": "inline"})
             
-    def cancel_edit(self, arg):
-        # FIXME move this handler to parent element (to lower handler count)
+    def cancel_edit(self):
         self.unset_class("music_editing")
         for inp in self.inputs:
             self.inputs[inp].set_css({"display": "none"})
@@ -644,11 +647,7 @@ class MusicLibObjectListItem(ol.CellsObjectListItem):
             self.cells[c]['element'].set_css({"display": "block"})
         self.expander.set_css({"display": "inline"})
         
-    def apply_edit(self, arg):
-        # FIXME move this handler to parent element (to lower handler count)
-        args = re.split("(?<!\\\\) ", arg)
-        args = [a.replace("\\ ", " ") for a in args]
-        
+    def apply_edit(self, args):
         fmap = {
             "ar": "artist",
             "al": "album",
@@ -684,7 +683,28 @@ class MusicLibObjectListItem(ol.CellsObjectListItem):
             # FIXME show error message
             pass
         else:
-            self.cancel_edit('')
+            self.cancel_edit()
+            
+            
+class MusicLibObjectList(ol.FixedObjectList):
+
+    update_callback = None
+
+    def edititem(self, itemid):
+        self.lst.children[itemid].edit()
+            
+    def cancel_edititem(self, arg):
+        self.lst.children[arg].cancel_edit()
+        
+    def apply_edititem(self, arg):
+        args = re.split("(?<!\\\\) ", arg)
+        args = [a.replace("\\ ", " ") for a in args]
+        self.lst.children[args[0]].apply_edit(args[1:])
+        if callable(self.update_callback):
+            self.update_callback()
+        
+    def set_update_callback(self, callback):
+        self.update_callback = callback
         
 
 class MusicAlbumTracksColumn(e.AppElement):
@@ -741,7 +761,7 @@ class MusicAlbumTracksColumn(e.AppElement):
             "filter": ["artist", "album"]
         }
         self.tracks = self.create(
-            ol.FixedObjectList,
+            MusicLibObjectList,
             "tracks",
             trksetup
         )
@@ -789,7 +809,7 @@ class MusicAlbumTracksColumn(e.AppElement):
             "link_fields": ["artist", "album"]
         }
         self.albums = self.create(
-            ol.FixedObjectList,
+            MusicLibObjectList,
             "albums",
             albsetup
         )
@@ -812,6 +832,9 @@ class MusicWorkspace(e.AppElement):
             'albtrk',
             self
         )
+        
+        self.albtrk.albums.set_update_callback(self.reload)
+        self.albtrk.tracks.set_update_callback(self.reload)
     
         artsetup = {
             "title": "Artists",
@@ -850,10 +873,11 @@ class MusicWorkspace(e.AppElement):
             "link_fields": ["artist"]
         }
         self.artists = self.create(
-            ol.FixedObjectList,
+            MusicLibObjectList,
             "artists",
             artsetup
         )
+        self.artists.set_update_callback(self.reload)
         
         self.playlist= self.create(MusicPlaylistColumn, "playlistcol")
 
@@ -868,6 +892,11 @@ class MusicWorkspace(e.AppElement):
             {"element": self.playlist, "weight": 1}
         ])
         
+    def reload(self):
+        self.artists.reload()
+        self.albtrk.albums.reload()
+        self.albtrk.tracks.reload()
+        
     def medialib_dblclick_handler(self, element):
         if isinstance(element, ol.ObjectListItem):
             self.obj.do_action("media", "mpd-play", element.objref)
@@ -877,17 +906,14 @@ class MusicWorkspace(e.AppElement):
         if action != 'edit':
             return
         if objref.startswith("media:music-artist|"):
-            aid = objref[len("media:music-artist|"):]
-            item = self.artists.lst.children[aid]
-            item.edit()
+            artid = objref[len("media:music-artist|"):]
+            self.artists.edititem(artid)
         if objref.startswith("media:music-album|"):
-            aid = objref[len("media:music-album|"):]
-            item = self.albtrk.albums.lst.children[aid]
-            item.edit()
+            albid = objref[len("media:music-album|"):]
+            self.albtrk.albums.edititem(albid)
         if objref.startswith("media:music-track|"):
-            aid = objref[len("media:music-track|"):]
-            item = self.albtrk.tracks.lst.children[aid]
-            item.edit()
+            trkid = objref[len("media:music-track|"):]
+            self.albtrk.tracks.edititem(trkid)
 
     def medialib_remove_handler(self, action, objref):
         if not action.startswith('remove-'):

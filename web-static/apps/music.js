@@ -22,6 +22,9 @@ var music_setvolume_hid = undefined;
 /* Handler IDs for music library item edition */
 var music_edit_hids = {};
 
+/* Item IDs for music library item edition */
+var music_edit_iids = {};
+
 /* Field IDs for music library item edition */
 var music_edit_fields = {};
 
@@ -56,8 +59,9 @@ function music_editapply(e)
     e.stopPropagation();
     var itemid = this.id.replace(/_IA$/, "");
     var hid = music_edit_hids[itemid];
+    var iid = music_edit_iids[itemid];
     var fields = music_edit_fields[itemid];
-    var values = [];
+    var values = [iid];
     
     for (var i=0; i<fields.length; i++)
     {

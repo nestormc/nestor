@@ -72,7 +72,8 @@ class ObjectListCell(e.SpanElement):
 class ObjectListItem(e.AppElement):
     """Abstract list item class"""
     
-    def __init__(self, app, om, id, data, objref, settings):
+    def __init__(self, app, om, id, objlist, data, objref, settings):
+        self.objlist = objlist
         self.data = data
         self.objref = objref
         self.s = settings
@@ -98,7 +99,7 @@ class ObjectListItem(e.AppElement):
             v = updated[f]
             self.data[f] = v
             if f == self.s["main_field"]:
-                self.label = v
+                self.set_label(v)
 
 
 class CellsObjectListItem(ObjectListItem):
@@ -181,7 +182,8 @@ class ObjectListBody(e.AppElement):
     children = {}
     selected_id = ''
     
-    def __init__(self, app, om, id, settings):
+    def __init__(self, app, om, id, objlist, settings):
+        self.objlist = objlist
         self.s = settings
         self.itemclass = self.s.get("custom_item", CellsObjectListItem)
         e.AppElement.__init__(self, app, om, id)
@@ -195,6 +197,7 @@ class ObjectListBody(e.AppElement):
             self.children[id] = self.create(
                 self.itemclass,
                 "%s_I%s" % (self.id, id),
+                self.objlist,
                 data,
                 data["0ref"],
                 self.s
@@ -404,6 +407,7 @@ class RefreshObjectListBody(ObjectListBody):
                 child = self.create(
                     self.itemclass,
                     "%s_I%s" % (self.id, id),
+                    self.objlist,
                     props,
                     objref,
                     self.s
@@ -447,6 +451,7 @@ class FixedObjectListBody(RefreshObjectListBody):
                 child = self.create(
                     self.itemclass,
                     "%s_I%s" % (self.id, id),
+                    self.objlist,
                     props,
                     objref,
                     self.s
@@ -662,7 +667,7 @@ class RefreshObjectList(ObjectList):
     """
     
     def get_list_body(self):
-        return self.create(RefreshObjectListBody, "%s_BDY" % self.id, self.s)
+        return self.create(RefreshObjectListBody, "%s_BDY" % self.id, self, self.s)
         
         
 class FixedObjectList(ObjectList):
@@ -679,7 +684,7 @@ class FixedObjectList(ObjectList):
     """
     
     def get_list_body(self):
-        return self.create(FixedObjectListBody, "%s_BDY" % self.id, self.s)
+        return self.create(FixedObjectListBody, "%s_BDY" % self.id, self, self.s)
         
     def reload(self):
         self.lst.reload()
