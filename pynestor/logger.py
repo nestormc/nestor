@@ -43,6 +43,9 @@ class Logger:
         self.maxsize = maxsize
         self.level = level
         
+    def set_level(self, level=LL_DEBUG):
+        self.level = level
+        
     def rotate(self):
         if self.maxsize > 0:
             if os.stat(self.logfile)[6] > self.maxsize:

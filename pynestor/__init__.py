@@ -216,6 +216,10 @@ class Nestor:
         self.verbose = self._logger.verbose
         self.debug = self._logger.debug
         self.perf = self._logger.perf
+        self.config.register_callback('nestor.log_level', self._log_level_changed)
+        
+    def _log_level_changed(self, level):
+        self._logger.set_level(int(level))
         
     def _init_threads(self):
         """Initialize the thread manager"""
