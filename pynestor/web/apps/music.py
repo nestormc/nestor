@@ -919,6 +919,12 @@ class MusicWorkspace(e.AppElement):
         if not action.startswith('remove-'):
             return
         self.obj.do_action("media", action, objref)
+        if objref.startswith("media:music-artist|"):
+            self.artists.reload()
+        elif objref.startswith("media:music-album|"):
+            self.albtrk.albums.reload()
+        elif objref.startswith("media:music-track|"):
+            self.albtrk.tracjs.reload()
 
     def music_dropedit_handler(self, where, target, objref):
         if not objref.startswith("media:music-"):
