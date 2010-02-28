@@ -189,14 +189,14 @@ class DownloadSearchField(e.DivElement):
         self.add_child(self.status)
         
         hid = self.output.handler_id(self.search_handler)
-        self.add_jscode('dl_search_handlerid=%d' % hid)
-        self.field.add_jscode('dl_searchfield_id={id}')
-        self.btn.add_jscode('dl_searchbtn_id={id}')
-        self.add_jscode('dl_searchfield_blur()')
-        self.field.set_jshandler("onkeyup", "dl_searchfield_change")
-        self.field.set_jshandler("onfocus", "dl_searchfield_focus")
-        self.field.set_jshandler("onblur", "dl_searchfield_blur")
-        self.btn.set_jshandler("onclick", "dl_searchbtn_click")
+        self.add_jscode('$W.dl_search_handlerid=%d' % hid)
+        self.field.add_jscode('$W.dl_searchfield_id={id}')
+        self.btn.add_jscode('$W.dl_searchbtn_id={id}')
+        self.add_jscode('$W.dl_searchfield_blur()')
+        self.field.set_jshandler("onkeyup", "$W.dl_searchfield_change")
+        self.field.set_jshandler("onfocus", "$W.dl_searchfield_focus")
+        self.field.set_jshandler("onblur", "$W.dl_searchfield_blur")
+        self.btn.set_jshandler("onclick", "$W.dl_searchbtn_click")
         
     def search_handler(self, arg):
         action, parm = arg.split(' ', 1)
@@ -303,42 +303,26 @@ class DownloadWorkspace(e.AppElement):
             "drop_handler": self.dllist_drop_handler,
                        
             "actions": {
-                "torrent-pause": {
-                    "title": "Pause",
-                    "handler": self.action_execute
-                },
-                "torrent-resume": {
-                    "title": "Resume",
-                    "handler": self.action_execute
-                },
-                "torrent-cancel": {
+                "cancel": {
                 	"title": "Cancel",
                 	"handler": self.action_execute,
                 	"confirm": "Cancel downloading '{label}' ?"
                 },
-                "torrent-clear": {
-                	"title": "Clear",
-                	"handler": self.action_execute
-                },
-                "partfile-pause": {
+                "pause": {
                     "title": "Pause",
                     "handler": self.action_execute
                 },
-                "partfile-resume": {
+                "resume": {
                     "title": "Resume",
                     "handler": self.action_execute
                 },
-                "partfile-cancel": {
-                	"title": "Cancel",
-                	"handler": self.action_execute,
-                	"confirm": "Cancel downloading '{label}' ?"
-                },
-                "partfile-clear": {
+                "clear": {
                 	"title": "Clear",
                 	"handler": self.action_execute
-                },
+                }
             },
-            "action_filter": self.action_filter
+            "action_filter": self.action_filter,
+            "delete_action": "cancel"
         }
         self.list = self.create(ol.RefreshObjectList, "list", dlsetup)
         
@@ -385,32 +369,18 @@ class DownloadWorkspace(e.AppElement):
             self.obj.do_action("amule", "result-download", objref)
         
     def action_filter(self, action, objref, data):
-        amule  = ["partfile-pause", "partfile-resume", "partfile-cancel",
-            "partfile-clear"]
-        bt = ["torrent-pause", "torrent-resume", "torrent-seed",
-            "torrent-unseed", "torrent-cancel", "torrent-clear"]
-        
-        if objref.startswith("amule:"):
-            if action not in amule: return False
-            if action == "partfile-resume" and data["status"] != 2: return False
-            if action == "partfile-pause" and data["status"] in (0, 2, 6): return False
-            if action == "partfile-cancel" and data["status"] > 4: return False
-            if action == "partfile-clear" and data["status"] != 6: return False
-            
-        elif objref.startswith("bt:"):
-            if action not in bt: return False
-            if action == "torrent-resume" and data["status"] != 2: return False
-            if action == "torrent-pause" and data["status"] in (0, 2, 6): return False
-            if action == "torrent-cancel" and data["status"] > 4: return False
-            if action == "torrent-clear" and data["status"] != 6: return False
-            
+        if action == "resume" and data["status"] != 2: return False
+        if action == "pause" and data["status"] in (0, 2, 6): return False
+        if action == "cancel" and data["status"] > 4: return False
+        if action == "clear" and data["status"] != 6: return False
         return True
     
     def action_execute(self, action, objref):
-        if action.startswith("torrent-"):
-            self.obj.do_action("bt", action, objref)
-        elif action.startswith("partfile-"):
-            self.obj.do_action("amule", action, objref)
+        if action in ('cancel', 'pause', 'resume', 'clear'):
+            if objref.startswith('amule:'):
+                self.obj.do_action("amule", 'partfile-%s' % action, objref)
+            elif objref.startswith('bt:'):
+                self.obj.do_action("bt", 'torrent-%s' % action, objref)
 
     def render(self):
         self.add_child(self.list)

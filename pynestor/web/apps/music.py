@@ -87,8 +87,8 @@ class MusicVolumebar(e.AppElement):
             "height": "15px", 
             "background-image": "url('%s')" % self.skin.image("volume_empty")
         })
-        self.set_jshandler("onclick", "music_setvolume")
-        self.add_jscode("music_setvolume_hid=%d" % self.setvol_hid)
+        self.set_jshandler("onclick", "$W.music_setvolume")
+        self.add_jscode("$W.music_setvolume_hid=%d" % self.setvol_hid)
         
         self.add_child(self.vol)
         self.vol.set_css({"position": "absolute"})
@@ -176,8 +176,8 @@ class MusicSummary(e.AppElement):
         
         for e in ('title', 'artist', 'seek'):
             self.add_child(self.elems[e])
-        self.elems["seek"].set_jshandler("onclick", "music_playerseek")
-        self.add_jscode("music_playerseek_hid=%d" % self.seek_hid)
+        self.elems["seek"].set_jshandler("onclick", "$W.music_playerseek")
+        self.add_jscode("$W.music_playerseek_hid=%d" % self.seek_hid)
         
         for action in ('play', 'pause', 'prev', 'next'):
             icon = self.icons[action]
@@ -370,6 +370,8 @@ class MusicPlaylistColumn(e.AppElement):
                     "icon": "play"
                 }
             },
+            
+            "delete_action": "mpd-item-remove"
         }
     
         self.cover = self.create(MusicCoverBlock, "%s_cover" % self.id)
@@ -554,9 +556,9 @@ class MusicLibObjectListItem(ol.CellsObjectListItem):
         
     def _inhibit_events(self, element, click=True):
         if click:
-            element.set_jshandler("onclick", "music_editclick")
-        element.set_jshandler("ondblclick", "music_editclick")
-        element.set_jshandler("onmousedown", "music_editclick")
+            element.set_jshandler("onclick", "$W.music_editclick")
+        element.set_jshandler("ondblclick", "$W.music_editclick")
+        element.set_jshandler("onmousedown", "$W.music_editclick")
             
     def render(self):
         ol.CellsObjectListItem.render(self)
@@ -567,7 +569,7 @@ class MusicLibObjectListItem(ol.CellsObjectListItem):
             self._inhibit_events(self.inputs[inp])
             
         for inp in self.inum:
-            self.inputs[inp].set_jshandler("onkeypress", "music_editnum")
+            self.inputs[inp].set_jshandler("onkeypress", "$W.music_editnum")
             
         self.add_child(self.apply)
         self.apply.set_value("Apply")
@@ -576,10 +578,10 @@ class MusicLibObjectListItem(ol.CellsObjectListItem):
         self._inhibit_events(self.apply, False)
         
         apply_hid = self.output.handler_id(self.apply_edit)
-        self.add_jscode("music_edit_hids[{id}]=%d" % apply_hid)
+        self.add_jscode("$W.music_edit_hids[{id}]=%d" % apply_hid)
         js_fids = self.output._json_value(self.fids)
-        self.add_jscode("music_edit_fields[{id}]=%s" % js_fids)
-        self.apply.set_jshandler("onclick", "music_editapply")
+        self.add_jscode("$W.music_edit_fields[{id}]=%s" % js_fids)
+        self.apply.set_jshandler("onclick", "$W.music_editapply")
         
         self.add_child(self.cancel)
         self.cancel.set_value("Cancel")
@@ -920,8 +922,6 @@ class MusicWorkspace(e.AppElement):
             return
                     
         ns.debug("dropedit: params out %r" % params)
-        ns.debug("dropedit: (abort)")
-        return
         
         # Execute action
         action.execute(params)
