@@ -728,8 +728,15 @@ class MusicAlbumTracksColumn(e.AppElement):
                 "edit": {
                     "title": "Edit",
                     "handler": self.musicws.medialib_edit_handler
+                },
+                "remove-track": {
+                    "title": "Remove",
+                    "handler": self.musicws.medialib_remove_handler,
+                    "confirm": "Remove track '{label}' from music library ? This cannot be undone !"
                 }
             },
+            
+            "delete_actions": ["remove-track"],
             
             "filter": ["artist", "album"]
         }
@@ -767,8 +774,15 @@ class MusicAlbumTracksColumn(e.AppElement):
                 "edit": {
                     "title": "Edit",
                     "handler": self.musicws.medialib_edit_handler
+                },
+                "remove-album": {
+                    "title": "Remove",
+                    "handler": self.musicws.medialib_remove_handler,
+                    "confirm": "Remove album '{label}' from music library ? This cannot be undone !"
                 }
             },
+            
+            "delete_actions": ["remove-album"],
             
             "filter": ["artist"],
             "link": self.tracks,
@@ -822,8 +836,15 @@ class MusicWorkspace(e.AppElement):
                 "edit": {
                     "title": "Edit",
                     "handler": self.medialib_edit_handler
+                },
+                "remove-artist": {
+                    "title": "Remove",
+                    "handler": self.medialib_remove_handler,
+                    "confirm": "Remove artist '{label}' from music library ? This cannot be undone !"
                 }
             },
+            
+            "delete_actions": ["remove-artist"],
             
             "link": self.albtrk.albums,
             "link_fields": ["artist"]
@@ -867,6 +888,11 @@ class MusicWorkspace(e.AppElement):
             aid = objref[len("media:music-track|"):]
             item = self.albtrk.tracks.lst.children[aid]
             item.edit()
+
+    def medialib_remove_handler(self, action, objref):
+        if not action.startswith('remove-'):
+            return
+        self.obj.do_action("media", action, objref)
 
     def music_dropedit_handler(self, where, target, objref):
         if not objref.startswith("media:music-"):
