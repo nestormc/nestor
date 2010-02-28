@@ -776,6 +776,77 @@ class MusicLibrary:
         
         return [track_id, mlpath]
         
+    def remove_artist(self, artist_id):
+        """Remove an artist (files and music library)"""
+        
+        meta = self.get_artist_metadata(artist_id)
+        mlpath = self.meta_to_filename(meta, MusicTypes.ARTIST)
+        relpath = self.meta_to_filename(meta, MusicTypes.ARTIST, True)
+        
+        self.debug("Removing artist %d (%s)" % (artist_id, mlpath))
+        for aid in self.get_artist_albumids(artist_id):
+            self.remove_album(aid)
+            
+        try:
+            os.rmdir(mlpath)
+        except OSError:
+            self.verbose("Warning: could not remove artist dir %s" % mlpath)
+            
+        db = self.nestor.get_media_db()
+        db.execute("DELETE FROM music_artists WHERE id=?", (artist_id,))
+        db.commit()
+        db.close()
+        
+        self.cb["artist_changed"](artist_id, relpath)
+        
+    def remove_album(self, album_id):
+        """Remove an album (files and music library)"""
+        
+        meta = self.get_album_metadata(album_id)
+        mlpath = self.meta_to_filename(meta, MusicTypes.ALBUM)
+        
+        self.debug("Removing album %d (%s)" % (album_id, mlpath))
+        for tid in self.get_album_trackids(album_id):
+            self.remove_track(tid)
+            
+        if self.has_album_cover(album_id):
+            os.unlink(os.path.join(mlpath, 'cover.jpg'))
+            
+        try:
+            os.rmdir(mlpath)
+        except OSError:
+            self.verbose("Warning: could not remove album dir %s" % mlpath)
+        
+        db = self.nestor.get_media_db()
+        db.execute("DELETE FROM music_albums WHERE id=?", (album_id,))
+        db.commit()
+        db.close()
+            
+        artid = self.get_artist_id(meta['artist'])
+        artpath = self.meta_to_filename(meta, MusicTypes.ARTIST, True)
+        self.cb["artist_changed"](artid, artpath)
+        
+    def remove_track(self, track_id):
+        """Remove a track (file and music library)"""
+        
+        meta = self.get_track_metadata(track_id)
+        mlpath = self.meta_to_filename(meta)
+        
+        self.debug("Removing track %d (%s)" % (track_id, mlpath))
+        try:
+            os.unlink(mlpath)
+        except OSError:
+            self.verbose("Warning: could not remove track %s" % mlpath)
+        
+        db = self.nestor.get_media_db()
+        db.execute("DELETE FROM music_tracks WHERE id=?", (track_id,))
+        db.commit()
+        db.close()
+        
+        albid = self.get_album_id(meta['artist'], meta['album'])
+        albpath = self.meta_to_filename(meta, MusicTypes.ALBUM, True)
+        self.cb["album_changed"](albid, albpath)
+        
     def match(self, expr, typ=0, offset=0, limit=-1):
         """Match music library objects.
         

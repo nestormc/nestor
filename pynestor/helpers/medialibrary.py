@@ -310,8 +310,8 @@ class MLObjectProvider(ObjectProvider):
                 self.debug("Commit: updating mpd for '%s'" % p)
                 try:
                     self.mpd.update(p)
-                except:
-                    pass
+                except Exception, e:
+                    self.verbose("MPD update exception (%s): %s" % (p, e))
         
 
 class MLObjectProcessor(ObjectProcessor):
@@ -326,11 +326,11 @@ class MLObjectProcessor(ObjectProcessor):
         names = []
         
         if obj.is_a('music-artist'):
-            names.extend(['edit-artist', 'remove', 'mpd-play', 'mpd-enqueue'])
+            names.extend(['edit-artist', 'remove-artist', 'mpd-play', 'mpd-enqueue'])
         if obj.is_a('music-album'):
-            names.extend(['edit-album', 'remove', 'mpd-play', 'mpd-enqueue'])
+            names.extend(['edit-album', 'remove-album', 'mpd-play', 'mpd-enqueue'])
         if obj.is_a('music-track'):
-            names.extend(['edit-track', 'remove', 'mpd-play', 'mpd-enqueue'])
+            names.extend(['edit-track', 'remove-track', 'mpd-play', 'mpd-enqueue'])
         if obj.is_a('mpd-item'):
             names.extend(['mpd-item-remove', 'mpd-item-move', 'mpd-item-play'])
         if obj.is_a('mpd-player'):
@@ -416,6 +416,18 @@ class MLObjectProcessor(ObjectProcessor):
                 self.music.update_metadata(meta, id, type)
             except MediaUpdateError, e:
                 raise ObjectError("update-error:%s" % e)
+                
+            # Commit changes
+            self.objs.commit_changes()
+            
+        # Music library removes
+        elif name.startswith('remove-'):
+            if name == 'remove-artist':
+                self.music.remove_artist(obj['artist_id'])
+            elif name == 'remove-album':
+                self.music.remove_album(obj['album_id'])
+            elif name == 'remove-track':
+                self.music.remove_track(obj['track_id'])
                 
             # Commit changes
             self.objs.commit_changes()
