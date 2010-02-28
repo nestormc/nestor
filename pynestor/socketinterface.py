@@ -273,7 +273,7 @@ class SIServerThread(Thread):
             else:
                 self._sock.settimeout(None)
                 clithread = SIClientThread(
-                    "SI Client %r" % address,
+                    "SI @ %s" % address[0],
                     self.nestor,
                     clisock,
                     address,
