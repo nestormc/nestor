@@ -70,21 +70,24 @@ class StorageDeviceWatcher(Thread):
         
         devices = []
         domain = "%s.Device" % self.DKDOMAIN
-        for d in self.dkiface.EnumerateDevices():
-            dpath = str(d)
-            device = self.bus.get_object(self.DKDOMAIN, dpath) 
-            diface = dbus.Interface(device, "org.freedesktop.DBus.Properties")
-            if str(diface.Get(domain, "id-usage")) == 'filesystem':
-                mounted = bool(diface.Get(domain, "device-is-mounted"))
-                mpaths = [str(p) for p in diface.Get(domain, "device-mount-paths")]
-                mpath = mpaths[0] if mpaths else ''
-                is_usb = str(diface.Get(domain, "drive-connection-interface")) == 'usb'
-                devices.append({
-                    'path': dpath,
-                    'mounted': mounted,
-                    'mpath': mpath,
-                    'is_usb': is_usb
-                })
+        try:
+            for d in self.dkiface.EnumerateDevices():
+                dpath = str(d)
+                device = self.bus.get_object(self.DKDOMAIN, dpath) 
+                diface = dbus.Interface(device, "org.freedesktop.DBus.Properties")
+                if str(diface.Get(domain, "id-usage")) == 'filesystem':
+                    mounted = bool(diface.Get(domain, "device-is-mounted"))
+                    mpaths = [str(p) for p in diface.Get(domain, "device-mount-paths")]
+                    mpath = mpaths[0] if mpaths else ''
+                    is_usb = str(diface.Get(domain, "drive-connection-interface")) == 'usb'
+                    devices.append({
+                        'path': dpath,
+                        'mounted': mounted,
+                        'mpath': mpath,
+                        'is_usb': is_usb
+                    })
+        except dbus.DBusException, e:
+            self.debug("DBus exception: %s" % e)
                 
         devices.sort(key=lambda x:x['mpath'])
         devices.sort(key=lambda x:x['is_usb'])
