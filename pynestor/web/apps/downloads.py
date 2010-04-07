@@ -12,6 +12,8 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with nestor.  If not, see <http://www.gnu.org/licenses/>.
+
+import re
         
 from pynestor.web.framework.app import WebApp
 import pynestor.web.framework.app_element as e
@@ -203,14 +205,49 @@ class DownloadSearchField(e.DivElement):
         status = ""
         
         if action == 'search':
+            optval = {
+                'min': None,
+                'max': None,
+                'type': '',
+                'seeds': None
+            }
+            
+            options = {
+                'min': '\d+[kmg]?',
+                'max': '\d+[kmg]?',
+                'type': 'All|Archives|Audio|Images|CD-Images|Programs|Video',
+                'seeds': '\d+'
+            }
+
+            for o in options:
+                r = re.compile("%s:(%s)" % (o, options[o]), re.I)
+                m = r.search(parm)
+                if m:
+                    parm = r.sub('', parm)
+                    v = m.group(1)
+                    if o in ('min', 'max', 'seeds'):
+                        v = v.lower()
+                        if v.endswith('k'):
+                            v = int(v[:-1]) * 1024
+                        elif v.endswith('m'):
+                            v = int(v[:-1]) * 1024**2
+                        elif v.endswith('g'):
+                            v = int(v[:-1]) * 1024**3
+                        else:
+                            v = int(v)
+                    optval[o] = v
+        
             params = {
                 "query": parm,
                 "search-type": 2, # Kad
-                "file-type": "", # All files
+                "file-type": optval['type'],
+                "min-size": optval['min'],
+                "max-size": optval['max'],
+                "avail": optval['seeds']
             }
             try:
                 self.obj.do_action("amule", "amule-search", "amule:", params)
-                status = "Searching for '%s'..." % parm
+                status = "Searching for '%s'" % parm
             except Exception, e:
                 status = "Error: %s" % e
                 
