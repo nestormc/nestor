@@ -526,9 +526,15 @@ class AmuleObjectProcessor(ObjectProcessor):
                 self.objs.cache.remove(objref)
                 
             ac = self.objs.am.client
-            ac.search_start(act['query'], act['search-type'], act['min-size'],
-                act['max-size'], act['file-type'], act['avail'],
-                act['file-ext'])
+            ac.search_start(
+                act['query'].encode('utf-8'),
+                act['search-type'],
+                act['min-size'],
+                act['max-size'],
+                act['file-type'],
+                act['avail'],
+                act['file-ext']
+            )
         elif name == 'amule-download-ed2k':
             ac = self.objs.am.client
             am.download_ed2klinks([act['ed2k-link']])
