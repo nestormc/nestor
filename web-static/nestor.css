@@ -19,6 +19,8 @@ along with nestor.  If not, see <http://www.gnu.org/licenses/>.
 /*                               Fonts                              */
 /********************************************************************/
 
+/* Aurulent Sans has OFL 1.1 license, see http://scripts.sil.org/OFL_web */
+
 @font-face {
     font-family: NestorFont;
     src: url(/web/fonts/AurulentSans-Regular.otf);
@@ -43,6 +45,8 @@ along with nestor.  If not, see <http://www.gnu.org/licenses/>.
     font-style: italic;
 }
 
+/* FIXME unknown licensing for Basic5 */
+
 @font-face {
     font-family: NestorTitleFont;
     src: url(/web/fonts/Basic5.ttf);
@@ -53,9 +57,11 @@ along with nestor.  If not, see <http://www.gnu.org/licenses/>.
 /********************************************************************/
 
 /*
+    Color reference
+    
     DARK GRAY       353535      bg
-    MEDIUM GRAY     545454      hover items, scroll bars
-    MIDlIGHT GRAY   9C9C9C      scroll bar trail
+    MEDIUM GRAY     545454      scroll bars, dark input borders
+    MIDlIGHT GRAY   9C9C9C      scroll bar trail, light input borders
     LIGHT GRAY      E5E5E5      even listitems
     YELLOW          FFD200
 */
@@ -99,6 +105,10 @@ body, html, input {
     right: 2em;
     
     overflow: auto;
+}
+
+#NESTOR_SCRIPTS {
+    display: none;
 }
 
 .app_workspace {
@@ -222,7 +232,7 @@ body, html, input {
     top: 0;
     
     /* Customizable */
-    background-color: #444;
+    background-color: #545454;
     width: 5px;
 }
 
@@ -341,9 +351,20 @@ div.nestor_fatal_error {
 /********************************************************************/
 /*                              Inputs                              */
 /********************************************************************/
-
-input {
     
+/* FIXME these are ugly, change colors ! */
+input[type=text] {
+    border-top: 1px solid #545454;
+    border-left: 1px solid #545454;
+    border-right: 1px solid #9C9C9C;
+    border-bottom: 1px solid #9C9C9C;
+}
+
+input[type=button] {
+    border-top: 1px solid #9C9C9C;
+    border-left: 1px solid #9C9C9C;
+    border-right: 1px solid #545454;
+    border-bottom: 1px solid #545454;
 }
 
 input.blurred {
