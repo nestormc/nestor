@@ -924,7 +924,7 @@ class MusicWorkspace(e.AppElement):
         elif objref.startswith("media:music-album|"):
             self.albtrk.albums.reload()
         elif objref.startswith("media:music-track|"):
-            self.albtrk.tracjs.reload()
+            self.albtrk.tracks.reload()
 
     def music_dropedit_handler(self, where, target, objref):
         if not objref.startswith("media:music-"):
@@ -983,6 +983,8 @@ class MusicWorkspace(e.AppElement):
         
         # Execute action
         action.execute(params)
+        
+        self.reload()
                 
 class WebMusicApp(WebApp):
     
