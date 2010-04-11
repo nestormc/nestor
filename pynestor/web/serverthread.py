@@ -218,8 +218,6 @@ def handle_cover(ns, server, rh, parm, head):
     mdir = ns.config['media.music_dir']
     skinname = parm[0]
     parm.append('cover.jpg')
-    for i in range(len(parm)):
-        parm[i] = parm[i].decode("utf-8")
     path = os.path.abspath(os.path.join(mdir, *parm[1:]))
     if not path.startswith("%s/" % mdir) or not os.path.isfile(path):
         staticpath = ns.config["web.static_dir"]
@@ -284,7 +282,7 @@ class RequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
         self.send_response(404)
         self._end_headers()
         
-    def _proxy_file(self, path, head, bufsize=4096):
+    def _proxy_file(self, path, head, bufsize=None):
         """Send a local file
         
         PLEASE check the path before calling this (ie. deny access to absolute
@@ -350,7 +348,7 @@ class RequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
         parm = split[1:]
         
         for i in range(len(parm)):
-            parm[i] = urllib.unquote(parm[i])
+            parm[i] = urllib.unquote(parm[i]).decode('utf-8')
             
         if self.path == '/':
             req = ''
