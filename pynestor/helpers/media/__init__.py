@@ -17,6 +17,7 @@ __all__ = [
     'errors',
     'import',
     'metadata',
+    'mpdwrap',
     'music'
 ]
 

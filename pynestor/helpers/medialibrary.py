@@ -13,7 +13,6 @@
 # You should have received a copy of the GNU General Public License
 # along with nestor.  If not, smee <http://www.gnu.org/licenses/>.
 
-import mpd
 import os.path
 import threading
 import time
@@ -23,6 +22,7 @@ from ..objects import ObjectProvider, ObjectProcessor, ObjectWrapper
 from ..socketinterfacecodes import SIC
 from .media.importer import ImporterThread
 from .media.music import MusicLibrary, MusicTypes, MediaUpdateError
+from .media.mpdwrap import MPDWrapper
 
 
 class MPDPlayerObj(ObjectWrapper):
@@ -279,15 +279,17 @@ class MLObjectProvider(ObjectProvider):
         
     def on_album_changed(self, id, path):
         with self.changed_lock:
-            if path not in self.changed["paths"]:
-                self.changed["paths"].append(path)
+            apath = os.path.dirname(path)
+            if apath not in self.changed["paths"]:
+                self.changed["paths"].append(apath)
             if id not in self.changed["albums"]:
                 self.changed["albums"].append(id)
         
     def on_track_changed(self, id, path):
         with self.changed_lock:
-            if path not in self.changed["paths"]:
-                self.changed["paths"].append(path)
+            apath = os.path.dirname(os.path.dirname(path))
+            if apath not in self.changed["paths"]:
+                self.changed["paths"].append(apath)
             if id not in self.changed["tracks"]:
                 self.changed["tracks"].append(id)
             
@@ -304,14 +306,12 @@ class MLObjectProvider(ObjectProvider):
         for id in changed["tracks"]:
             self.cache.remove("media:music-track|%d" % id)
             
-        paths = []
-        for p in changed["paths"]:
-            if '/' not in p or not os.path.dirname(p) in changed["paths"]:
-                self.debug("Commit: updating mpd for '%s'" % p)
-                try:
-                    self.mpd.update(p)
-                except Exception, e:
-                    self.verbose("MPD update exception (%s): %s" % (p, e))
+        for p in list(set(changed["paths"])):
+            self.debug("Commit: updating mpd for '%s'" % p)
+            try:
+                self.mpd.update(p)
+            except Exception, e:
+                self.verbose("MPD update exception (%s): %s" % (p, e))
         
 
 class MLObjectProcessor(ObjectProcessor):
@@ -497,79 +497,8 @@ class MLObjectProcessor(ObjectProcessor):
             self.mpd.move(src, dst)
         elif name == 'mpd-item-play':
             self.mpd.play(obj['mpd-position'])
-            
-
-class MPDWrapper:
-    """MPDClient wrapper using nestor config to connect.  Automatically
-    reconnects on failure."""
-
-    _commands = [
-        # Playback control
-        'play',
-        'pause',
-        'stop',
-        'seek',
-        'next',
-        'previous',
-        
-        # Status control
-        'status',
-        'random',
-        'repeat',
-        'setvol',
-        
-        # Playlist control
-        'playlist',
-        'add',
-        'clear',
-        'move',
-        'delete',
-        
-        # DB control
-        'update'
-    ]
-    
-    def __init__(self, nestor):
-        self.nestor = nestor
-        self.client = mpd.MPDClient()
-        self.cmdlock = threading.Condition(threading.Lock())
-        
-    def _connect(self):
-        try:
-            self.client.ping()
-        except (mpd.ConnectionError, mpd.ProtocolError):
-            try:
-                self.client.disconnect()
-            except mpd.ConnectionError:
-                pass
-            self.client.connect(
-                self.nestor.config['media.mpd_host'],
-                int(self.nestor.config['media.mpd_port'])
-            )
-            self.client.password(self.nestor.config['media.mpd_password'])
-            self._connect()
-        
-    def _command(self, cmd, *args):
-        args_str = []
-        for a in args:
-            if isinstance(a, unicode):
-                args_str.append(a.encode('utf-8'))
-            else:
-                args_str.append(a)
-                
-        # The MPD library is not thread-safe, thus we lock here
-        with self.cmdlock:
-            self._connect()
-            ret = eval("self.client.%s(*args_str)" % cmd)
-        return ret
-        
-    def __getattr__(self, attr):
-        if attr in self._commands:
-            return lambda *x: self._command(attr, *x)
-        else:
-            raise AttributeError("MPDWrapper has no '%s' attribute" % attr)
-        
-
+  
+  
 class MediaLibraryHelper:
 
     def __init__(self, nestor):
