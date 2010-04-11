@@ -253,9 +253,9 @@ class MusicLibrary:
             string = string.replace(k, self.fnchars_replace[k])
         return string
         
-    def meta_to_coverfile(self, meta):
+    def meta_to_coverfile(self, meta, relative=False):
         return os.path.join(
-            self.meta_to_filename(meta, MusicTypes.ALBUM),
+            self.meta_to_filename(meta, MusicTypes.ALBUM, relative),
             'cover.jpg'
         )
         
@@ -327,6 +327,8 @@ class MusicLibrary:
         path = self.meta_to_filename(meta, MusicTypes.TRACK)
         self.debug("Writing tags in '%s'" % path)
         
+        # FIXME create an empty tagset and write only the necessary tags
+        
         filemeta = Metadata(path)
         filemeta['artist'] = meta['artist']
         filemeta['album'] = meta['album']
@@ -334,7 +336,11 @@ class MusicLibrary:
         filemeta['trackno'] = str(meta['num']) if meta['num'] != -1 else ''
         filemeta['genre'] = meta['genre']
         filemeta['year'] = str(meta['year']) if meta['year'] != -1 else '' 
-        filemeta.save()
+        try:
+            filemeta.save()
+        except AttributeError:
+            self.debug("AttributeError when saving meta %r" % filemeta)
+            raise
             
     def has_album_cover(self, album_id):
         meta = self.get_album_metadata(album_id)
@@ -810,7 +816,7 @@ class MusicLibrary:
             self.remove_track(tid)
             
         if self.has_album_cover(album_id):
-            os.unlink(os.path.join(mlpath, 'cover.jpg'))
+            os.unlink(self.meta_to_coverfile(meta))
             
         try:
             os.rmdir(mlpath)

@@ -248,6 +248,11 @@ class Metadata:
             self.data[key] = value
         else:
             raise KeyError("Cannot write tags")
+            
+    def __repr__(self):
+        return '{%s}' % [
+            "%s: %r" % (k, self.data[k]) for k in self.data.keys()
+        ].join(', ')
         
     def keys(self):
         return self.data.keys()
