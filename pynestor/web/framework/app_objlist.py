@@ -236,7 +236,10 @@ class ObjectListBody(e.AppElement):
             
         self.save("children", self.children_data)
         self.save("children_ids", self.children_ids)
-        
+
+        self.after_reload()
+
+    def after_reload(self):
         # Move closer to the bottom
         self.remove_child(self.closer)
         self.add_child(self.closer)
@@ -428,8 +431,8 @@ class FixedObjectListBody(RefreshObjectListBody):
 
     def reload(self):
         expr = self._get_filter_expr()
-        self.debug("reload")
         RefreshObjectListBody.fetch(self, expr)
+        self.after_reload()
 
     def fetch(self, expr):
         if self.first and "delay_fetch" in self.s:
