@@ -190,6 +190,7 @@ class Amule:
         self.results = {}
         self.status = {}
         self.lock = threading.Condition(threading.Lock())
+        self.search_fetched = False
         
     def register_object_provider(self, objs):
         self.objs = objs
@@ -235,14 +236,29 @@ class Amule:
                 if hash in self.results:
                     return DictResult(self.nestor, self, hash)
         raise KeyError(key)
+
+    def new_search(self):
+        self.results = []
+        self.search_fetched = False
             
     def _update(self, force=False):
         interval = int(self.nestor.config['amule.update_interval'])
         with self.lock:
             if force or self.last_updated + interval < time.time():
                 self.downloads = self.client.get_download_list()
-                self.results = self.client.get_search_results()
                 self.status = self.client.get_server_status()
+                
+                if not self.search_fetched:
+                    self.results = self.client.get_search_results()
+                    self.search_fetched = True
+                else:
+                    results = self.client.get_search_results(True)
+                    for hash in results:
+                        if hash not in self.results:
+                            self.results[hash] = {}
+                        for key in results[hash]:
+                            self.results[hash][key] = results[hash][key]
+                    
                 
                 self.shared = {}
                 shared = self.client.get_shared_list()
@@ -526,6 +542,7 @@ class AmuleObjectProcessor(ObjectProcessor):
                 self.objs.cache.remove(objref)
                 
             ac = self.objs.am.client
+            self.objs.am.new_search()
             ac.search_start(
                 act['query'].encode('utf-8'),
                 act['search-type'],
