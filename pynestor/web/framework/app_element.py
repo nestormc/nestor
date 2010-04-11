@@ -62,7 +62,7 @@ class InputElement(AppElement):
         else:
             classes = ''
             
-        return '<input id="%s" type="%s"%s>' % (id, self.type, classes)
+        return '<input id="%s" type="%s"%s />' % (id, self.type, classes)
     
     def render(self):
         self.set_dom("type", self.type)
@@ -85,7 +85,7 @@ class ImageElement(AppElement):
         else:
             classes = ''
             
-        return '<img id="%s" src="%s"%s>' % (id, self.src, classes)
+        return '<img id="%s" src="%s"%s />' % (id, self.src, classes)
         
     def render(self):
         self.set_dom("src", self.src)

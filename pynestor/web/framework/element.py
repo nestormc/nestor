@@ -238,7 +238,7 @@ class UIImageElement(UIElement):
         else:
             classes = ''
             
-        return '<img id="%s" src="%s"%s>' % (id, self.src, classes)
+        return '<img id="%s" src="%s"%s />' % (id, self.src, classes)
         
     def render(self):
         self.set_dom("src", self.src)
@@ -246,4 +246,31 @@ class UIImageElement(UIElement):
     def set_src(self, src):
         self.src = src
         self.set_dom("src", self.src)
+
+
+class UISVGElement(UIElement):
+
+    def __init__(self, om, id, src):
+        UIElement.__init__(self, om, id)
+        self.src = src
+        
+    def render(self):
+        self.set_src(self.src)
+        
+    def set_src(self, src):
+        self.src = src
+        self.svg = self.output.get_svg(src)
+
+        dim = self.svg.getdim()
+        xml = self.svg.getxml(
+            style="position: absolute; top: 0; left: 0; right: 0; bottom: 0;",
+            viewBox="0 0 %d %d" % (dim[0], dim[1])
+        )
+        
+        self.set_css({
+            "position": "relative",
+            "width": "%dpx" % dim[0],
+            "height": "%dpx" % dim[1]
+        })
+        self.set_content(xml)
         

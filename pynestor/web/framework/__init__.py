@@ -18,6 +18,7 @@ __all__ = [
     'app_element',
     'app_objlist',
     'element',
-    'outputmanager'
+    'outputmanager',
+    'svghelper'
 ]
 

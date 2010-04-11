@@ -14,14 +14,26 @@
 # along with nestor.  If not, see <http://www.gnu.org/licenses/>.
 
 import inspect
+import os.path
 import re
 
 from ..webui import WebUI
+from .svghelper import SVGHelper
 
+# Enable debug window
 DEBUG = False
+
+# List of opcodes to include in debug traces; include '*' for all opcodes
 DEBUG_OPCODES = []
+
+# Whether to debug callers with opcodes
 TRACE_OPCODE_CALLERS = False
+
+# Opcode call stack depth
 TRACE_OPCODE_CALLERS_DEPTH = 0
+
+# Enable inline CSS/JS files content
+INLINE_FILES = False
 
 
 class WebOutputManager:
@@ -36,6 +48,7 @@ class WebOutputManager:
         self.el_children = {}
         self.el_popups = {}
         self.handlers = ['handler-zero']
+        self.svg = {}
         
         self.add_js("web/nestor.js")
         self.add_css("web/nestor.css")
@@ -109,6 +122,9 @@ class WebOutputManager:
         except ValueError:
             self.handlers.append(handler)
             return len(self.handlers) - 1
+
+    def get_svg(self, filename):
+        return self.svg.get(filename, SVGHelper(filename))
         
     def register_element(self, element):
         self.elements[self._dom_id(element)] = element
@@ -468,7 +484,17 @@ class WebOutputManager:
         # JS block
         js_out = ''
         for src in self.scripts:
-            js_out += '<script type="text/javascript" src="%s"></script>\n' % src
+            if INLINE_FILES and src.startswith("web/"):
+                jsfile = os.path.join(
+                    self.rh.server.nestor.config['web.static_dir'],
+                    src[len("web/"):]
+                )
+                jsf = open(jsfile, 'r')
+                jsc = jsf.read()
+                jsf.close()
+                js_out += '<script type="text/javascript">\n%s\n</script>\n' % jsc
+            else:
+                js_out += '<script type="text/javascript" src="%s"></script>\n' % src
             
         js_out += ('<script type="text/javascript">\n'
             'var $W = window.top;\n'
@@ -479,7 +505,17 @@ class WebOutputManager:
         # CSS block
         css_out = ''
         for href in self.cssheets:
-            css_out += '<link rel="stylesheet" type="text/css" href="%s">\n' % href
+            if INLINE_FILES and href.startswith("web/"): 
+                cssfile = os.path.join(
+                    self.rh.server.nestor.config['web.static_dir'],
+                    href[len("web/"):]
+                )
+                cssf = open(cssfile, 'r')
+                cssc = cssf.read()
+                cssf.close()
+                css_out += '<style type="text/css">\n%s\n</style>\n' % cssc
+            else:
+                css_out += '<link rel="stylesheet" type="text/css" href="%s" />\n' % href
             
         css_out += '<style type="text/css">\n';
         for selector in css:
@@ -497,12 +533,13 @@ class WebOutputManager:
         
         self.debug_msgs = []
         self.ops = []
+        
         # FIXME get favicon from skin 
-        return """<html>
+        return """<html xmlns="http://www.w3.org/1999/xhtml">
 <head>
     <title>nestor</title>
-    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
-    <link rel="shortcut icon" type="text/svg+xml" href="web/skins/default/nestor.png">
+    <meta http-equiv="Content-Type" content="application/xhtml+xml; charset=utf-8" />
+    <link rel="shortcut icon" type="text/svg+xml" href="web/skins/default/nestor.png" />
     
 %s
 %s

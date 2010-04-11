@@ -13,7 +13,9 @@
 # You should have received a copy of the GNU General Public License
 # along with nestor.  If not, see <http://www.gnu.org/licenses/>.
 
-from .framework.element import UIElement, UIImageElement
+import os.path
+
+from .framework.element import UIElement, UIImageElement, UISVGElement
 from .apps import WEB_APPS
 
 
@@ -177,20 +179,36 @@ class WebRoot(UIElement):
         
 class WebSkin:
 
-    def __init__(self, skinname):
+    def __init__(self, skinname, rh):
         self.name = skinname
         self.dir = "/web/skins/%s" % skinname
+        self.dir2 = os.path.join(
+            rh.server.nestor.config["web.static_dir"],
+            "skins/%s" % skinname
+        )
         
     def icon(self, name, active=False):
         act = "_active" if active else ""
         return "%s/icons/%s%s.svg" % (self.dir, name, act)
+
+    def icon2(self, name, active=False):
+        act = "_active" if active else ""
+        return "%s/icons/%s%s.svg" % (self.dir2, name, act)
         
     def app_icon(self, name, active=False):
         act = "_active" if active else ""
         return "%s/apps/%s%s.svg" % (self.dir, name, act)
+
+    def app_icon2(self, name, active=False):
+        act = "_active" if active else ""
+        return "%s/apps/%s%s.svg" % (self.dir2, name, act)
         
     def image(self, name):
         return "%s/images/%s.svg" % (self.dir, name)
+
+    def image2(self, name):
+        return "%s/images/%s.svg" % (self.dir2, name)
+
         
 
 class WebUI:
@@ -198,7 +216,7 @@ class WebUI:
     def __init__(self, outputmgr):
         self.om = outputmgr
         self.rh = self.om.rh
-        self.skin = WebSkin('default')
+        self.skin = WebSkin('default', self.rh)
         
     def init(self):
         self.apps = {}
