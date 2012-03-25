@@ -1,0 +1,23 @@
+{
+  "author": "Nicolas Joyard <joyard.nicolas@gmail.com>",
+  "name": "nestor",
+  "description": "",
+  "version": "0.0.1",
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/k-o-x/nestor.git"
+  },
+  "engines": {
+    "node": ">0.4.2 <0.7.0"
+  },
+  "dependencies": {
+    "async": "*",
+    "connect-mongodb": "*",
+    "express": "*",
+    "mongodb": "*",
+    "mongoose": "*"
+  },
+  "devDependencies": {},
+  "bin": "./nestor.js",
+  "preferGlobal": true
+}
