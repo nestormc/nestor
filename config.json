@@ -1,0 +1,21 @@
+{
+	"db": "mongodb://localhost:27017/nestor",
+	
+	"web": {
+		"host": "127.0.0.1",
+		"port": "8088",
+		
+		"cookieSecret": "this is not quite secret, please change it",
+		
+		"admin": {
+			"enabled": true,
+			"user": "nestor",
+			"password": "nestor"
+		}
+	},
+	
+	"logging": {
+		"type": "stdout",
+		"level": "debug"
+	}
+}
