@@ -1,3 +1,7 @@
+/*
+ * Entry point
+ */
+ 
 /*jslint white: true, plusplus: true */
 "use strict";
 

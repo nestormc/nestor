@@ -1,13 +1,13 @@
+/*
+ * Mongoose-based nestor plugin example
+ */
+ 
 /*jslint white: true, plusplus: true */
 "use strict";
 
 var mongoose = require('mongoose'),
 	Schema = mongoose.Schema,
 	ObjectId = Schema.ObjectId;
-
-/*
- * Mongoose-based nestor plugin example
- */
 
 
 /* A simple model schema */
