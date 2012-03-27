@@ -16,11 +16,11 @@
  * You should have received a copy of the GNU General Public License
  * along with nestor.  If not, see <http://www.gnu.org/licenses/>.
  */
- 
+
 /**
  * Mongoose-based nestor plugin example
  */
- 
+
 /*jslint white: true, plusplus: true */
 "use strict";
 
@@ -78,9 +78,9 @@ exports.resources = {
 		   - 'cursor' specifies that the action returns a cursor-like object (ie. a mongoose
 		     Query instance or an array). 'code' receives an Express request object and a callback
 		     that can be called as :
-		     	callback(new Error(...)) on error
-		     	callback(null, CursorLikeObject) on success
-		     	callback() when unable to handle the request (as calling next() in an Express handler) 
+				callback(new Error(...)) on error
+				callback(null, CursorLikeObject) on success
+				callback() when unable to handle the request (as calling next() in an Express handler) 
 		    
 		   Both types of action are called with a 'this' context providing the following properties:
 		   - model: the mongoose Model if applicable
@@ -121,7 +121,7 @@ exports.resources = {
 					person = new Person();
 					
 				person.name = req.params.name;
-				person.age = parseInt(req.params.age);
+				person.age = parseInt(req.params.age, 10);
 				person.city = req.params.city;
 				
 				person.save(function(err) {
