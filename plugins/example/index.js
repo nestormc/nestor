@@ -135,6 +135,9 @@ exports.resources = {
 	}
 };
 
+/* Static file directory */
+exports.staticDir = __dirname + '/static';
+
 /* Plugin initialization function */
 exports.init = function(nestor, callback) {
 	var log = nestor.logger;
