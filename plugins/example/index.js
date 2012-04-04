@@ -46,6 +46,21 @@ exports.metadata = {
 };
 
 
+/* Plugin static web files */
+exports.statics = {
+	dir: __dirname + '/static',
+	category: 'Example',
+	
+	/* Plugin web pages */
+	pages: [
+		{
+			title: 'Page 1',
+			require: 'page1' // requires exports.statics.dir + '/js/example.page1.js'
+		}
+	]
+};
+
+
 /* Publish resources */
 exports.resources = {
 	person: {
@@ -53,7 +68,7 @@ exports.resources = {
 		   schema is registered by nestor when loading this plugin. */
 		schema: personSchema,
 		   
-		/* Routes for /r/example/person/[route]. Each route has the following properties:
+		/* Routes for /plugins/example/person/[route]. Each route has the following properties:
 			- method: "GET" or "POST" ; optional, defaults to "GET".
 			- route: string, Express route expression; a leading slash is ignored.
 			- action: string, action name to perform when the route maches
@@ -86,7 +101,7 @@ exports.resources = {
 		   - model: the mongoose Model if applicable
 		   - logger: plugin logger (has debug, info, warning, error and fatal methods accepting the
 		     same arguments as util.format)
-		   - getRoute(route): returns a route for this model ('/r/example/person' + route)
+		   - getRoute(route): returns a route for this model ('/plugins/example/person' + route)
 		     
 		 */
 		actions: {
@@ -135,8 +150,6 @@ exports.resources = {
 	}
 };
 
-/* Static file directory */
-exports.staticDir = __dirname + '/static';
 
 /* Plugin initialization function */
 exports.init = function(nestor, callback) {
@@ -148,7 +161,6 @@ exports.init = function(nestor, callback) {
 	nestor.on('exit', function() {
 		log.info("Unloading example plugin");
 	});
-	
 	
 	callback();
 };
