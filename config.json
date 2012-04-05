@@ -5,7 +5,10 @@
 		"host": "127.0.0.1",
 		"port": "8088",
 		
-		"cookieSecret": "this is not quite secret, please change it",
+		"session": {
+			"secret": "this is not quite secret, please change it",
+			"days": 30
+		},
 		
 		"admin": {
 			"enabled": true,
