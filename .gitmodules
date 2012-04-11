@@ -1,0 +1,12 @@
+[submodule "static/js/ext/ist"]
+	path = static/js/ext/ist
+	url = git://github.com/k-o-x/ist.git
+[submodule "static/js/ext/requirejs"]
+	path = static/js/ext/requirejs
+	url = git://github.com/jrburke/requirejs.git
+[submodule "static/js/ext/augment.js"]
+	path = static/js/ext/augment.js
+	url = git://github.com/olivernn/augment.js.git
+[submodule "static/js/ext/JavaScript-MD5"]
+	path = static/js/ext/JavaScript-MD5
+	url = git://github.com/blueimp/JavaScript-MD5.git

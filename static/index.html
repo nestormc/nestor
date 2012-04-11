@@ -1,18 +1,21 @@
 <!DOCTYPE html>
-<html>
-	<head>
-	</head>
-	<body>
-		plop
-		<script>
-			var require = {
-				paths: {
-					"augment": "lib/augment",
-					"domReady": "lib/domReady",
-					"order": "lib/order"
-				}
-			};
-		</script>
-		<script data-main="js/nestor" src="js/lib/require.js"></script>
-	</body>
-</html>
+<head>
+	<link rel="stylesheet" type="text/css" href="nestor.css" />
+</head>
+<body>
+	<script>
+		var require = {
+			paths: {
+				"domReady": "ext/requirejs/domReady",
+				"i18n": "ext/requirejs/i18n",
+				"order": "ext/requirejs/order",
+				
+				"ist": "ext/ist/ist",
+				"augment": "ext/augment.js/augment",
+				
+				"templates": "../templates"
+			}
+		};
+	</script>
+	<script data-main="js/nestor" src="js/ext/requirejs/require.js"></script>
+</body>
