@@ -1,0 +1,7 @@
+div#userpanel
+	span#userName
+		"{{ userName }}"
+	a#disconnect[href=#]
+		"{{ lang.logout }}"
+div#main
+	"main"

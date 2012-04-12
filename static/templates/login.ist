@@ -1,0 +1,9 @@
+form.login
+	label[for=login]
+		"{{ lang.username }}"
+	input[type=text]#login
+	label[for=password]
+		"{{ lang.password }}"
+	input[type=password]#password
+	input[type=submit][value={{ lang.login }}]
+	span#error
