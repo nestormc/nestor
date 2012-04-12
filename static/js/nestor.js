@@ -26,7 +26,7 @@
  
 require([
 	'order!augment',
-	'ui/master'
+	'order!ui/master'
 ], function(aug, master) {
 	"use strict";
 	
