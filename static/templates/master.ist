@@ -3,5 +3,14 @@ div#userpanel
 		"{{ userName }}"
 	a#disconnect[href=#]
 		"{{ lang.logout }}"
+		
 div#main
-	"main"
+	ul#pagetree
+		@each pages
+			li
+				a[href=#][data-page={{ id }}]
+					"{{ title }}"
+			
+	div#viewport
+		@each pages
+			div.pageViewport[data-page={{ id }}]

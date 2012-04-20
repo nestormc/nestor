@@ -22,10 +22,15 @@
  */
 
 define(['example.module'], function(module) {
-	return {
-		// TODO: define page interface
-		aMethod: function(kek) {
-			return module.baz(kek);
-		}
+	"use strict";
+	
+	var page = {};
+	
+	page.title = "Example page";
+	
+	page.init = function() {
+		
 	};
+	
+	return page;
 });

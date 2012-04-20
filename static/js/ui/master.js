@@ -26,11 +26,12 @@
 
 define([
 	'lib/acl',
+	'lib/plugins',
 	'lib/dom',
 	'i18n!nls/lang',
 	'ist!templates/login',
 	'ist!templates/master'
-], function(acl, dom, lang, loginTemplate, masterTemplate) {
+], function(acl, plugins, dom, lang, loginTemplate, masterTemplate) {
 	"use strict";
 	
 	var master = {};
@@ -65,19 +66,54 @@ define([
 	
 	
 	/**
-	 * Empty viewport and show main UI
+	 * Empty viewport, load plugins, and show main UI
 	 * @private
 	 */
 	function showMainUI(userName) {
-		dom.empty(master.container);
-		master.container.appendChild(masterTemplate.render({
-			lang: lang,
-			userName: userName
-		}));
-		
-		dom.addListener('a#disconnect', 'click', function() {
-			acl.logout(showLogin);
-			return false;
+		// Load plugins
+		plugins.getPages(function(e, pages) {
+			// Show UI
+			dom.empty(master.container);
+			master.container.appendChild(masterTemplate.render({
+				lang: lang,
+				userName: userName,
+				pages: pages
+			}));
+			
+			// Disconnect handler
+			dom.addListener('a#disconnect', 'click', function() {
+				acl.logout(showLogin);
+				return false;
+			});
+			
+			// Page show handlers
+			pages.forEach(function(p) {
+				var link = dom.get('a[data-page="' + p.id + '"]'),
+					vp = dom.get('div.pageViewport[data-page="' + p.id + '"]');
+				
+				dom.addListener(link, 'click', function(e) {
+					var slink = dom.get('#pagetree a.selected'),
+						svp = dom.get('div.pageViewport.visible');
+				
+					if (slink !== link) {
+						if (slink) {
+							dom.classList(slink).remove('selected');
+							dom.classList(svp).remove('visible');
+						}
+						
+						// Render page the first time
+						if (!dom.classList(vp).contains('rendered')) {
+							vp.appendChild(p.render());
+							dom.classList(vp).add('rendered');
+						}
+						
+						dom.classList(link).add('selected');
+						dom.classList(vp).add('visible');
+					}
+					
+					return false;
+				});
+			});
 		});
 	}
 	
