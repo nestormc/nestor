@@ -1,0 +1,8 @@
+#PAGE .rights div {
+	border: 1px solid red;
+	padding: 0.5em;
+}
+
+#PAGE .rights input:checked ~ div {
+	display: none;
+}

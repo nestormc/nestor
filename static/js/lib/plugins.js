@@ -26,8 +26,9 @@
 
 define([
 	'ist',
-	'lib/server'
-], function(ist, server) {
+	'lib/server',
+	'lib/acl'
+], function(ist, server, acl) {
 	"use strict";
 	
 	var plugins = {},
@@ -40,12 +41,20 @@ define([
 	Page = function(id, plugin, extension) {
 		var self = this;
 		
-		self.id = id;
-		self.plugin = plugin;
+		this.id = id;
+		this.plugin = plugin;
 		
+		// Add plugin-defined extensions
 		Object.keys(extension).forEach(function(key) {
 			self[key] = extension[key];
 		});
+		
+		// Bind methods with page ID and plugin name
+		Object.keys(this._bind).forEach(function(method) {
+			self[method] = self._bind[method].bind(self, id, plugin);
+		});
+		
+		this._bind = {};
 	};
 	
 	
@@ -59,13 +68,60 @@ define([
 			ist: ist
 		},
 		
-		// Init function, called on load ; may be overriden
-		init: function() {},
+		_bind: {
+			asset: function(pageid, plugin, uri) {
+				return '/static/' + plugin + (uri.charAt(0) === '/' ? '' : '/') + uri;
+			},
 		
-		// Page render function, must return a DOM node or a document fragment
-		render: function() {
-			return this.utils.ist.createNode('"Page did not override render() ! "');
-		}
+			// Server requests
+			get: function(pageid, plugin, route, callback) {
+				route = route.charAt(0) === '/' ? route : '/' + route;
+				return server.getJson('/plugins/' + plugin + route, callback);
+			},
+		
+			post: function(pageid, plugin, route, data, callback) {
+				route = route.charAt(0) === '/' ? route : '/' + route;
+				return server.postJson('/plugins' + plugin + route, data, callback);
+			},
+		
+		
+			// ACL request
+			haveRight: function(pageid, plugin, right) {
+				return acl.haveRight(plugin + ':' + right);
+			},
+		
+		
+			// Style addition
+			addCSSBlock: function(pageid, plugin, text) {
+				var style = ist.createNode('style[type=text/css]');
+	
+				style.innerHTML = text
+					.replace(/#PAGE(?=\W)/g, '.pageViewport[data-page="' + pageid + '"]')
+					.replace(/#PLUGIN(?=\W)/g, '.pageViewport[data-plugin="' + plugin + '"]');
+				
+				document.head.appendChild(style);
+			},
+		
+			addStyleSheet: function(pageid, plugin, href) {
+				var self = this;
+			
+				require(['text!' + this.asset(href)], function(text) {
+					self.addCSSBlock(text);
+				});
+			}
+		},
+		
+		
+		/**
+		 * Page render function, must pass a DOM node or a document fragment as
+		 * second argument to callback, or Error as first argument
+		 */
+		render: function(callback) {
+			callback(null, ist.createNode('"Page did not override render() ! "'));
+		},
+		
+		
+		init: function() { }
 	};
 	
 	
@@ -76,11 +132,48 @@ define([
 				return callback(e);
 			}
 			
-			var pdefs = statics.pages,
-				pkeys = Object.keys(pdefs);
+			var requires = {},
+				pdefs = statics.pages,
+				pkeys = Object.keys(pdefs),
+				pages = [];
 			
 			// Load pages
-			require(pkeys, function() {
+			pkeys.forEach(function(pkey) {
+				var def = pdefs[pkey],
+					plugin = def.plugin;
+				
+				if (typeof requires[plugin] === 'undefined') {
+					// create require context for that particular plugin
+					requires[plugin] = require.config({
+						context: 'plugin-' + plugin,
+						baseUrl: '/static/' + plugin + '/js',
+						
+						paths: {
+							'ist': '/js/ext/ist/ist',
+							'assets': '/static/' + plugin
+						}
+					});
+				}
+				
+				requires[plugin]([def.require], function(pageExt) {
+					var page = new Page(pkey, plugin, pageExt);
+					
+					try {
+						page.init();
+					} catch(e) {
+						return callback(e);
+					}
+					
+					pages.push(page);
+					
+					if (pages.length === pkeys.length) {
+						// Last page loaded
+						callback(null, pages);
+					}
+				});
+			});
+			
+			/*require(pkeys, function() {
 				var args = Array.prototype.slice.call(arguments),
 					pages = pkeys.map(function(key, index) {
 						var def = pdefs[key],
@@ -93,7 +186,7 @@ define([
 					});
 				
 				callback(null, pages);
-			});
+			});*/
 		});
 	};
 	

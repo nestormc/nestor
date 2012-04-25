@@ -1,0 +1,15 @@
+div.rights
+	"admin"
+	input[type=checkbox]
+	@each realms
+		div[data-realm={{ name }}]
+			"{{ name }}"
+			input[type=checkbox]
+			@each models
+				div[data-model={{ name }}]
+					"{{ name }}"
+					input[type=checkbox]
+					@each rights
+						div[data-right={{ this }}]
+							"{{ this }}"
+							input[type=checkbox]

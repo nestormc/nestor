@@ -15,7 +15,8 @@
     "connect-mongodb": "*",
     "express": "*",
     "mongodb": "*",
-    "mongoose": "*"
+    "mongoose": "*",
+    "socket.io": "*"
   },
   "devDependencies": {},
   "bin": "./nestor.js",

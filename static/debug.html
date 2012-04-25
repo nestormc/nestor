@@ -1,0 +1,91 @@
+<script src="crypto-md5.js"></script>
+<script>
+	var output = function(text, color) {
+		var out = document.getElementById('out');
+		out.style.backgroundColor = color || '#bfb';
+		out.innerHTML = text;
+	};
+
+	var request = function(method, uri, headers, bodyObject, callback) {
+		var xhr = new XMLHttpRequest();
+		
+		headers = headers || {};
+		
+		xhr.onreadystatechange = function() {
+			if (xhr.readyState === 4) {
+				callback(null, xhr);
+			}
+		};
+		
+		xhr.open(method, uri, false);
+		
+		Object.keys(headers).forEach(function(k) {
+			xhr.setRequestHeader(k, headers[k]);
+		});
+		
+		try {
+			if (method === 'GET') {
+				xhr.send('');
+			} else {
+				xhr.setRequestHeader('Content-Type', 'application/json');
+				xhr.send(JSON.stringify(bodyObject));
+			}
+		} catch(e) {
+			callback(e);
+		}
+	};
+
+	var req = function(method, uri, obj, hdr) {
+		request(method, uri, hdr, obj, function(err, xhr) {
+			if (err) {
+				output(err.message, '#fbb');
+			} else {
+				output(xhr.responseText.replace(/,{/g, ',\n{'));
+			}
+		});
+	};
+	
+	var get = function(u, h) { req('GET', u, undefined, h); };
+	var post = function(u, o, h) { req('POST', u, o, h); };
+	
+	var logout = function() {
+		request('GET', '/logout', null, null, function(e, xhr) {
+			output("Logged out");
+		});
+	};
+	
+	var login = function(user, password) {
+		request('GET', '/salt', null, null, function(e, xhr) {
+			if (xhr.getResponseHeader('Content-Type') !== 'application/json') {
+				throw new Error("Invalid response");
+			}
+			
+			var resp = JSON.parse(xhr.responseText);
+			
+			if (typeof resp.userName !== 'undefined') {
+				output("Already logged in as " + resp.userName);
+			} else {
+				var salted = Crypto.MD5(resp.salt + Crypto.MD5(password));
+				
+				request('POST', '/login', null, { user: user, password: salted }, function(e, xhr) {
+					if (xhr.getResponseHeader('Content-Type') !== 'application/json') {
+						throw new Error('Invalid response');
+					}
+					
+					var resp = JSON.parse(xhr.responseText);
+					
+					if (typeof resp.userName !== 'undefined') {
+						output("Successful login as " + resp.userName);
+					} else {
+						output("Login failed !", '#fbb');
+					}
+				});
+			}
+		});
+	};
+</script>
+<pre id="out" style="max-width: 100%">
+ready !
+use JS console to call get('/u/r/i'[, { 'X-Header': 'value', ... }])
+                    or post('/u/r/i', { data }[, { headers });
+</pre>

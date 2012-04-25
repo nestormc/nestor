@@ -63,6 +63,17 @@ define(['lib/server', 'md5'], function(server, md5) {
 	};
 	
 	
+	function getRights(callback) {
+		server.getJson('/acl', function(e, resp) {
+			if (e) {
+				return callback(e);
+			}
+			
+			acl.rights = resp;
+		});
+	};
+	
+	
 	acl.login = function(login, password, callback) {
 		if (acl.salt) {
 			doLogin(login, password, acl.salt, callback);
@@ -84,12 +95,15 @@ define(['lib/server', 'md5'], function(server, md5) {
 	
 	acl.logout = function(callback) {
 		server.getJson('/logout', function(e, resp) {
-			acl.userName = undefined;
-			acl.salt = undefined;
+			acl = {};
 			callback();
 		});
 	};
 	
+	
+	acl.haveRight = function(right) {
+		return acl.rights.indexOf('admin') !== -1 || acl.rights.indexOf(right) !== -1;
+	};
 	
 	return acl;
 });

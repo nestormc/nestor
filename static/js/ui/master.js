@@ -34,7 +34,8 @@ define([
 ], function(acl, plugins, dom, lang, loginTemplate, masterTemplate) {
 	"use strict";
 	
-	var master = {};
+	var body = dom.body(),
+		master = {};
 	
 	/**
 	 * Empty viewport and show login form; handle login.
@@ -43,8 +44,8 @@ define([
 	function showLogin() {
 		var form;
 		
-		dom.empty(master.container);
-		master.container.appendChild(loginTemplate.render({ lang: lang }));
+		dom.empty(body);
+		body.appendChild(loginTemplate.render({ lang: lang }));
 		form = dom.get('form.login');
 		
 		dom.addListener(form, 'submit', function(e) {
@@ -73,8 +74,8 @@ define([
 		// Load plugins
 		plugins.getPages(function(e, pages) {
 			// Show UI
-			dom.empty(master.container);
-			master.container.appendChild(masterTemplate.render({
+			dom.empty(body);
+			body.appendChild(masterTemplate.render({
 				lang: lang,
 				userName: userName,
 				pages: pages
@@ -103,7 +104,17 @@ define([
 						
 						// Render page the first time
 						if (!dom.classList(vp).contains('rendered')) {
-							vp.appendChild(p.render());
+							p.render(function(e, node) {
+								dom.classList(vp).remove('rendering');
+									
+								if (e) {
+									vp.innerHTML = e;
+								} else {
+									vp.appendChild(node);
+								}
+							});
+							
+							dom.classList(vp).add('rendering');
 							dom.classList(vp).add('rendered');
 						}
 						

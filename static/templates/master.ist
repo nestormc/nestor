@@ -1,4 +1,5 @@
 div#userpanel
+	img#icon[src=images/nestor16.png]
 	span#userName
 		"{{ userName }}"
 	a#disconnect[href=#]
@@ -13,4 +14,4 @@ div#main
 			
 	div#viewport
 		@each pages
-			div.pageViewport[data-page={{ id }}]
+			div.pageViewport[data-plugin={{ plugin }}][data-page={{ id }}]
