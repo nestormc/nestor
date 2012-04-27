@@ -76,7 +76,7 @@ define(function() {
 					
 					if (e) {
 						count = -1;
-						callback(e);
+						return callback(e);
 					}
 					
 					responses[index] = response;
