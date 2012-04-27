@@ -61,7 +61,34 @@ define(function() {
 	
 	
 	server.request = function(method, uri, headers, body, callback) {
-		var xhr = createXHR();
+		var xhr, count, responses;
+		
+		if (Array.isArray(uri)) {
+			// Multiple URIs
+			count = 0;
+			responses = [];
+			
+			return uri.forEach(function(u, index) {
+				server.request(method, u, headers, body, function(e, response) {
+					if (count === -1) {
+						return;
+					}
+					
+					if (e) {
+						count = -1;
+						callback(e);
+					}
+					
+					responses[index] = response;
+					if (++count === uri.length) {
+						responses.unshift(null);
+						callback.apply(null, responses);
+					}
+				});
+			});
+		}
+		
+		xhr = createXHR();
 		
 		xhr.onreadystatechange = function() {
 			var err;
@@ -106,20 +133,25 @@ define(function() {
 			headers['Content-Type'] = 'application/json';
 		}
 
-		this.request(method, uri, headers, body, function(e, response) {
-			var responseJson;
+		this.request(method, uri, headers, body, function(err) {
+			var args = Array.prototype.slice.call(arguments),
+				responseJson;
 			
-			if (e) {
-				return callback(e, response);
+			if (err) {
+				return callback.apply(null, args);
 			}
+			
+			args.shift();
 			
 			try {
-				responseJson = JSON.parse(response);
+				args = args.map(function(r) { return JSON.parse(r); });
 			} catch (e) {
-				return callback(e, response);
+				args.unshift(e);
+				return callback.apply(null, args);
 			}
 			
-			callback(null, responseJson);
+			args.unshift(null);
+			callback.apply(null, args);
 		});
 	};
 	
