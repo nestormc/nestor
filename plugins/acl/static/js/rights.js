@@ -21,9 +21,14 @@
  * ACL configuration plugin - Rights page
  */
 
+
+// TODO plugindoc : add 'require' to dependencies if require calls are needed !
+
 define([
-	'ist!assets/templates/rights'
-], function(rTemplate) {
+	'ist!assets/templates/rights.page',
+	'ist!assets/templates/rights.group',
+	'ist!assets/templates/rights.list'
+], function(tPage, tGroup, tRights) {
 	"use strict";
 	
 	var page = {};
@@ -35,8 +40,12 @@ define([
 	};
 	
 	page.render = function(callback) {
-		this.get('/rights/', function(err, rights) {
-			callback(null, rTemplate.render({ realms: rights }));
+		this.get(['/rights/', '/groups/'], function(err, rights, groups) {
+			var page = tPage.render({ groups: groups });
+			callback(null, page);
+			
+//			var tn = document.createTextNode(JSON.stringify(rights) + ' ------ ' + JSON.stringify(groups));
+//			callback(null, tn);
 		});
 	};
 	

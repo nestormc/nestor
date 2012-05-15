@@ -101,12 +101,6 @@ define([
 	};
 	
 	Page.prototype = {
-		// Utilities tree
-		utils: {
-			// IST template engine
-			ist: ist
-		},
-		
 		/**
 		 * Page render function, must pass a DOM node or a document fragment as
 		 * second argument to callback, or Error as first argument

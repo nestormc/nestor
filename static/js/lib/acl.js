@@ -29,6 +29,12 @@ define(['lib/server', 'md5'], function(server, md5) {
 	
 	var acl = {};
 	
+	function clear() {
+		delete acl.rights;
+		delete acl.salt;
+		delete acl.userName;
+	};
+	
 	acl.getStatus = function(callback) {
 		server.getJson('/salt', function(e, resp) {
 			if (e) {
@@ -95,7 +101,7 @@ define(['lib/server', 'md5'], function(server, md5) {
 	
 	acl.logout = function(callback) {
 		server.getJson('/logout', function(e, resp) {
-			acl = {};
+			clear();
 			callback();
 		});
 	};

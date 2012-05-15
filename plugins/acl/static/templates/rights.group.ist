@@ -1,0 +1,4 @@
+div.group[data-group={{ name }}]
+	"{{ name }}"
+	a#delGroup[href=#]
+		"del group"
