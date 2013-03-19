@@ -1,7 +1,0 @@
-div.groups
-	a#addGroup[href=#]
-		"add a group"
-	@each groups
-		@include "rights.group"
-div.rights
-	"please select a group"
