@@ -1,0 +1,114 @@
+/********************************************************************
+ *                               Fonts                              *
+ ********************************************************************/
+
+/* Aurulent Sans has OFL 1.1 license, see http://scripts.sil.org/OFL_web */
+
+@font-face {
+    font-family: NestorFont;
+    src: url(fonts/AurulentSans-Regular.otf);
+}
+
+@font-face {
+    font-family: NestorFont;
+    src: url(fonts/AurulentSans-Bold.otf);
+    font-weight: bold;
+}
+
+@font-face {
+    font-family: NestorFont;
+    src: url(fonts/AurulentSans-Italic.otf);
+    font-style: italic;
+}
+
+@font-face {
+    font-family: NestorFont;
+    src: url(fonts/AurulentSans-BoldItalic.otf);
+    font-weight: bold;
+    font-style: italic;
+}
+
+/* FIXME unknown licensing for Basic5 */
+
+@font-face {
+    font-family: NestorTitleFont;
+    src: url(fonts/Basic5.ttf);
+}
+
+/**
+    Color reference
+    
+    DARK GRAY       353535      bg
+    MEDIUM GRAY     545454      scroll bars, dark input borders
+    MIDlIGHT GRAY   9C9C9C      scroll bar trail, light input borders
+    LIGHT GRAY      E5E5E5      even listitems
+    YELLOW          FFD200
+*/
+
+/********************************************************************
+ *                              Global                              *
+ ********************************************************************/
+
+* {
+	box-sizing: border-box;
+	-webkit-box-sizing: border-box;
+	-moz-box-sizing: border-box;
+}
+
+body, td, input, select, textarea {
+	font-family: NestorFont;
+}
+
+body {
+	background-color: #353535;
+}
+
+/********************************************************************
+ *                          Loading / Login                         *
+ ********************************************************************/
+
+#loading-container {
+	width: 15em;
+	position: absolute;
+	
+	top: 50%;
+	margin-top: -6em;
+	
+	left: 50%;
+	margin-left: -7.5em;
+}
+
+#loading-container #logo-container {
+	position: relative;
+	border-radius: 6em;
+	width: 12em;
+	height: 12em;
+	background-color: #fff;
+	
+	margin-left: auto;
+	margin-right: auto;
+	
+	box-shadow: inset 0 0 8px #000;
+}
+
+#loading-container #logo-container img {
+	position: absolute;
+	top: 1.75em;
+	left: 1.25em;
+	width: 9.5em;
+	height: 9.5em;
+}
+
+#loading-container #login {
+	margin-top: 2em;
+	text-align: center;
+	color: #fff;
+}
+
+#loading-container #login input {
+	border: 0;
+	border-radius: .25em;
+	box-shadow: inset 0 0 2px #000;
+	padding: .1em .25em .1em .25em;
+	text-align: center;
+}
