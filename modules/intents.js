@@ -3,6 +3,7 @@
 
 var events = require('events'),
 	util = require('util'),
+	when = require('when'),
 	
 	intents = {},
 	handlers = {},
@@ -34,11 +35,12 @@ intents.unregister = function(intent, handler) {
 	}
 };
 
-intents.dispatch = function(intent, args, callback) {
+intents.dispatch = function(intent, args) {
 	var index = 0,
+		deferred = when.defer(),
 		handlersCopy, next;
 	
-	logger.debug("Intent %s dispatched (%s)", intent, util.inspect(args));
+	logger.debug("Intent %s dispatched (%s)", intent, args ? util.inspect(args) : "no data");
 	
 	prepareIntent(intent);
 	handlersCopy = handlers[intent].slice();
@@ -46,12 +48,10 @@ intents.dispatch = function(intent, args, callback) {
 	next = function(param) {
 		if (param === false) {
 			// End processing chain
-			return callback(null);
+			deferred.resolve();
 		} else if (param) {
-			callback(param);
-		}
-		
-		if (handlersCopy[index]) {
+			deferred.resolve(param);
+		} else if (handlersCopy[index]) {
 			handlersCopy[index++](args, next);
 		} else {
 			// No more handlers
@@ -59,11 +59,12 @@ intents.dispatch = function(intent, args, callback) {
 				logger.warn("No handlers for intent %s", intent);
 			}
 			
-			callback(null);
+			return deferred.resolve();
 		}
 	};
 	
 	next();
+	return deferred.promise;
 };
 
 module.exports = intents;

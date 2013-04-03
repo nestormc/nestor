@@ -3,38 +3,39 @@
 
 var crypto = require('crypto'),
 
-	config = require('./config'),
+	config = require('./config').acl,
 	logger = require('./logger').createLogger('acl'),
+	server = require('./server'),
 	
 	adminEnabled, adminPassword;
 
-exports.init = function() {
-	// TODO listen for changes of those parameters
-	config.get(['acl.admin.enabled', 'acl.admin.passwordInterval'], function(enabled, interval) {
-		var renewPassword;
-		
-		adminEnabled = enabled === false ? false : true;
-		interval = interval || 60;
 
-		if (adminEnabled) {
-			renewPassword = function() {
-				adminPassword = crypto.randomBytes(6).toString('hex');
-				
-				logger.notice("New admin password is %s %s %s %s, will be renewed in %d seconds",
-					adminPassword.substr(0, 3),
-					adminPassword.substr(3, 3),
-					adminPassword.substr(6, 3),
-					adminPassword.substr(9, 3),
-					interval
-				);
-				
-				setTimeout(renewPassword, interval * 1000);
-			};
+exports.init = function() {
+	adminEnabled = config.admin.enabled;
+	adminPassword = config.admin.password;
+	
+	if (!adminPassword) {
+		adminPassword = crypto.randomBytes(6).toString('hex');
+		
+		logger.notice("admin password is %s %s %s %s",
+			adminPassword.substr(0, 3),
+			adminPassword.substr(3, 3),
+			adminPassword.substr(6, 3),
+			adminPassword.substr(9, 3)
+		);
+	}
+	
+	server.authHandler(
+		function authUser(host, salt, user, passSalted, callback) {
+			var adminKey = crypto.createHmac('sha1', salt).update(adminPassword).digest('hex');
 			
-			renewPassword();
-		} else {
-			logger.notice("Admin login is disabled");
+			if (adminEnabled &&	user === 'admin' &&	passSalted === adminKey) {
+				logger.notice("Admin login from %s", host);
+				callback(null, true);
+			} else {
+				callback(null, false);
+			}
 		}
-	});
+	);
 };
 

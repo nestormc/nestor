@@ -2,9 +2,6 @@
 "use strict";
 
 var util = require('util'),
-
-	database = require('./database'),
-	config = require('./config'),
 	
 	slice = [].slice,
 	levels = ['debug', 'info', 'warn', 'error', 'notice', 'fatal'],
@@ -17,21 +14,9 @@ var util = require('util'),
 		fatal: { color: "01;31", aliases: [] }
 	},
 	levelData = {},
+	
 	currentLevel = 'debug',
-	currentStream = process.stdout,
-	
-	promoteLogger;
-	
-	
-// Try to promote early logger to full logger
-promoteLogger = function() {
-	if (database.isConnected()) {
-		config.get(['logger.level'], function(level) {
-			currentLevel = level || 'debug';
-			promoteLogger = function() {};
-		});
-	}
-};
+	currentStream = process.stdout;
 
 
 // Setup level data (aliases, colors...)
@@ -44,6 +29,7 @@ Object.keys(data).forEach(function(key) {
 	}
 	
 	dat.title = '\u001b[' + dat.color + 'm' + title + '\u001b[0m';
+	dat.ttitle = title;
 	dat.numLevel = levels.indexOf(key);
 	
 	dat.aliases.forEach(function(alias) {
@@ -67,20 +53,19 @@ var Logger = function(context) {
 	this.context = context;
 };
 
-Logger.prototype._message = function(/* title, numLevel, format, ... */) {
+Logger.prototype._message = function(/* title, ttitle, numLevel, format, ... */) {
 	var args = slice.call(arguments),
 		title = args.shift(),
+		ttitle = args.shift(),
 		numLevel = args.shift();
-		
-	promoteLogger();
-		
+	
 	if (currentLevel > numLevel) {
 		return;
 	}
 		
 	currentStream.write(util.format('%s %s [%s] %s\n',
 		(new Date()).toISOString(),
-		title,
+		currentStream.isTTY ? title : ttitle,
 		this.context,
 		util.format.apply(null, args)
 	));
@@ -90,12 +75,13 @@ Logger.prototype._message = function(/* title, numLevel, format, ... */) {
 Object.keys(levelData).forEach(function(key) {
 	var dat = levelData[key],
 		title = dat.title,
+		ttitle = dat.ttitle,
 		numLevel = dat.numLevel;
 		
 	Logger.prototype[key] = function(/* format, ... */) {	
 		var args = slice.call(arguments);
 		
-		args.unshift(title, numLevel);
+		args.unshift(title, ttitle, numLevel);
 		this._message.apply(this, args);
 		
 		if (key === "fatal") {

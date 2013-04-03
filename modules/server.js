@@ -1,25 +1,38 @@
 /*jshint node:true */
 'use strict';
 
-var express = require('express'),
+var crypto = require('crypto'),
+	express = require('express'),
 	mongoose = require('mongoose'),
 	util = require('util'),
 	
-	config = require('./config'),
+	config = require('./config').server,
 	logger = require('./logger').createLogger('http'),
 	
 	app = express(),
 	resources = [],
-	wrapDocument;
+	wrapDocument, notAllowed;
 	
+
+// Generic 405: not allowed response helper
+notAllowed = function notAllowed(req, res, next) {
+	res.restStatus(405, 'Method not allowed');
+};
 
 app.use(express.bodyParser());
 app.use(express.methodOverride());
+app.use(express.cookieParser());
+app.use(express.session({
+	secret: crypto.randomBytes(32).toString('base64'),
+	cookie: {
+		maxAge: 1000 * 60 * 60 * 24 * config.sessionDays
+	}
+}));
 app.use(express['static'](__dirname + '/../client'));
 app.use(app.router);
 app.use(function errorHandler(err, req, res, next) {
-	app.logger.error("Unhandled exception: %s\n%s", err.message, err.stack);
-	res.restStatus(500, err.message);
+	logger.error("Unhandled exception: %s\n%s", err.message, err.stack);
+	next(err);
 });
 
 /* Parse REST-specific query parameters */
@@ -46,32 +59,27 @@ app.all('/rest/*', function(req, res, next) {
 	next();
 });
 
+app.all('/rest/*', function(err, req, res, next) {
+	res.restStatus(500, err.message);
+});
+
 
 /* Make custom REST resource available */
 exports.resource = function(name, resource) {
 	var prefix = '/rest/' + name;
 	
+	if (resources.indexOf(name) !== -1) {
+		logger.warn("Resource '%s' was declared multiple times");
+	}
+	
 	resources.push(name);
 		
-	if (resource.list) {
-		app.get(prefix, resource.list);
-	}
-	
-	if (resource.get) {
-		app.get(prefix + '/:id', resource.get);
-	}
-	
-	if (resource.create) {
-		app.post(prefix, resource.create);
-	}
-	
-	if (resource.update) {
-		app.put(prefix + '/:id', resource.update);
-	}
-	
-	if (resource.remove) {
-		app.del(prefix + '/:id', resource.remove);
-	}
+	app.get(prefix, resource.list || notAllowed);
+	app.get(prefix + '/:id', resource.get || notAllowed);
+	app.post(prefix, resource.create || notAllowed);
+	app.put(prefix + '/:id', resource.update || notAllowed);
+	app.del(prefix + '/:id', resource.remove || notAllowed);
+	app.del(prefix, resource.purge || notAllowed);
 };
 
 
@@ -82,7 +90,7 @@ wrapDocument = function wrapDocument (req, name, doc) {
 
 /* Make Mongoose model available as a REST resource */
 exports.mongooseResource = (function() {
-	var listResources, getResource, removeResource;
+	var listResources, getResource, removeResource, createResource;
 	
 	listResources = function listResources(name, model, req, res, next) {
 		var query = model.find({}),
@@ -149,20 +157,32 @@ exports.mongooseResource = (function() {
 		});
 	};
 	
+	createResource = function createResource(name, model, req, res, next) {
+		model(req.body).save(function(err, r) {
+			logger.debug("CREATE %s \nerr = %s, \nr = %s", name, util.inspect(err), util.inspect(r));
+			
+			/* TODO	error handling
+				err.name = 'MongoError'
+				err.code = 11000 => duplicate key
+			*/
+			
+			res.restStatus(204, 'No content');
+		});
+	};
+	
 	return function(name, model, options) {
 		var resource;
 		
 		resource = {
 			list: listResources.bind(null, name, model),
 			get: getResource.bind(null, name, model),
-			remove: removeResource.bind(null, name, model)
+			remove: removeResource.bind(null, name, model),
+			create: createResource.bind(null, name, model)
 		};
 	
 		if (options && options.disable) {
 			options.disable.forEach(function(method) {
-				resource[method] = function(req, res, next) {
-					res.restStatus(405, 'Method not allowed');
-				};
+				resource[method] = notAllowed;
 			});
 		}
 		
@@ -170,7 +190,7 @@ exports.mongooseResource = (function() {
 	};
 }());
 
-
+/* Make custom mongoose Query available as a resource */
 exports.mongooseView = (function() {
 	var listResources;
 	
@@ -210,7 +230,7 @@ exports.mongooseView = (function() {
 	};
 }());
 
-
+/* Make mongoose aggregate pipeline available as a resource */
 exports.mongooseAggregate = (function() {
 	var preparePipeline, listResources, getResource;
 	
@@ -254,12 +274,61 @@ exports.mongooseAggregate = (function() {
 }());
 
 
+exports.authHandler = function(handler) {
+	var authHandler;
+	
+	authHandler = function(operation, req, res, next) {
+		var response = {};
+		
+		if (operation === 'status') {
+			if (!req.session.salt) {
+				req.session.salt = crypto.randomBytes(32).toString('base64');
+			}
+			
+			if (req.session.user) {
+				res.send({ user: req.session.user });
+			} else {
+				res.send({ salt: req.session.salt });
+			}
+		}
+		
+		if (operation === 'login') {
+			try {
+				handler(
+					req.connection.remoteAddress,
+					req.session.salt,
+					req.body.user,
+					req.body.password,
+					function(err, granted) {
+						if (granted) {
+							req.session.user = req.body.user;
+							res.send({ user: req.body.user });
+						} else {
+							res.send({});
+						}
+					}
+				);
+			} catch(e) {
+				throw e;
+			}
+		}
+		
+		if (operation === 'logout') {
+			req.session.destroy();
+			res.restStatus(204, "No content");
+		}
+	};
+	
+	exports.resource('login', {
+		list: authHandler.bind(null, "status"),
+		create: authHandler.bind(null, "login"),
+		purge: authHandler.bind(null, "logout")
+	});
+};
+
+
 /* Launch HTTP server */
 exports.init = function() {
-	config.get(['http.port'], function(port) {
-		port = port || 8080;
-		
-		logger.info("Starting HTTP server on :%s", port);
-		app.listen(port);
-	});
+	logger.info("Starting HTTP server on :%s", config.port);
+	app.listen(config.port);
 };

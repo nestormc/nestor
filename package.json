@@ -10,15 +10,11 @@
   },
   
   "dependencies": {
-  	"async": "*",
     "express": "*",
-    "express-resource": "*",
     "inotify-plusplus": "*",
-  	"mongodb": "*",
   	"mongoose": "*",
     "node-ffprobe": "*",
-    "optimist": "*",
-    "restify": "*"
+    "when": "*"
   },
   
   "bin": "./nestor.js",

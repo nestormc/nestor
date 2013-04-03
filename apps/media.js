@@ -1,87 +1,78 @@
 /*jshint node:true */
 'use strict';
 
-var async = require('async'),
-	fs = require('fs'),
-	path = require('path');
+var fs = require('fs'),
+	mongoose = require('mongoose'),
+	path = require('path'),
+	when = require('when'),
+	ncall = require('when/node/function').call;
 	
 
-exports.init = function(nestor, callback) {
-	var walkDirectory, statWalkItem, analyzeFile, workQueue, updateConcurrency;
+exports.init = function(nestor) {
+	var walkDirectory, statFSItem,
+		WatchedDirSchema, WatchedDir;
+		
+	WatchedDirSchema = new mongoose.Schema(
+		{ path: { type: String, unique: true } },
+		{ versionKey: false }
+	);
+
+	WatchedDirSchema.pre('save', function(next) {
+		walkDirectory(this.path).then(function() { next(); });
+	});
+
+	WatchedDir = mongoose.model('watcheddir', WatchedDirSchema);
 	
-	walkDirectory = function(dir, callback) {
+	statFSItem = function(path) {
+		return ncall(fs.stat, path)
+		.then(function(stat) {
+			if (stat.isDirectory()) {
+				return walkDirectory(path);
+			} else {
+				nestor.intents.dispatch('media.analyzeFile', { path: path });
+				return when.resolve();
+			}
+		})
+		.otherwise(function(err) {
+			nestor.logger.error("Could not stat %s: %s", path, err.message);
+			return when.resolve();
+		});
+	};
+	
+	walkDirectory = function(dir) {
 		nestor.logger.debug("Walking directory %s", dir);
-		fs.readdir(dir, function dirReader(err, files) {
-			if (err) {
-				nestor.logger.error("Could not read directory %s: %s", dir, err.message);
-			} else {
-				// Push files on the workqueue
-				workQueue.push(files.map(function(file) {
-					return { type: 'stat', path: path.join(dir, file) };
-				}));
-			}
-			
-			callback(null);
+		
+		return ncall(fs.readdir, dir)
+		.then(function(files) {
+			return when.map(files, function(file) {
+				return statFSItem(path.join(dir, file));
+			});
+		})
+		.otherwise(function(err) {
+			nestor.logger.error("Could not read directory %s: %s", dir, err.message);
+			return when.resolve();
 		});
 	};
 
-	statWalkItem = function(item, callback) {
-		fs.stat(item, function(err, stat) {
-			if (err) {
-				nestor.logger.error("Could not stat %s: %s", item, err.message);
-			} else {
-				if (stat.isDirectory()) {
-					workQueue.push({ type: 'walk', path: item });
-				} else {
-					workQueue.push({ type: 'analyze', path: item });
-				}
-			}
-			
-			callback(null);
-		});
-	};
-
-	analyzeFile = function(file, callback) {
-		nestor.intents.dispatch('media.analyzeFile', { path: file }, callback);
-	};
-
-	workQueue = async.queue(function(task, callback) {
-		switch (task.type) {
-			case 'walk':
-				walkDirectory(task.path, callback);
-				break;
-				
-			case 'stat':
-				statWalkItem(task.path, callback);
-				break;
-				
-			case 'analyze':
-				analyzeFile(task.path, callback);
-				break;
-				
-			default:
-				callback(new Error("Unknown task type: " + task.type));
-				break;
-		}
-	}, 1);
 	
-	updateConcurrency = function(value) {
-		workQueue.concurrency = value || 1;
-	};
-	nestor.config.watch('media.concurrency', updateConcurrency);
+	nestor.server.mongooseResource('watcheddirs', WatchedDir);
 	
+	// On startup: re-walk watched directories 
 	nestor.intents.register('nestor.startup', function(args, next) {
-		nestor.config.get('media.directory', function(value) {
-			if (!value) {
-				nestor.logger.warn("No media directory (set 'media.directory' configuration value)");
+		WatchedDir.find({}, function(err, docs) {
+			if (err) {
+				nestor.logger.error("Cannot walk watched directories: %s", err.message);
 			} else {
-				workQueue.push({ type: 'walk', path: value });
+				docs.forEach(function(doc) {
+					walkDirectory(doc.path);
+				});
 			}
+			
 			next();
 		});
 	});
 	
-	callback(null);
+	return when.resolve();
 };
 
 exports.manifest = {

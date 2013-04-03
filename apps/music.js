@@ -4,6 +4,7 @@
 var mongoose = require('mongoose'),
 	ffprobe = require('node-ffprobe'),
 	util = require('util'),
+	when = require('when'),
 
 	TrackSchema, Track,
 	
@@ -90,7 +91,7 @@ analyzeFile = function(args, next) {
 };
 
 
-exports.init = function(nestor, callback) {
+exports.init = function(nestor) {
 	nestor.intents.register('media.analyzeFile', analyzeFile.bind(nestor));
 	
 	nestor.server.mongooseResource('tracks', Track);
@@ -109,7 +110,7 @@ exports.init = function(nestor, callback) {
 		} }
 	]);
 	
-	callback(null);
+	return when.resolve();
 };
 
 exports.manifest = {

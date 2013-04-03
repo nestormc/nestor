@@ -1,0 +1,15 @@
+{
+	"acl": {
+		"admin": {
+			"enabled": true,
+			"password": "p"
+		}
+	},
+	
+	"database": "mongodb://localhost/nestor",
+	
+	"server": {
+		"port": 8080,
+		"sessionDays": 1
+	}
+}

@@ -1,99 +1,101 @@
 /*jshint node:true */
 'use strict';
 
-var async = require('async'),
-	fs = require('fs'),
+var fs = require('fs'),
 	path = require('path'),
+	when = require('when'),
+	wseq = require('when/sequence'),
 	
 	config = require('./config'),
 	logger = require('./logger'),
 	intents = require('./intents'),
-	server = require('./server');
-
-
-module.exports = function(basedir, callback) {
-	var initApp, requireLoad,
+	server = require('./server'),
 	
-		names = [],
-		dir = path.join(basedir, 'apps'),
-		loadable = {},
-		loaded = {},
+	apps = {};
+
+
+exports.init = function(basedir) {
+	var dir = path.join(basedir, 'apps'),
 		services = {
 			config: config,
 			server: server,
 			intents: intents
-		};
-	
-	/* Dependency-aware app initializing helper */	
-	initApp = function(name, cb) {
-		var app, depsReady;
+		},
 		
-		if (loaded[name] === 'loading') {
-			cb(new Error("Dependency loop on app " + name));
-		} else if (loaded[name]) {
-			cb(null);
-		} else if (loadable[name]) {
-			loaded[name] = 'loading';
-			app = loadable[name];
-			
-			depsReady = function(err) {
-				if (err) {
-					cb(err);
-				} else {
-					var appServices = Object.create(services);
-					appServices.logger = logger.createLogger(name);
-					
-					app.init(appServices, function(err) {
-						if (!err) {
-							logger.debug("App " + name + " initialized");
-							loaded[name] = app;
-						}
-						
-						cb(err);
-					});
-				}
-			};
-			
-			async.eachSeries(app.manifest.deps || [], initApp, depsReady);
-		} else {
-			cb(new Error("Unknown or not loadable app: " + name));
-		}
-	};
+		loadApp, initApp;
 	
 	try {
 		fs.readdirSync(dir).forEach(function(plugin) {
-			names.push(plugin.replace(/\.js$/, ''));
+			apps[plugin.replace(/\.js$/, '')] = {};
 		});
 	} catch (e) {
-		return callback(new Error("Could not read plugin directory " + fs.realPathSync(dir) + ": " + e.message));
+		return when.reject(new Error("Could not read plugin directory " + fs.realPathSync(dir) + ": " + e.message));
 	}
 	
-	/* App module loader */
-	requireLoad = function(name, cb) {
+	loadApp = function loadApp(name) {
 		var app, e;
 		
 		try {
 			app = require(path.join(dir, name));
 		} catch(e) {
+			return when.reject(e);
 		}
 		
 		if (!app.manifest) {
-			e = new Error("No manifest for app " + name);
+			return when.reject(new Error("No manifest for app " + name));
 		}
 		
-		if (!e && !app.manifest.disabled) {
-			loadable[name] = app;
+		if (!app.manifest.disabled) {
+			apps[name].module = app;
 		}
 		
-		return cb(e);
+		return when.resolve();
 	};
 	
-	/* Load apps then initialize them */
-	async.each(names, requireLoad, function(err) {
-		if (err) {
-			return callback(err);
-		}
+	initApp = function initApp(name) {
+		var app, depsReady;
 		
-		async.eachSeries(names, initApp, callback);
+		if (apps[name].loading) {
+			return when.reject(new Error("Dependency loop on app " + name));
+		} else if (apps[name].loaded) {
+			return when.resolve();
+		} else if (apps[name].module) {
+			apps[name].loading = true;
+			app = apps[name].module;
+			
+			return when.map(
+				app.manifest.deps || [],
+				initApp
+			).then(
+				function depsLoaded() {
+					var appServices = Object.create(services);
+					appServices.logger = logger.createLogger(name);
+					
+					return app.init(appServices).then(
+						function appLoaded() {
+							logger.debug("App " + name + " initialized");
+							apps[name].loading = false;
+							apps[name].loaded = true;
+						}
+					);
+				}
+			);
+		} else {
+			return when.reject(new Error("Unknown or not loadable app: " + name));
+		}
+	};
+	
+	// Load (require) apps in parallel, then initialize them sequencially
+	return when.map(Object.keys(apps), loadApp)
+	.then(function() {
+		return wseq(
+			Object.keys(apps)
+			.filter(function(name) {
+				return !!(apps[name].module);
+			})
+			.map(function(name) {
+				return initApp.bind(null, name);
+			})
+		);
 	});
 };
