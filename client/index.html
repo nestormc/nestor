@@ -3,22 +3,42 @@
 	<head>
 		<link rel="stylesheet" type="text/css" href="nestor.css">
 		
-		<script type="text/x-ist" id="login">
+		<script type="text/x-ist" id="loginForm">
 			#login
-				label "login"
-				input[type=text]
+				.label-container
+					label "login"
+				input[type=text][!keypress=loginKeypress]
+				label.error
 			#password
-				label "password"
-				input[type=password]
+				.label-container
+					label "password"
+				input[type=password][!keypress=passKeypress]
+		</script>
+		
+		<script type="text/x-ist" id="mainTemplate">
+			#bar
+				#nestor
+					#logo-container
+						img[src=images/nestor.svg]
+					"{{ user }}"
+					a[href=#][!click=logout] "logout"
+				.clear
+				.app
+					.title
+						span "music"
+					"blah blah" 
+			#viewport
 		</script>
 	</head>
 	<body>
-		<div id="loading-container">
+		<div id="login-container">
 			<div id="logo-container">
 				<img src="images/nestor.svg">
 			</div>
 		</div>
+		<div id="main-container"></div>
 		
-		<script src="js/lib/require.js" data-main="js/nestor.js"></script>
+		<script src="js/lib/hmac-sha1.js"></script>
+		<script src="js/lib/require.js" data-main="js/main.js"></script>
 	</body>
 </html>

@@ -1,0 +1,3 @@
+[submodule "client/js/lib/when"]
+	path = client/js/lib/when
+	url = https://github.com/cujojs/when
