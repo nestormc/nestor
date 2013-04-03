@@ -1,7 +1,8 @@
 /*jshint node: true, es5: true */
 "use strict";
 
-var util = require('util'),
+var config = require('./config'),
+	util = require('util'),
 	
 	slice = [].slice,
 	levels = ['debug', 'info', 'warn', 'error', 'notice', 'fatal'],
@@ -15,8 +16,22 @@ var util = require('util'),
 	},
 	levelData = {},
 	
-	currentLevel = 'debug',
-	currentStream = process.stdout;
+	currentStream = process.stdout,
+	getLogLevel;
+	
+	
+getLogLevel = function(name) {
+	if (typeof config.loglevel === 'string') {
+		// Global log level
+		return config.loglevel;
+	} else if (typeof config.loglevel === 'object') {
+		// Per-domain log level
+		return config.loglevel[name] || 'debug';
+	} else {
+		// Fallback
+		return 'debug';
+	}
+};
 
 
 // Setup level data (aliases, colors...)
@@ -51,6 +66,7 @@ Object.keys(data).forEach(function(key) {
 
 var Logger = function(context) {
 	this.context = context;
+	this.level = getLogLevel(context);
 };
 
 Logger.prototype._message = function(/* title, ttitle, numLevel, format, ... */) {
@@ -59,7 +75,7 @@ Logger.prototype._message = function(/* title, ttitle, numLevel, format, ... */)
 		ttitle = args.shift(),
 		numLevel = args.shift();
 	
-	if (currentLevel > numLevel) {
+	if (levels.indexOf(this.level) > numLevel) {
 		return;
 	}
 		

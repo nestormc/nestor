@@ -11,5 +11,13 @@
 	"server": {
 		"port": 8080,
 		"sessionDays": 1
+	},
+	
+	"loglevel": {
+		"acl": "debug",
+		"http": "debug",
+		"media": "debug",
+		"music": "debug",
+		"nestor": "debug"
 	}
 }
