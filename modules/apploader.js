@@ -11,8 +11,8 @@ var fs = require('fs'),
 	intents = require('./intents'),
 	server = require('./server'),
 	
-	apps = {};
-
+	apps = {},
+	clientApps = [];
 
 exports.init = function(basedir) {
 	var dir = path.join(basedir, 'apps'),
@@ -47,6 +47,14 @@ exports.init = function(basedir) {
 		
 		if (!app.manifest.disabled) {
 			apps[name].module = app;
+		}
+		
+		if (app.manifest.clientApps) {
+			app.manifest.clientApps.forEach(function(app) {
+				if (!clientApps.some(function(o) { return o.name === name; })) {
+					clientApps.push({ _id: name, name: name });
+				}
+			});
 		}
 		
 		return when.resolve();
@@ -84,6 +92,9 @@ exports.init = function(basedir) {
 			return when.reject(new Error("Unknown or not loadable app: " + name));
 		}
 	};
+	
+	// Publish client apps
+	server.arrayResource('clientApps', clientApps);
 	
 	// Load (require) apps in parallel, then initialize them sequencially
 	return when.map(Object.keys(apps), loadApp)

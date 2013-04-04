@@ -88,6 +88,77 @@ wrapDocument = function wrapDocument (req, name, doc) {
 };
 
 
+/* Make JS array of objects available as a REST resource */
+exports.arrayResource = (function() {
+	var listResources, getResource, filterKeys;
+	
+	filterKeys = function(keys, object) {
+		if (keys && keys.length) {
+			var o = { _id: object._id };
+			keys.forEach(function(key) {
+				o[key] = object[key];
+			});
+			return o;
+		} else {
+			return object;
+		}
+	};
+	
+	listResources = function listResources(name, array, req, res, next) {
+		var objects = array;
+		
+		if (req.skip > 0) {
+			objects = objects.slice(req.skip);
+		}
+		
+		if (req.limit > 0) {
+			objects = objects.slice(0, req.limit);
+		}
+		
+		if (req.fields) {
+			objects = objects.map(filterKeys.bind(null, req.fields));
+		}
+		
+		objects.forEach(wrapDocument.bind(null, req, name));
+		
+		res.send({
+			_count: array.length,
+			_items: objects
+		});
+	};
+	
+	getResource = function getResource(name, array, req, res, next) {
+		var object = array.filter(function(o) { return o._id === req.param('id'); })[0];
+		
+		if (!object) {
+			res.restStatus(404, 'Not found');
+		} else {
+			filterKeys(req.fields, object);
+			wrapDocument(req, name, object);
+			res.send(object);
+		}
+	};
+	
+	return function(name, array, options) {
+		var resource;
+		
+		resource = {
+			list: listResources.bind(null, name, array),
+			get: getResource.bind(null, name, array)/*,
+			remove: removeResource.bind(null, name, model),
+			create: createResource.bind(null, name, model)*/
+		};
+	
+		if (options && options.disable) {
+			options.disable.forEach(function(method) {
+				resource[method] = notAllowed;
+			});
+		}
+		
+		exports.resource(name, resource);
+	};
+}());
+
 /* Make Mongoose model available as a REST resource */
 exports.mongooseResource = (function() {
 	var listResources, getResource, removeResource, createResource;

@@ -115,5 +115,6 @@ exports.init = function(nestor) {
 
 exports.manifest = {
 	description: "Music library",
-	deps: [ 'media' ]
+	deps: [ 'media' ],
+	clientApps: [ 'music' ]
 };

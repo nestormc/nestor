@@ -55,7 +55,7 @@ exports.init = function(nestor) {
 	};
 
 	
-	nestor.server.mongooseResource('watcheddirs', WatchedDir);
+	nestor.server.mongooseResource('watchedDirs', WatchedDir);
 	
 	// On startup: re-walk watched directories 
 	nestor.intents.register('nestor.startup', function(args, next) {
