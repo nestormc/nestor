@@ -12,6 +12,8 @@
   "dependencies": {
     "express": "*",
     "inotify-plusplus": "*",
+    "less-middleware": "*",
+    "mongodb": "*",
   	"mongoose": "*",
     "node-ffprobe": "*",
     "when": "*"

@@ -9,7 +9,9 @@
  * http://njoyard.github.com/ist
  */
 (function(global) {
-	var isAMD, previous, istComponents;
+	var isAMD, previous, istComponents,
+		scopeCount = 0,
+		scopeObject = {};
 	
 	isAMD = typeof global.define === 'function' && global.define.amd;
 	istComponents = { require: global.require };
@@ -81,11 +83,11 @@
 			},
 			
 			callUpdater: function(updater, domnode) {
-				updater.call(this.value, domnode, this.scopeObject, this.istData(domnode));
+				updater.call(this.value, domnode, scopeObject, this.scopeObject, this.istData(domnode));
 			},
 			
 			buildSubContext: function(updater) {
-				return this.createContext(updater.call(this.value, null, this.scopeObject));
+				return this.createContext(updater.call(this.value, null, scopeObject, this.scopeObject));
 			},
 		
 			/**
@@ -95,11 +97,11 @@
 			 */
 			evaluate: function(expr) {
 				var func = new Function(
-						"__SCOPE__",
-						"with(this) { with(__SCOPE__) { return " + expr + "; } }"
+						"__ISTSCOPE__,__SCOPE__",
+						"with(__ISTSCOPE__) { with(this) { with(__SCOPE__) { return " + expr + "; } } }"
 					);
 				
-				return func.apply(this.value, [this.scopeObject]);
+				return func.apply(this.value, [scopeObject, this.scopeObject]);
 			},
 		
 			interpolate: function(text) {		
@@ -509,7 +511,7 @@
 				iterationHelper.call(this, array, array, ctx, tmpl, fragment);
 			},
 	
-			"eachkey": function(ctx, tmpl) {
+			"eachkey": function(ctx, tmpl, fragment) {
 				var object = ctx.value,
 					keys = Object.keys(object),
 					array;
@@ -550,6 +552,7 @@
 	
 	istComponents.prerender = ( function(jsEscape) {
 		var T = "__TARGET__",
+			G = "__ISTSCOPE__",
 			S = "__SCOPE__",
 			D = "__DATA__",
 			expressionRE = /\{\{((?:\}(?!\})|[^}])*)\}\}/,
@@ -578,7 +581,7 @@
 				return parts.map(function(part, index) {
 					if (index % 2 === 1) {
 						// Expression
-						return part;
+						return '(' + part + ')';
 					} else {
 						// Raw text between expressions
 						return '"' + jsEscape(part) + '"';
@@ -641,10 +644,10 @@
 			
 			if (code.length) {
 				try {
-					node.updater = new Function(T + "," + S + "," + D,
-						"with (this) {\nwith (" + S + ") {\n" +
+					node.updater = new Function(T + "," + G + "," + S + "," + D,
+						"with (" + G + ") {\nwith (this) {\nwith (" + S + ") {\n" +
 							code.join("\n") +
-						"\n}\n}"
+						"\n}\n}\n}"
 					);
 				} catch (e) {
 					// Save node in exception to allow the Template to add context
@@ -3096,7 +3099,7 @@
 					
 					if (doParse) {
 						/* Get parsed code */
-						code = ist(text, name).getCode(true);
+						code = ist(text, name).getCode(false);
 						text = "define('ist!" + name + "'," + JSON.stringify(deps) + ", function(ist) {\n" +
 							"  return " + code + ";\n" +
 							"});\n";
@@ -3166,6 +3169,24 @@
 		};
 		
 		ist.Template = Template;
+		
+		ist.pushScope = function(scope) {
+			scopeCount++;
+			
+			scopeObject = Object.create(scopeObject);
+			Object.keys(scope).forEach(function(key) {
+				scopeObject[key] = scope[key];
+			});
+		};
+			
+		ist.popScope = function() {
+			if (scopeCount === 0) {
+				throw new Error("No scope left to pop out");
+			}
+			
+			scopeCount--;
+			scopeObject = Object.getPrototypeOf(scopeObject);
+		};
 		
 		/**
 		 * Node creation interface

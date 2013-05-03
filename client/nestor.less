@@ -1,0 +1,286 @@
+/**
+ ** Fonts
+ **/
+
+/* Roboto Condensed - Apache 2.0 license */
+
+@font-face {
+    font-family: NestorFont;
+    src: url(fonts/Roboto-Light.ttf);
+}
+
+@font-face {
+    font-family: NestorFont;
+    src: url(fonts/Roboto-Bold.ttf);
+    font-weight: bold;
+}
+
+@font-face {
+    font-family: NestorFont;
+    src: url(fonts/Roboto-LightItalic.ttf);
+    font-style: italic;
+}
+
+@font-face {
+    font-family: NestorFont;
+    src: url(fonts/Roboto-BoldItalic.ttf);
+    font-weight: bold;
+    font-style: italic;
+}
+
+/* Julian sans one - OFL 1.1 */
+
+@font-face {
+    font-family: NestorTitleFont;
+    src: url(fonts/JuliusSansOne-Regular.ttf);
+}
+
+
+/**
+ ** Colors
+ **/
+
+@darkerGray: color('#282828');
+@darkGray: color('#353535');
+@midGray: color('#545454');
+@mlGray: color('#acacac');
+@lightGray: color('#e5e5e5');
+
+@white: color('#fff');
+@yellow: color('#ffd200');
+@myellow: color('#ffe980');
+@lyellow: color('#fff4c0');
+@red: color('#f20');
+
+
+/**
+ ** Global styles
+ **/
+
+* {
+	/* border-box FTW */
+	box-sizing: border-box;
+	-webkit-box-sizing: border-box;
+	-moz-box-sizing: border-box;
+	
+	/* reset UA margins */
+	margin: 0;
+	padding: 0;
+}
+
+input:focus,
+select:focus,
+textarea:focus,
+button:focus {
+    outline: none;
+}
+
+body,
+td,
+input,
+select,
+textarea {
+	font-family: NestorFont;
+}
+
+body {
+	background-color: @darkGray;
+}
+
+/**
+ ** Loading screen and login
+ **/
+
+#login-container {
+	width: 12em;
+	position: absolute;
+	
+	top: 50%;
+	margin-top: -10em;
+	
+	left: 50%;
+	margin-left: -6em;
+
+	#logo-container {
+		position: relative;
+		width: 12em;
+		height: 12em;
+		
+		margin-left: auto;
+		margin-right: auto;
+	}
+
+	#logo-container img {
+		position: absolute;
+		top: 1.75em;
+		left: 1.25em;
+		width: 9.5em;
+		height: 9.5em;
+	}
+
+	#login,
+	#password {
+		padding-top: 2em;
+		text-align: center;
+		color: @white;
+	}
+
+	.label-container {
+		border-top: 1px solid @mlGray;
+		height: .5em;
+	}
+
+	.label-container label {
+		font-family: NestorTitleFont;
+		
+		background: @darkGray;
+		padding: 0 1em;
+		
+		position: relative;
+		top: -.75em;
+		
+		color: @mlGray;
+	}
+
+	.error {
+		color: @red;
+	}
+
+	input {
+		border: 0;
+		background: transparent;
+		color: @white;
+		text-align: center;
+		width: 100%;
+	}
+
+	#password {
+		display: none;
+	}
+}
+
+
+/**
+ ** Navigation bar
+ **/
+
+
+@barWidth: 12em;
+@margins: .75em;
+
+#bar {
+	width: @barWidth;
+	
+	position: absolute;
+	top: @margins;
+	bottom: @margins;
+	left: @margins;
+	
+	color: @mlGray;
+	
+	#nestor,
+	.app {
+		font-size: .75em;
+	}
+		
+	a {
+		color: @mlGray;
+	}
+	
+	#nestor {
+		display: table;
+		margin-bottom: 2em;
+	
+		#logo-container,
+		#user-container {
+			display: table-cell;
+			vertical-align: middle;
+		}
+		
+
+		img {
+			margin: .375em 1em 0 0;
+			
+			width: 2.5em;
+			height: 2.5em;
+		}
+		
+		.user {
+			color: @white;
+			text-transform: capitalize;
+			font-family: NestorTitleFont;
+		}
+		
+		ul.userlinks {
+			list-style: none;
+			
+			li {
+				display: inline;
+			}
+			
+			li + li:before {
+				content: ' / ';
+			}
+		}
+	}
+
+	.app {
+		margin-bottom: 2em;
+		
+		&.active {
+			background: @darkerGray;
+		}
+		
+		.title {
+			color: @white;
+			text-align: center;
+			text-transform: capitalize;
+			font-family: NestorTitleFont;
+		}
+
+		ul.pages {
+			list-style: none;
+			
+			li img {
+				vertical-align: middle;
+				width: 1em;
+				height: 1em;
+				margin-right: .2em;
+			}
+		}
+	}
+}
+
+
+#viewport {
+	position: absolute;
+	top: @margins;
+	bottom: @margins;
+	left: @barWidth + 2*@margins;
+	right: @margins;
+	
+	background-color: @lightGray;
+	
+	.datagrid {
+		font-size: .75em;
+		padding: @margins;
+		border-spacing: 0;
+		width: 100%;
+		
+		th {
+			text-align: left;
+			font-family: NestorTitleFont;
+			background-color: @darkGray;
+			color: @yellow;
+		}
+		
+		tr:nth-child(even) {
+			background-color: @lightGray;
+		}
+	}
+}
+
+
+/**
+ ** App predefined styles
+ **/

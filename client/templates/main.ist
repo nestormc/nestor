@@ -1,0 +1,28 @@
+#bar
+	/* Logo and user controls */
+	#nestor
+		#logo-container
+			img[src=images/nestor.svg]
+			
+		#user-container
+			.user "{{ user }}"
+			ul.userlinks
+				li
+					a[href=#] "settings"
+				li
+					a[href=#][!click=logout] "logout"
+					
+	/* Application list */
+	@each apps
+		.app[!click=activate]
+			.title
+				"{{ title }}"
+			.applet
+				@dom appletNode
+			ul.pages
+				@eachkey pages
+					li
+						img[src=images/{{ value.icon || "list" }}.svg]
+						"{{ key }}"
+					
+#viewport

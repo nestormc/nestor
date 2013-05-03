@@ -3,6 +3,7 @@
 
 var crypto = require('crypto'),
 	express = require('express'),
+	lessMiddleware = require('less-middleware'),
 	mongoose = require('mongoose'),
 	util = require('util'),
 	
@@ -14,11 +15,13 @@ var crypto = require('crypto'),
 	wrapDocument, notAllowed;
 	
 
-// Generic 405: not allowed response helper
+/* Generic "405: not allowed" response helper */
 notAllowed = function notAllowed(req, res, next) {
 	res.restStatus(405, 'Method not allowed');
 };
 
+
+/* Basic express configuration */
 app.use(express.bodyParser());
 app.use(express.methodOverride());
 app.use(express.cookieParser());
@@ -28,6 +31,7 @@ app.use(express.session({
 		maxAge: 1000 * 60 * 60 * 24 * config.sessionDays
 	}
 }));
+app.use(lessMiddleware({ src: __dirname + '/../client' }));	
 app.use(express['static'](__dirname + '/../client'));
 app.use(app.router);
 app.use(function errorHandler(err, req, res, next) {
@@ -35,10 +39,15 @@ app.use(function errorHandler(err, req, res, next) {
 	next(err);
 });
 
+
 /* Parse REST-specific query parameters */
 app.all('/rest/*', function(req, res, next) {
 	if (req.param('fields')) {
 		req.fields = req.param('fields').split(',');
+	}
+	
+	if (req.param('where')) {
+		req.where = req.param('where').split(',');
 	}
 	
 	req.skip = parseInt(req.param('skip'), 10);
@@ -59,6 +68,8 @@ app.all('/rest/*', function(req, res, next) {
 	next();
 });
 
+
+/* REST-specific error handler */
 app.all('/rest/*', function(err, req, res, next) {
 	res.restStatus(500, err.message);
 });
@@ -159,16 +170,31 @@ exports.arrayResource = (function() {
 	};
 }());
 
+
 /* Make Mongoose model available as a REST resource */
 exports.mongooseResource = (function() {
 	var listResources, getResource, removeResource, createResource;
 	
-	listResources = function listResources(name, model, req, res, next) {
+	listResources = function listResources(name, model, options, req, res, next) {
 		var query = model.find({}),
-			countq = model.find(query);
+			countq;
 		
 		if (req.fields) {
 			query = query.select(req.fields.join(' '));
+		}
+		
+		if (req.where) {
+			// TODO rework where queries
+			req.where.forEach(function(criteria) {
+				var split = criteria.split(':');
+				query = query.where(split[0], split[1]);
+			});
+		}
+		
+		countq = model.find(query);
+		
+		if (options && options.sort) {
+			query = query.sort(options.sort);
 		}
 		
 		query
@@ -245,7 +271,7 @@ exports.mongooseResource = (function() {
 		var resource;
 		
 		resource = {
-			list: listResources.bind(null, name, model),
+			list: listResources.bind(null, name, model, options),
 			get: getResource.bind(null, name, model),
 			remove: removeResource.bind(null, name, model),
 			create: createResource.bind(null, name, model)
@@ -260,6 +286,7 @@ exports.mongooseResource = (function() {
 		exports.resource(name, resource);
 	};
 }());
+
 
 /* Make custom mongoose Query available as a resource */
 exports.mongooseView = (function() {

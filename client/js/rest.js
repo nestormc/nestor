@@ -10,7 +10,14 @@ define(["when"], function(when, md5) {
 			user: null,
 			salt: null
 		};
+		
 	
+	/**
+	 * State change handler for request()'s XMLHttpRequest object
+	 * Takes a deferred as an argument, and resolves it with the
+	 * parsed request JSON result, or rejects it when an error
+	 * occurs.
+	 */
 	onStateChange = function(deferred) {
 		if (this.readyState !== 4) {
 			return;
@@ -34,6 +41,15 @@ define(["when"], function(when, md5) {
 		this.abort();
 	};
 	
+	
+	/**
+	 * JSON ajax request helper
+	 *
+	 * @param {String} method request method; case-insensitive, maps 'del' to 'delete'
+	 * @param {String} uri request URI
+	 * @param {Object} [data] request data
+	 * @return {Promise}
+	 */
 	request = function(method, uri, data) {
 		var xhr = new XMLHttpRequest(),
 			deferred = when.defer();
@@ -59,9 +75,20 @@ define(["when"], function(when, md5) {
 		return deferred.promise;
 	};
 	
+	
+	/**
+	 * JSON ajax request method-specific helpers:
+	 *   request.get
+	 *   request.head
+	 *   request.post
+	 *   request.put
+	 *   request.del
+	 *   request.delete
+	 */
 	'get head post put del delete'.split(' ').forEach(function(method) {
 		request[method] = request.bind(null, method);
 	});
+	
 	
 	rest = function(name) {
 		var makeQueryParameter;
@@ -106,6 +133,26 @@ define(["when"], function(when, md5) {
 				
 				purge: function() {
 					return request.del('/rest/' + name);
+				},
+				
+				lister: function() {
+					var resource = this;
+					
+					return {
+						count: 0,
+						
+						more: function(options) {
+							var lister = this;
+							
+							options = options || {};
+							options.skip = lister.count;
+							
+							return resource.list(options).then(function(results) {
+								lister.count += results._items.length;
+								return when.resolve(results);
+							});
+						}
+					};
 				}
 			};
 		}

@@ -94,7 +94,10 @@ analyzeFile = function(args, next) {
 exports.init = function(nestor) {
 	nestor.intents.register('media.analyzeFile', analyzeFile.bind(nestor));
 	
-	nestor.server.mongooseResource('tracks', Track);
+	nestor.server.mongooseResource('tracks', Track, {
+		sort: { artists: "asc", album: "asc", number: "asc" }
+	});
+	
 	nestor.server.mongooseAggregate('albums', Track, [
 		{ $project: {
 			artists: 1,

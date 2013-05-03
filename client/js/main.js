@@ -4,17 +4,29 @@
 (function(global) {
 	"use strict";
 	
-	global.$ = function(selector) {
-		return document.querySelector(selector);
+	global.$ = function(element, selector) {
+		if (!selector) {
+			selector = element;
+			element = document;
+		}
+		
+		return element.querySelector(selector);
 	};
-	global.$$ = function(selector) {
-		return [].slice.call(document.querySelectorAll(selector));
+	
+	global.$$ = function(element, selector) {
+		if (!selector) {
+			selector = element;
+			element = document;
+		}
+		
+		return [].slice.call(element.querySelectorAll(selector));
 	};
 	
 	require.config({
 		paths: {
 			'domReady': 'lib/domReady',
-			'ist': 'lib/ist'
+			'ist': 'lib/ist',
+			'tmpl': '../templates'
 		},
 		
 		packages: [

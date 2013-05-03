@@ -1,20 +1,25 @@
 /*jshint browser:true */
 /*global require, define, $, $$ */
 
-define(["ist", "ui", "rest"], function(ist, ui, rest) {
+define(["ist!tmpl/login", "ui", "rest"], function(template, ui, rest) {
 	"use strict";
 	
 	var login,
 		loginKeypress,
-		passKeypress;
+		passKeypress,
+		blur,
+		currentInput;
 	
 	loginKeypress = function(e) {
 		if (e.keyCode === 13 && this.value) {
+            var input = $("#password input");
+
 			// Switch to password input
 			$("#password").style.display = "block";
 			$("#login").style.display = "none";
 			
-			$("#password input").focus();
+			input.focus();
+			currentInput = input;
 		}
 	};
 	
@@ -25,32 +30,44 @@ define(["ist", "ui", "rest"], function(ist, ui, rest) {
 					if (!user) {
 						login("login failed");
 					} else {
+						currentInput = null;
 						ui(user, login.logout);
 					}
 				}
 			);
 		}
 	};
-
+	
+	blur = function(e) {
+		// Restore focus
+		if (currentInput) {
+			setTimeout(function() {
+				currentInput.focus();
+			}, 50);
+		}
+	};
+	
 	// Show login UI
 	login = function(error) {
-		var template = ist.fromScriptTag("loginForm");
-		
 		if (!$("#login")) {
 			$("#login-container").appendChild(
 				template.render({
 					loginKeypress: loginKeypress,
-					passKeypress: passKeypress
+					passKeypress: passKeypress,
+					blur: blur
 				})
 			);
 		}
+
+        var input = $("#login input");
 		
 		$("#login-container").style.display = $("#login").style.display = "block";
 		$("#main-container").style.display = $("#password").style.display = "none";
 		$("#login .error").innerHTML = error || '';
 		
-		$("#login input").value = $("#password input").value = "";
-		$("#login input").focus();
+		input.value = $("#password input").value = "";
+		input.focus();
+		currentInput = input;
 	};
 	
 	login.logout = function() {

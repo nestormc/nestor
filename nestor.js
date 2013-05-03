@@ -1,3 +1,5 @@
+#!/usr/bin/env node
+
 /*jshint node:true */
 'use strict';
 
@@ -20,6 +22,11 @@ ncall(function(cb) {
 	intents.dispatch("nestor.startup");	
 })
 .otherwise(function(err) {
+	console.log(err.message + "\n" + err.stack);
+	process.exit(1);
+});
+
+process.on('error', function(err) {
 	console.log(err.message + "\n" + err.stack);
 	process.exit(1);
 });
