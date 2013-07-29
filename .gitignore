@@ -1,2 +1,3 @@
 node_modules
-client/nestor-min.css
+client/style/*.css
+client/style/*/*.css
