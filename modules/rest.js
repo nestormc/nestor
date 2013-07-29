@@ -237,8 +237,8 @@ function rest(req, res) {
 				body = "" + body;
 			}
 
-			// TODO check for a cleaner way to identify Readables
-			if (typeof body._read === "function") {
+			// TODO look for a cleaner way to identify Readables
+			if (body && typeof body._read === "function") {
 				res.pipe(body);
 			} else {
 				res.send(body);
@@ -586,7 +586,7 @@ function mongooseDocArrayResource(prefix, doc, path) {
 
 		post: function(req, data, cb) {
 			docArray.push(data);
-			doc.save(cb);
+			doc.save(cb);git
 		}
 	};
 }
