@@ -6,24 +6,24 @@
 
 @font-face {
     font-family: NestorFont;
-    src: url(fonts/Roboto-Light.ttf);
+    src: url(../fonts/Roboto-Light.ttf);
 }
 
 @font-face {
     font-family: NestorFont;
-    src: url(fonts/Roboto-Bold.ttf);
+    src: url(../fonts/Roboto-Bold.ttf);
     font-weight: bold;
 }
 
 @font-face {
     font-family: NestorFont;
-    src: url(fonts/Roboto-LightItalic.ttf);
+    src: url(../fonts/Roboto-LightItalic.ttf);
     font-style: italic;
 }
 
 @font-face {
     font-family: NestorFont;
-    src: url(fonts/Roboto-BoldItalic.ttf);
+    src: url(../fonts/Roboto-BoldItalic.ttf);
     font-weight: bold;
     font-style: italic;
 }
@@ -32,25 +32,10 @@
 
 @font-face {
     font-family: NestorTitleFont;
-    src: url(fonts/JuliusSansOne-Regular.ttf);
+    src: url(../fonts/JuliusSansOne-Regular.ttf);
 }
 
-
-/**
- ** Colors
- **/
-
-@darkerGray: color('#282828');
-@darkGray: color('#353535');
-@midGray: color('#545454');
-@mlGray: color('#acacac');
-@lightGray: color('#e5e5e5');
-
-@white: color('#fff');
-@yellow: color('#ffd200');
-@myellow: color('#ffe980');
-@lyellow: color('#fff4c0');
-@red: color('#f20');
+@import "defs.less";
 
 
 /**
@@ -119,7 +104,8 @@ body {
 	}
 
 	#login,
-	#password {
+	#password,
+	#loading {
 		padding-top: 2em;
 		text-align: center;
 		color: @white;
@@ -225,11 +211,7 @@ body {
 	}
 
 	.app {
-		margin-bottom: 2em;
-		
-		&.active {
-			background: @darkerGray;
-		}
+		margin-bottom: 2 * @margins;
 		
 		.title {
 			color: @white;
@@ -237,15 +219,34 @@ body {
 			text-transform: capitalize;
 			font-family: NestorTitleFont;
 		}
+		
+		.applet {
+			margin-bottom: @margins;
+		}
 
 		ul.pages {
 			list-style: none;
 			
-			li img {
-				vertical-align: middle;
-				width: 1em;
-				height: 1em;
-				margin-right: .2em;
+			li {
+				&.selected {
+					font-weight: bold;
+				}
+				
+				a {
+					display: block;
+					text-decoration: none;
+				}
+				
+				a:hover {
+					background-color: @darkerGray;
+				}
+				
+				img {
+					vertical-align: middle;
+					width: 1em;
+					height: 1em;
+					margin-right: .2em;
+				}
 			}
 		}
 	}
@@ -260,6 +261,10 @@ body {
 	right: @margins;
 	
 	background-color: @lightGray;
+
+	.container {
+		font-size: .75em;
+	}
 	
 	.datagrid {
 		font-size: .75em;
@@ -284,3 +289,34 @@ body {
 /**
  ** App predefined styles
  **/
+
+.progress {
+	font-size: .5em;
+	line-height: 1.1em;
+	height: 1em;
+	
+	background-color: @midGray;
+	margin: .5em 0;
+	position: relative;
+		
+	.bar {
+		height: 100%;
+		width: 37%;
+		background-color: @yellow;
+	}
+	
+	.elapsed,
+	.total {
+		position: absolute;
+		top: 0;
+		color: black;
+	}
+	
+	.total {
+		right: .25em;
+	}
+	
+	.elapsed {
+		left: .25em;
+	}
+}

@@ -1,0 +1,89 @@
+@import "../defs.less";
+
+.album {
+	.info {
+		clear: left;
+		padding: 1em;
+
+		img {
+			width: 12em;
+			height: 12em;
+			float: left;
+			margin-right: 1em;
+		}
+
+		.title {
+			//font-family: NestorTitleFont;
+			font-weight: bold;
+			font-size: 1.2em;
+			color: @darkGray;
+		}
+
+		.artist {
+			margin-left: .5em;
+			color: @midGray;
+
+			.name {
+				color: @darkGray;
+			}
+		}
+
+		.year {
+			display: block;
+			color: @midGray;
+		}
+	}
+
+	ul.tracklist {
+		list-style-type: none;
+
+		margin: 1em;
+		margin-left: 14em;
+
+		li.track {
+			border: 1px solid @mlGray;
+			border-bottom: none;
+			border-collapse: collapse;
+			background-color: @lightGray;
+
+			&:first-child {
+				border-top-left-radius: .25em;
+				border-top-right-radius: .25em;
+			}
+
+			&:last-child {
+				border-bottom-left-radius: .25em;
+				border-bottom-right-radius: .25em;
+				border-bottom: 1px solid @mlGray;
+			}
+
+			&:nth-child(2n) {
+				background-color: @white;
+			}
+
+			.number {
+				margin-right: 1em;
+				color: @mlGray;
+
+				display: inline-block;
+				width: 2em;
+				text-align: right;
+			}
+
+			.title {
+				display: inline-block;
+				width: 50%;
+			}
+
+			.detail {
+				color: @mlGray;
+			}
+
+			.length {
+				float: right;
+				margin-right: 1em;
+				color: @mlGray;
+			}
+		}
+	}
+}

@@ -1,0 +1,17 @@
+.albumlist
+	@each albums
+		.album
+			.info
+				img.cover[src=images/nocover.svg]
+				span.title "{{ title || 'Unknown album' }}"
+				span.artist
+					span.by "by "
+					span.name "{{ artist || 'Unknown artist' }}"
+				span.year "{{ year }} "
+			ul.tracklist
+				@each tracks
+					li.track
+						span.number "{{ number }}"
+						span.title "{{ title || 'Unknown title' }}"
+						span.detail "{{ format }} {{ Math.floor(bitrate / 1000) }}kbps"
+						span.length "{{ humanTime(length) }}"

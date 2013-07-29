@@ -10,14 +10,18 @@
 	
 	"server": {
 		"port": 8080,
-		"sessionDays": 1
+		"sessionDays": 1,
+		"rest": {
+			"defaultLimit": 10
+		}
 	},
 	
 	"loglevel": {
 		"acl": "debug",
 		"http": "debug",
-		"media": "debug",
-		"music": "debug",
-		"nestor": "debug"
+		"media": "info",
+		"music": "info",
+		"nestor": "debug",
+		"intents": "info"
 	}
 }

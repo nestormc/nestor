@@ -1,5 +1,5 @@
 /*jshint browser:true */
-/*global define, require, $, $$ */
+/*global define, require, $, $$, console */
 
 (function(global) {
 	"use strict";
@@ -24,25 +24,46 @@
 	
 	require.config({
 		paths: {
-			'domReady': 'lib/domReady',
-			'ist': 'lib/ist',
-			'tmpl': '../templates'
+			"domReady": "lib/domReady",
+			"ist": "lib/ist",
+			"signals": "lib/signals",
+			"tmpl": "../templates"
 		},
 		
 		packages: [
-			 { name: 'when', location: 'lib/when/', main: 'when' }
+			 { name: "when", location: "lib/when/", main: "when" }
 		]
 	});
+	
+	function error(err) {
+		console.log("=== TOPLEVEL ERROR ===");
+		console.log(err.message);
+		console.log(err.stack);
+	}
 
-	require(['domReady', 'rest', 'login', 'ui'], function(domReady, rest, login, ui) {
-		domReady(function() {
-			rest.loginStatus().then(function(user) {
-				if (user) {
-					ui(user, login.logout);
-				} else {
-					login();
-				}
-			});
-		});
+	require(
+	["ist", "rest", "login", "ui", "router", "apploader"],
+	function(ist, rest, login, ui, router, apploader) {
+		function checkLogin(user) {
+			if (user) {
+				router.on("/logout", function(err, req, next) {
+					router.reset();
+					login.logout();
+				});
+				
+				apploader(ui, router)
+				.then(function(apps) {
+					ui.start(user, apps, router);
+					router.start();
+				})
+				.otherwise(error);
+			} else {
+				login();
+			}
+		}
+		
+		login.loggedIn.add(checkLogin);
+		
+		rest.loginStatus().then(checkLogin).otherwise(error);
 	});
 }(this));

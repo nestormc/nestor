@@ -1,7 +1,7 @@
 /*jshint node:true */
-'use strict';
+"use strict";
 
-var when = require('when');
+var when = require("when");
 
 exports.init = function(nestor) {
 	return when.resolve();
@@ -9,5 +9,5 @@ exports.init = function(nestor) {
 
 exports.manifest = {
 	description: "Downloads",
-	clientApps: [ 'downloads' ]
+	clientApps: [ "downloads" ]
 };

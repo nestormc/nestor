@@ -8,21 +8,22 @@
 			.user "{{ user }}"
 			ul.userlinks
 				li
-					a[href=#] "settings"
+					a[href=#/settings] "settings"
 				li
-					a[href=#][!click=logout] "logout"
+					a[href=#/logout] "logout"
 					
 	/* Application list */
 	@each apps
-		.app[!click=activate]
+		[class=app {{ title }}]
 			.title
 				"{{ title }}"
 			.applet
 				@dom appletNode
 			ul.pages
 				@eachkey pages
-					li
-						img[src=images/{{ value.icon || "list" }}.svg]
-						"{{ key }}"
+					li[class={{ key }}]
+						a[href=#/{{ loop.outer.title }}/{{ key }}]
+							img[src=images/{{ value.icon || "list" }}.svg]
+							"{{ key }}"
 					
 #viewport

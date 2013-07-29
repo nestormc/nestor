@@ -1,0 +1,7 @@
+.progress
+	.bar
+	.elapsed "1:23"
+	.total "4:56"
+
+.artist[style=font-weight:bold] "Raoul Petite"
+.track "Frühstück intermezzo"

@@ -2,12 +2,14 @@
 /*global require, define, $, $$ */
 
 define(['when'], function(when) {
+	"use strict";
+	
 	return {
 		manifest: {
 			"title": "downloads",
 			"pages": {
-				"downloads": {},
-				"search": {}
+				"downloads": { icon: "downloads" },
+				"search": { icon: "search" }
 			}
 		},
 		
@@ -17,10 +19,6 @@ define(['when'], function(when) {
 		
 		renderApplet: function() {
 			return document.createTextNode("Downloads Applet");
-		},
-		
-		render: function() {
-			return document.createTextNode("Downloads");
 		}
 	};
 });

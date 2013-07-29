@@ -1,16 +1,12 @@
 /*jshint browser:true */
 /*global require, define, $, $$ */
 
-define(["ist!tmpl/login", "ui", "rest"], function(template, ui, rest) {
+define(["ist!tmpl/login", "signals", "rest"], function(template, signals, rest) {
 	"use strict";
 	
-	var login,
-		loginKeypress,
-		passKeypress,
-		blur,
-		currentInput;
+	var currentInput;
 	
-	loginKeypress = function(e) {
+	function loginKeypress(e) {
 		if (e.keyCode === 13 && this.value) {
             var input = $("#password input");
 
@@ -21,9 +17,9 @@ define(["ist!tmpl/login", "ui", "rest"], function(template, ui, rest) {
 			input.focus();
 			currentInput = input;
 		}
-	};
+	}
 	
-	passKeypress = function(e) {
+	function passKeypress(e) {
 		if (e.keyCode === 13 && this.value) {
 			rest.login($("#login input").value, this.value).then(
 				function(user) {
@@ -31,31 +27,34 @@ define(["ist!tmpl/login", "ui", "rest"], function(template, ui, rest) {
 						login("login failed");
 					} else {
 						currentInput = null;
-						ui(user, login.logout);
+						
+						// Login successfull
+						login.loggedIn.dispatch(user);
 					}
 				}
 			);
 		}
-	};
+	}
 	
-	blur = function(e) {
+	function blur(e) {
 		// Restore focus
 		if (currentInput) {
 			setTimeout(function() {
 				currentInput.focus();
 			}, 50);
 		}
-	};
+	}
 	
 	// Show login UI
-	login = function(error) {
+	function login(error) {
 		if (!$("#login")) {
-			$("#login-container").appendChild(
+			$("#login-container").replaceChild(
 				template.render({
 					loginKeypress: loginKeypress,
 					passKeypress: passKeypress,
 					blur: blur
-				})
+				}),
+				$("#loading")
 			);
 		}
 
@@ -63,12 +62,14 @@ define(["ist!tmpl/login", "ui", "rest"], function(template, ui, rest) {
 		
 		$("#login-container").style.display = $("#login").style.display = "block";
 		$("#main-container").style.display = $("#password").style.display = "none";
-		$("#login .error").innerHTML = error || '';
+		$("#login .error").innerHTML = error || "";
 		
 		input.value = $("#password input").value = "";
 		input.focus();
 		currentInput = input;
-	};
+	}
+	
+	login.loggedIn = new signals.Signal();
 	
 	login.logout = function() {
 		rest.logout().then(function() {

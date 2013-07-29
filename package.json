@@ -12,9 +12,10 @@
   "dependencies": {
     "express": "*",
     "inotify-plusplus": "*",
-    "less-middleware": "*",
+    "less-middleware": "git://github.com/njoyard/less.js-middleware.git",
     "mongodb": "*",
   	"mongoose": "*",
+  	"mongoose-text-search": "*",
     "node-ffprobe": "*",
     "when": "*"
   },

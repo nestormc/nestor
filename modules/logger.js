@@ -1,37 +1,36 @@
-/*jshint node: true, es5: true */
+/*jshint node:true */
 "use strict";
 
-var config = require('./config'),
-	util = require('util'),
+var config = require("./config"),
+	util = require("util"),
 	
 	slice = [].slice,
-	levels = ['debug', 'info', 'warn', 'error', 'notice', 'fatal'],
+	levels = ["debug", "info", "warn", "error", "notice", "fatal"],
 	data = {
-		debug: { color: "34", aliases: ['dbg'] },
-		info: { color: "32", aliases: ['log'] },
-		warn: { color: "33", aliases: ['warning'] },
-		error: { color: "31", aliases: ['err'] },
-		notice: { color: "01;32", aliases: ['important'] },
+		debug: { color: "34", aliases: ["dbg"] },
+		info: { color: "32", aliases: ["log"] },
+		warn: { color: "33", aliases: ["warning"] },
+		error: { color: "31", aliases: ["err"] },
+		notice: { color: "01;32", aliases: ["important"] },
 		fatal: { color: "01;31", aliases: [] }
 	},
 	levelData = {},
 	
-	currentStream = process.stdout,
-	getLogLevel;
+	currentStream = process.stdout;
 	
 	
-getLogLevel = function(name) {
-	if (typeof config.loglevel === 'string') {
+function getLogLevel(name) {
+	if (typeof config.loglevel === "string") {
 		// Global log level
 		return config.loglevel;
-	} else if (typeof config.loglevel === 'object') {
+	} else if (typeof config.loglevel === "object") {
 		// Per-domain log level
-		return config.loglevel[name] || 'debug';
+		return config.loglevel[name] || "debug";
 	} else {
 		// Fallback
-		return 'debug';
+		return "debug";
 	}
-};
+}
 
 
 // Setup level data (aliases, colors...)
@@ -40,10 +39,10 @@ Object.keys(data).forEach(function(key) {
 		title = key.toUpperCase();
 	
 	while (title.length < 6) {
-		title += ' ';
+		title += " ";
 	}
 	
-	dat.title = '\u001b[' + dat.color + 'm' + title + '\u001b[0m';
+	dat.title = "\u001b[" + dat.color + "m" + title + "\u001b[0m";
 	dat.ttitle = title;
 	dat.numLevel = levels.indexOf(key);
 	
@@ -79,7 +78,7 @@ Logger.prototype._message = function(/* title, ttitle, numLevel, format, ... */)
 		return;
 	}
 		
-	currentStream.write(util.format('%s %s [%s] %s\n',
+	currentStream.write(util.format("%s %s [%s] %s\n",
 		(new Date()).toISOString(),
 		currentStream.isTTY ? title : ttitle,
 		this.context,
@@ -94,7 +93,7 @@ Object.keys(levelData).forEach(function(key) {
 		ttitle = dat.ttitle,
 		numLevel = dat.numLevel;
 		
-	Logger.prototype[key] = function(/* format, ... */) {	
+	Logger.prototype[key] = function(/* format, ... */) {
 		var args = slice.call(arguments);
 		
 		args.unshift(title, ttitle, numLevel);
@@ -111,4 +110,4 @@ Logger.prototype.createLogger = function(contextName) {
 	return new Logger(contextName);
 };
 
-module.exports = new Logger('nestor');
+module.exports = new Logger("nestor");

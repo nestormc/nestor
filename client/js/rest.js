@@ -1,11 +1,10 @@
 /*jshint browser:true */
 /*global require, define, CryptoJS */
 
-define(["when"], function(when, md5) {
+define(["when"], function(when) {
 	"use strict";
 	
-	var rest, request, onStateChange,
-		resources = {},
+	var resources = {},
 		status = {
 			user: null,
 			salt: null
@@ -13,55 +12,55 @@ define(["when"], function(when, md5) {
 		
 	
 	/**
-	 * State change handler for request()'s XMLHttpRequest object
+	 * State change handler for request()"s XMLHttpRequest object
 	 * Takes a deferred as an argument, and resolves it with the
 	 * parsed request JSON result, or rejects it when an error
 	 * occurs.
 	 */
-	onStateChange = function(deferred) {
-		if (this.readyState !== 4) {
+	function onStateChange(xhr, deferred) {
+		if (xhr.readyState !== 4) {
 			return;
 		}
 		
-		if (this.status === 200) {
+		if (xhr.status === 200) {
 			try {
-				var obj = JSON.parse(this.responseText);
+				var obj = JSON.parse(xhr.responseText);
 				deferred.resolve(obj);
 			} catch(e) {
 				deferred.reject(e);
 			}
-		} else if (this.status === 204) {
+		} else if (xhr.status === 204) {
 			// No content
 			deferred.resolve();
 		} else {
-			deferred.reject(new Error("HTTP " + this.status));
+			deferred.reject(new Error("HTTP " + xhr.status));
 		}
 		
-		this.onreadystatechange = null;
-		this.abort();
-	};
+		xhr.onreadystatechange = null;
+		xhr.abort();
+	}
 	
 	
 	/**
 	 * JSON ajax request helper
 	 *
-	 * @param {String} method request method; case-insensitive, maps 'del' to 'delete'
+	 * @param {String} method request method; case-insensitive, maps "del" to "delete"
 	 * @param {String} uri request URI
 	 * @param {Object} [data] request data
 	 * @return {Promise}
 	 */
-	request = function(method, uri, data) {
+	function request(method, uri, data) {
 		var xhr = new XMLHttpRequest(),
 			deferred = when.defer();
 			
-		if (method.toUpperCase() === 'DEL') {
-			method = 'DELETE';
+		if (method.toUpperCase() === "DEL") {
+			method = "DELETE";
 		}
-			
-		xhr.onreadystatechange = onStateChange.bind(xhr, deferred);
+		
+		xhr.onreadystatechange = onStateChange.bind(null, xhr, deferred);
 		xhr.open(method.toUpperCase(), uri, true);
 		
-		if ('object' === typeof data) {
+		if ("object" === typeof data) {
 			xhr.setRequestHeader("Content-Type", "application/json");
 			data = JSON.stringify(data);
 		}
@@ -73,7 +72,7 @@ define(["when"], function(when, md5) {
 		}
 		
 		return deferred.promise;
-	};
+	}
 	
 	
 	/**
@@ -85,17 +84,15 @@ define(["when"], function(when, md5) {
 	 *   request.del
 	 *   request.delete
 	 */
-	'get head post put del delete'.split(' ').forEach(function(method) {
+	"get head post put del delete".split(" ").forEach(function(method) {
 		request[method] = request.bind(null, method);
 	});
 	
 	
-	rest = function(name) {
-		var makeQueryParameter;
-		
-		makeQueryParameter = function(key) {
+	function rest(name) {
+		function makeQueryParameter(key) {
 			return key + "=" + encodeURIComponent(this[key]);
-		};
+		}
 		
 		if (!resources[name]) {
 			resources[name] = {
@@ -103,36 +100,40 @@ define(["when"], function(when, md5) {
 					var query;
 					
 					if (options) {
-						query = Object.keys(options).map(makeQueryParameter.bind(options)).join('&');
+						query = Object.keys(options).map(makeQueryParameter.bind(options)).join("&");
 					}
 					
-					return request.get('/rest/' + name + (query ? "?" + query : ""));
+					return request.get("/rest/" + name + (query ? "?" + query : ""));
 				},
 				
 				get: function(id, options) {
 					var query;
 					
 					if (options) {
-						Object.keys(options).map(makeQueryParameter.bind(options)).join('&');
+						Object.keys(options).map(makeQueryParameter.bind(options)).join("&");
 					}
 					
-					return request.get('/rest/' + name + '/' + id + (query ? "?" + query : ""));
+					return request.get("/rest/" + name + "/" + id + (query ? "?" + query : ""));
 				},
 				
 				create: function(data) {
-					return request.post('/rest/' + name, data);
+					return request.post("/rest/" + name, data);
 				},
 				
 				update: function(id, data) {
-					return request.put('/rest/' + name + '/' + id, data);
+					if (id) {
+						return request.put("/rest/" + name + "/" + id, data);
+					} else {
+						return request.put("/rest/" + name, data);
+					}
 				},
 				
 				remove: function(id) {
-					return request.del('/rest/' + name + '/' + id);
-				},
-				
-				purge: function() {
-					return request.del('/rest/' + name);
+					if (id) {
+						return request.del("/rest/" + name + "/" + id);
+					} else {
+						return request.del("/rest/" + name);
+					}
 				},
 				
 				lister: function() {
@@ -158,10 +159,10 @@ define(["when"], function(when, md5) {
 		}
 		
 		return resources[name];
-	};
+	}
 	
 	rest.loginStatus = function() {
-		return rest('login').list().then(function(result) {
+		return rest("login").list().then(function(result) {
 			status.user = result.user || null;
 			status.salt = result.salt || null;
 			
@@ -170,12 +171,12 @@ define(["when"], function(when, md5) {
 	};
 		
 	rest.login = function(user, password) {
-		if (user === 'admin') {
+		if (user === "admin") {
 			// Admin password: lowercase and remove spaces
-			password = password.toLowerCase().replace(/ /g, '');
+			password = password.toLowerCase().replace(/ /g, "");
 		}
 		
-		return rest('login').create({
+		return rest("login").update(null, {
 			user: user,
 			password: CryptoJS.HmacSHA1(password, status.salt).toString()
 		}).then(function(result) {
@@ -187,7 +188,7 @@ define(["when"], function(when, md5) {
 	rest.logout = function() {
 		status.user = null;
 		
-		return rest('login').purge().then(function() {
+		return rest("login").remove().then(function() {
 			// Call status to refresh salt
 			rest.loginStatus();
 			return;

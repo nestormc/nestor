@@ -1,50 +1,70 @@
 /*jshint browser:true */
 /*global require, define, $, $$ */
 
-define(['when', 'ist', 'ist!tmpl/music/tracklist'], function(when, ist, tracklistTemplate) {
+define(
+[
+	"when", "ist",
+	"ist!tmpl/music/applet",
+	"ist!tmpl/music/albumlist"
+],
+function(when, ist, appletTemplate, albumlistTemplate) {
+	"use strict";
+
+	var music;
+	
 	ist.pushScope({
 		humanTime: function(duration) {
-			var minutes = Math.floor(duration / 60),
+			var hours = Math.floor(duration / 3600),
+				minutes = Math.floor(duration % 3600 / 60),
 				seconds = Math.floor(duration) % 60;
 			
-			return minutes + ':' + (seconds > 9 ? seconds : '0' + seconds);
+			return hours == 0 ? minutes + ":" + (seconds > 9 ? seconds : "0" + seconds)
+							  : hours + "h" + (minutes > 9 ? minutes : "0" + minutes) + "m" + (seconds > 9 ? seconds : "0" + seconds) + "s";
 		}
 	});
 	
 	
-	return {
-		nestor: null,
-	
+	music = {
 		manifest: {
 			"title": "music",
 			"pages": {
-				"tracks": {},
+				"albums": {},
 				"playlists": { icon: "playlist" }
 			}
 		},
 		
 		init: function(nestor) {
-			this.nestor = nestor;
+			var router = nestor.router,
+				ui = nestor.ui,
+				rest = nestor.rest;
+			
+			ui.loadCSS("albumlist", "albums");
+
+			router.on("albums", function(err, req, next) {
+				if (!err) {
+					var container = ui.container("albums");
+
+					while (container.firstChild) {
+						container.removeChild(container.firstChild);
+					}
+					
+					rest("albums").list({ limit: 0 })
+					.then(function(albums) {
+						container.appendChild(albumlistTemplate.render({ albums: albums._items }));
+						container.show();
+					}).otherwise(function(e) {
+						err = e;
+					});
+				}
+				
+				next(err);
+			});
 		},
 		
 		renderApplet: function() {
-			return document.createTextNode("Music Applet");
-		},
-		
-		render: function() {
-			var recvtracks;
-			
-			this.nestor.rest("tracks").list({ limit: 0 })
-			.then(function(tracks) {
-				var tbody = $(".tracks"),
-					partial = tracklistTemplate.findPartial("tracks");
-				
-				tbody.parentNode.replaceChild(partial.render({ tracks: tracks._items }), tbody);
-			}).otherwise(function(err) {
-				this.nestor.appError(err);
-			});
-			
-			return tracklistTemplate.render({ tracks: [] });
+			return appletTemplate.render();
 		}
 	};
+	
+	return music;
 });
