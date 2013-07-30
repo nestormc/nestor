@@ -485,14 +485,14 @@ function mongooseValueResource(prefix, doc, path) {
 	return {
 		get: function(req, cb) {
 			process.nextTick(function() {
-				cb(null, doc[path]);
+				cb(null, doc.get(path));
 			});
 		},
 
 		put: function(req, data, patch, cb) {
-			doc[path] = data;
+			doc.set(path, data);
 			doc.save(function(err) {
-				cb(err, doc[path]);
+				cb(err, doc.get(path));
 			});
 		}
 	};
@@ -502,7 +502,7 @@ function mongooseValueResource(prefix, doc, path) {
 function mongooseDocResource(prefix, doc) {
 	return {
 		sub: function(id, cb) {
-			var subitem = doc[id],
+			var subitem = doc.get(id),
 				subprefix = prefix + "/" + doc._id + "/" + id;
 
 			if (subitem instanceof mongoose.Types.DocumentArray) {
@@ -547,7 +547,7 @@ function mongooseDocResource(prefix, doc) {
 
 
 function mongooseDocArrayResource(prefix, doc, path) {
-	var docArray = doc[path];
+	var docArray = doc.get(path);
 
 	return {
 		isCollection: true,
@@ -586,7 +586,7 @@ function mongooseDocArrayResource(prefix, doc, path) {
 
 		post: function(req, data, cb) {
 			docArray.push(data);
-			doc.save(cb);git
+			doc.save(cb);
 		}
 	};
 }
