@@ -1,13 +1,15 @@
-/* jshint node:true */
+/*jshint node:true */
 "use strict";
 
-var util = require("util"),
-	mongoose = require("mongoose"),
+var config = require("../config").server,
+	utils = require("./utils"),
+	resource = require("./resource"),
+	arrayResource = require("./array"),
+	objectResource = require("./object"),
+	mongooseResource = require("./mongoose"),
 
-	config = require("./config").server,
-	logger = require("./logger").createLogger("rest"),
+	rootCollection = objectResource.make(resource.resources);
 
-    resources = {};
 
 /* 
 	This module works with what I'd call "REST resource objects". A REST resource
@@ -146,47 +148,7 @@ var util = require("util"),
 			- new rest.ResponseFile(path, mimetype)
  */
 
-function addHref(doc, req, prefix, id) {
-	doc._href = util.format("%s://%s:%s/rest/%s/%s",
-		req.protocol,
-		req.host,
-		config.port,
-		prefix,
-		id
-	);
-}
 
-function makeObjectResource(obj) {
-	return {
-		isCollection: true,
-
-		sub: function(id, cb) {
-			process.nextTick(function() {
-				cb(null, obj[id]);
-			});
-		},
-
-		count: function(req, cb) {
-			process.nextTick(function() {
-				cb(null, Object.keys(obj).length);
-			});
-		},
-
-		list: function(req, offset, limit, cb) {
-			var keys = Object.keys(obj);
-
-			if (limit > 0) {
-				keys = keys.slice(offset, offset + limit);
-			} else {
-				keys = keys.slice(offset);
-			}
-			
-			process.nextTick(function() {
-				cb(null, keys);
-			});
-		}
-	};
-}
 
 
 function rest(req, res) {
@@ -223,11 +185,11 @@ function rest(req, res) {
 	}
 
 	function sendResponse(body) {
-		if (body instanceof rest.ResponseFile) {
+		if (body instanceof utils.ResponseFile) {
 			res.type(body.mimetype);
 			res.sendfile(body.path);
 		} else {
-			if (body instanceof rest.ResponseBody) {
+			if (body instanceof utils.ResponseBody) {
 				res.type(body.mimetype);
 				body = body.body;
 			}
@@ -374,263 +336,19 @@ function rest(req, res) {
 		});
 	}
 
-	restNext(RootCollection);
+	restNext(rootCollection);
 }
 
 
-/*!
- * Response body helpers
- */
+/* Resource definers */
+rest.resource = resource;
+rest.arrayResource = arrayResource;
+rest.objectResource = objectResource;
+rest.mongooseResource = mongooseResource;
 
 
-rest.ResponseBody = function(body, mimetype) {
-	if (typeof this === "undefined") {
-		return new rest.ResponseBody(body, mimetype);
-	}
-
-	this.body = body;
-	this.mimetype = mimetype;
-};
-
-
-rest.ResponseFile = function(path, mimetype) {
-	if (typeof this === "undefined") {
-		return new rest.ResponseFile(path, mimetype);
-	}
-
-	this.path = path;
-	this.mimetype = mimetype;
-};
-
-
-/*!
- * Basic resources
- */
-
-
-rest.resource = function(name, resource) {
-	if (resources[name]) {
-		logger.warn("Resource %s was overwritten", name);
-	}
-
-	resources[name] = resource;
-};
-
-
-/**
- * Define a REST resource that gives read access to an array
- *
- * @param name resource name
- * @param array array
- */
-rest.arrayResource = function(name, array) {
-	rest.resource(name, {
-		isCollection: true,
-
-		sub: function(id, cb) {
-			process.nextTick(function() {
-				cb(null, {
-					get: function(req, cb) {
-						process.nextTick(function() {
-							cb(null, array[id]);
-						});
-					}
-				});
-			});
-		},
-
-		count: function(req, cb) {
-			process.nextTick(function() {
-				cb(null, array.length);
-			});
-		},
-
-		list: function(req, offset, limit, cb) {
-			var arr;
-
-			if (limit > 0) {
-				arr = array.slice(offset, offset + limit);
-			} else {
-				arr = array.slice(offset);
-			}
-			
-			process.nextTick(function() {
-				cb(null, arr);
-			});
-		}
-	});
-};
-
-
-/**
- * Define a REST resource that gives read access to an object
- *
- * @param name resource name
- * @param obj object
- */
-rest.objectResource = function(name, obj) {
-	rest.resource(name, makeObjectResource(obj));
-};
-
-
-/*!
- * Mongoose resources
- */
-
-
-/**
- * Helper to create a resource from a mongoose document property
- */
-function mongooseValueResource(prefix, doc, path) {
-	return {
-		get: function(req, cb) {
-			process.nextTick(function() {
-				cb(null, doc.get(path));
-			});
-		},
-
-		put: function(req, data, patch, cb) {
-			doc.set(path, data);
-			doc.save(function(err) {
-				cb(err, doc.get(path));
-			});
-		}
-	};
-}
-
-
-function mongooseDocResource(prefix, doc) {
-	return {
-		sub: function(id, cb) {
-			var subitem = doc.get(id),
-				subprefix = prefix + "/" + doc._id + "/" + id;
-
-			if (subitem instanceof mongoose.Types.DocumentArray) {
-				subitem = mongooseDocArrayResource(subprefix, doc, id);
-			} else if (subitem instanceof mongoose.Types.Embedded) {
-				subitem = mongooseDocResource(subprefix, subitem);
-			} else {
-				subitem = mongooseValueResource(subprefix, doc, id);
-			}
-
-			process.nextTick(function() {
-				cb(null, subitem);
-			});
-		},
-
-		get: function(req, cb) {
-			var body = doc.toObject({ virtuals: true });
-
-			addHref(body, req, prefix, body._id);
-			process.nextTick(function() {
-				cb(null, body);
-			});
-		},
-
-		put: function(req, data, patch, cb) {
-			var resource = this;
-
-			doc.update(data, function(err) {
-				if (err) {
-					cb(err);
-				} else {
-					resource.get(req, cb);
-				}
-			});
-		},
-
-		del: function(req, cb) {
-			doc.remove(cb);
-		}
-	};
-}
-
-
-function mongooseDocArrayResource(prefix, doc, path) {
-	var docArray = doc.get(path);
-
-	return {
-		isCollection: true,
-
-		sub: function(id, cb) {
-			var subdoc = docArray.id(id);
-
-			process.nextTick(function() {
-				cb(null, subdoc ? mongooseDocResource(prefix, subdoc) : null);
-			});
-		},
-
-		count: function(req, cb) {
-			process.nextTick(function() {
-				cb(null, docArray.length);
-			});
-		},
-
-		list: function(req, offset, limit, cb) {
-			var sdocs;
-
-			if (limit > 0) {
-				sdocs = docArray.slice(offset, offset+limit);
-			} else {
-				sdocs = docArray.slice(offset);
-			}
-
-			sdocs.forEach(function(sdoc) {
-				addHref(sdoc, req, prefix, sdoc._id);
-			});
-
-			process.nextTick(function() {
-				cb(null, sdocs);
-			});
-		},
-
-		post: function(req, data, cb) {
-			docArray.push(data);
-			doc.save(cb);
-		}
-	};
-}
-
-
-/**
- * Define a REST resource that gives access to a Mongoose model collection
- *
- * @param name resource name
- * @param model Mongoose model
- */
-rest.mongooseResource = function(name, model) {
-	rest.resource(name, {
-		isCollection: true,
-
-		sub: function(id, cb) {
-			model.findById(id, function(err, item) {
-				cb(err, item ? mongooseDocResource(name, item) : null);
-			});
-		},
-
-		count: function(req, cb) {
-			return model.count(cb);
-		},
-
-		list: function(req, offset, limit, cb) {
-			return model.find({}).skip(offset).limit(limit).exec(function(err, items) {
-				cb(err, items.map(function(item) {
-					item = item.toObject({ virtuals: true });
-					addHref(item, req, name, item._id);
-
-					return item;
-				}));
-			});
-		},
-
-		post: function(req, data, cb) {
-			model.create(data, cb);
-		}
-	});
-};
-
-
-var RootCollection = makeObjectResource(resources);
-
+/* Response helpers */
+rest.ResponseFile = utils.ResponseFile;
+rest.ResponseBody = utils.ResponseBody;
 
 module.exports = rest;
