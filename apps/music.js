@@ -6,9 +6,15 @@ var mongoose = require("mongoose"),
 	when = require("when"),
 
 	AlbumSchema, Album,
-	PlaylistSchema, Playlist;
+	PlaylistSchema, Playlist,
+	rest;
 
-	
+
+var mimetypes = {
+	"mp3": "audio/mpeg"
+};
+
+
 /*!
  * Model definitions
  */
@@ -21,7 +27,7 @@ AlbumSchema = new mongoose.Schema({
 	title: String,
 	cover: Buffer,
 	tracks: [{
-		file: String,
+		path: String,
 		artist: String,
 		number: Number,
 		title: String,
@@ -33,6 +39,7 @@ AlbumSchema = new mongoose.Schema({
 	}]
 }, { id: false });
 
+
 /**
  * Virtual property "length"
  * Returns the sum of individual track lengths
@@ -42,6 +49,11 @@ AlbumSchema.virtual("length").get(function() {
 		return v + track.length;
 	}, 0);
 });
+
+AlbumSchema.path("tracks").schema.virtual("file").get(function() {
+	return new rest.ResponseFile(this.path, mimetypes[this.format] || "application/octet-stream");
+});
+
 
 /**
  * Virtual property "year"
@@ -68,14 +80,14 @@ AlbumSchema.virtual("year").get(function() {
 
 AlbumSchema.methods.findTrackIndex = function(path) {
 	for (var i = 0, l = this.tracks.length; i < l; i++) {
-		if (this.tracks[i].file === path) {
+		if (this.tracks[i].path === path) {
 			return i;
 		}
 	}
 };
 
 AlbumSchema.methods.updateTrack = function(track, cb) {
-	var index = this.findTrackIndex(track.file),
+	var index = this.findTrackIndex(track.path),
 		updateObject = {};
 
 	Object.keys(track).forEach(function(key) {
@@ -86,7 +98,7 @@ AlbumSchema.methods.updateTrack = function(track, cb) {
 };
 
 AlbumSchema.methods.removeTrack = function(track, cb) {
-	this.update({ $pull: { tracks: { "file": track.file } } }, cb);
+	this.update({ $pull: { tracks: { "path": track.path } } }, cb);
 };
 
 AlbumSchema.methods.addTrack = function(track, cb) {
@@ -180,7 +192,7 @@ function analyzeFile(args, next) {
 		} else {
 			meta = data.metadata || { title: "", artist: "", album:	"", track: "", date: "" };
 			track = {
-				file: path,
+				path: path,
 				title: meta.title || "",
 				artist: meta.artist || "",
 				album: meta.album || "",
@@ -200,7 +212,7 @@ function analyzeFile(args, next) {
 				track.year = -1;
 			}
 
-			Album.findOne({ "tracks.file": path }, function(err, album) {
+			Album.findOne({ "tracks.path": path }, function(err, album) {
 				if (err) {
 					error("find album with track %s", err);
 					next(false);
@@ -237,9 +249,10 @@ function analyzeFile(args, next) {
 
 
 exports.init = function(nestor) {
+	rest = nestor.rest;
 	nestor.intents.register("media.analyzeFile", analyzeFile.bind(nestor));
 
-	nestor.rest.mongooseResource("albums", Album);
+	rest.mongooseResource("albums", Album);
 
 	return when.resolve();
 };
