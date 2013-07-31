@@ -5,11 +5,11 @@ var fs = require("fs"),
 	path = require("path"),
 	when = require("when"),
 	wseq = require("when/sequence"),
+	yarm = require("yarm"),
 	
 	config = require("./config"),
 	logger = require("./logger"),
 	intents = require("./intents"),
-	rest = require("./rest"),
 	
 	apps = {},
 	clientApps = [];
@@ -18,7 +18,7 @@ exports.init = function(basedir) {
 	var dir = path.join(basedir, "apps"),
 		services = {
 			config: config,
-			rest: rest,
+			rest: yarm,
 			intents: intents
 		};
 	
@@ -92,7 +92,7 @@ exports.init = function(basedir) {
 	}
 	
 	// Publish client apps
-	rest.arrayResource("clientApps", clientApps);
+	yarm.arrayResource("clientApps", clientApps);
 	
 	// Load (require) apps in parallel, then initialize them sequencially
 	return when.map(Object.keys(apps), loadApp)

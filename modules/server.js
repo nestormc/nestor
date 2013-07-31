@@ -5,10 +5,10 @@ var crypto = require("crypto"),
 	express = require("express"),
 	lessMiddleware = require("less-middleware"),
 	util = require("util"),
+	yarm = require("yarm"),
 	
 	config = require("./config").server,
 	logger = require("./logger").createLogger("http"),
-	rest = require("./rest"),
 	
 	app = express();
 
@@ -41,11 +41,11 @@ app.use(function errorHandler(err, req, res, next) {
 	next(err);
 });
 
-app.use("/rest", rest);
+app.use("/rest", yarm());
 
 
 exports.authHandler = function(handler) {
-	rest.resource("login", {
+	yarm.resource("login", {
 		/* Status/salt request */
 		get: function(req, callback) {
 			var status;

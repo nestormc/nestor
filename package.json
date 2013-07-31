@@ -14,10 +14,11 @@
     "inotify-plusplus": "*",
     "less-middleware": "git://github.com/njoyard/less.js-middleware.git",
     "mongodb": "*",
-  	"mongoose": "*",
-  	"mongoose-text-search": "*",
+    "mongoose": "*",
+    "mongoose-text-search": "*",
     "node-ffprobe": "*",
-    "when": "*"
+    "when": "*",
+    "yarm": "*"
   },
   
   "bin": "./nestor.js",
