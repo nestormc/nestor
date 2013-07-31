@@ -4,11 +4,55 @@
 
 var mongoose = require("mongoose"),
 	resource = require("./resource"),
-	utils = require("./utils");
+	utils = require("./utils"),
+
+	DocumentArray = mongoose.Types.DocumentArray,
+	Embedded = mongoose.Types.Embedded,
+	DocumentArraySchema = mongoose.Schema.Types.DocumentArray,
+	EmbeddedSchema = mongoose.Schema.Types.Embedded,
+
+	rxAllDots = /\./g;
+
+
+function getPath(obj, path) {
+	var parts = path.split(".");
+
+	while (parts.length) {
+		if (!obj) {
+			return;
+		}
+
+		obj = obj[parts.shift()];
+	}
+
+	return obj;
+}
+
+
+function getObject(req, doc, prefix) {
+	var obj = doc.toObject({ virtuals: true });
+
+	utils.addHref(req, obj, prefix, obj._id);
+	prefix = prefix + "/" + obj._id;
+
+	if (doc.schema) {
+		doc.schema.eachPath(function(path, type) {
+			var urlpath = path.replace(rxAllDots, "/");
+
+			if (type instanceof DocumentArraySchema) {
+				getPath(obj, path).forEach(function(subobj) {
+					utils.addHref(req, subobj, prefix + "/" + urlpath, subobj._id);
+				});
+			}
+		});
+	}
+
+	return obj;
+}
 
 
 /**
- * Helper to create a resource from a mongoose document property
+ * Mongoose document property resource helper
  */
 function mongooseValueResource(prefix, doc, path) {
 	return {
@@ -27,16 +71,18 @@ function mongooseValueResource(prefix, doc, path) {
 	};
 }
 
-
+/**
+ * Mongoose document resource helper
+ */
 function mongooseDocResource(prefix, doc) {
 	return {
 		sub: function(id, cb) {
 			var subitem = doc.get(id),
 				subprefix = prefix + "/" + doc._id + "/" + id;
 
-			if (subitem instanceof mongoose.Types.DocumentArray) {
+			if (subitem instanceof DocumentArray) {
 				subitem = mongooseDocArrayResource(subprefix, doc, id);
-			} else if (subitem instanceof mongoose.Types.Embedded) {
+			} else if (subitem instanceof Embedded) {
 				subitem = mongooseDocResource(subprefix, subitem);
 			} else {
 				subitem = mongooseValueResource(subprefix, doc, id);
@@ -48,9 +94,8 @@ function mongooseDocResource(prefix, doc) {
 		},
 
 		get: function(req, cb) {
-			var body = doc.toObject({ virtuals: true });
+			var body = getObject(req, doc, prefix);
 
-			utils.addHref(body, req, prefix, body._id);
 			process.nextTick(function() {
 				cb(null, body);
 			});
@@ -75,6 +120,9 @@ function mongooseDocResource(prefix, doc) {
 }
 
 
+/**
+ * Mongoose document array resource helper
+ */
 function mongooseDocArrayResource(prefix, doc, path) {
 	var docArray = doc.get(path);
 
@@ -104,12 +152,10 @@ function mongooseDocArrayResource(prefix, doc, path) {
 				sdocs = docArray.slice(offset);
 			}
 
-			sdocs.forEach(function(sdoc) {
-				utils.addHref(sdoc, req, prefix, sdoc._id);
-			});
-
 			process.nextTick(function() {
-				cb(null, sdocs);
+				cb(null, sdocs.map(function(sdoc) {
+					return getObject(req, sdoc, prefix);
+				}));
 			});
 		},
 
@@ -144,10 +190,7 @@ function mongooseResource(name, model) {
 		list: function(req, offset, limit, cb) {
 			return model.find({}).skip(offset).limit(limit).exec(function(err, items) {
 				cb(err, items.map(function(item) {
-					item = item.toObject({ virtuals: true });
-					utils.addHref(item, req, name, item._id);
-
-					return item;
+					return getObject(req, item, name);
 				}));
 			});
 		},

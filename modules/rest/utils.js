@@ -6,7 +6,7 @@ var util = require("util"),
 	config = require("../config").server;
 
 var utils = {
-	addHref: function(doc, req, prefix, id) {
+	addHref: function(req, doc, prefix, id) {
 		doc._href = util.format("%s://%s:%s/rest/%s/%s",
 			req.protocol,
 			req.host,
