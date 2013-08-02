@@ -66,8 +66,9 @@ exports.authHandler = function(handler) {
 		},
 
 		/* Login */
-		put: function(req, data, patch, callback) {
-			var status;
+		put: function(req, patch, callback) {
+			var data = req.body,
+				status;
 
 			handler(
 				req.connection.remoteAddress,
