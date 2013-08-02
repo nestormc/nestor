@@ -71,16 +71,16 @@ define(["ist!tmpl/music/player", "signals", "ui"], function(template, signals, u
 
 	function playerBehaviour(player) {
 		return {
-			"a.play": {
+			"img.play": {
 				"click": function(e) {
 					e.preventDefault();
 
-					this.innerText = player.togglePlay() ? "pause" : "play";
+					this.src = player.togglePlay() ? "images/pause.svg" : "images/play.svg";
 
 					return false;
 				}
 			},
-			"a.prev": {
+			"img.prev": {
 				"click": function(e) {
 					e.preventDefault();
 					player.prev();
@@ -88,7 +88,7 @@ define(["ist!tmpl/music/player", "signals", "ui"], function(template, signals, u
 					return false;
 				}
 			},
-			"a.next": {
+			"img.next": {
 				"click": function(e) {
 					e.preventDefault();
 					player.next();

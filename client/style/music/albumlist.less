@@ -45,6 +45,7 @@
 			border-bottom: none;
 			border-collapse: collapse;
 			background-color: @lightGray;
+			position: relative;
 
 			&>* {
 				vertical-align: text-top;
@@ -71,11 +72,25 @@
 
 			img {
 				height: 1.2em;
-				vertical-align: center;
 				visibility: hidden;
+
 			}
 
-			&.playing img {
+			.controls {
+				position: absolute;
+				right: 4em;
+
+				img {
+					margin-right: .5em;
+				}
+			}
+
+			&:hover .controls img {
+				visibility: visible;
+				vertical-align: baseline;
+			}
+
+			&.playing img.playing {
 				visibility: visible;
 			}
 
@@ -84,13 +99,12 @@
 				color: @mlGray;
 
 				display: inline-block;
-				width: 2em;
+				width: 1em;
 				text-align: right;
 			}
 
 			.title {
 				display: inline-block;
-				width: 50%;
 			}
 
 			.detail {
@@ -98,8 +112,8 @@
 			}
 
 			.length {
-				float: right;
-				margin-right: 1em;
+				position: absolute;
+				right: 1em;
 				color: @mlGray;
 			}
 		}

@@ -2,11 +2,9 @@
 	.artist[style=font-weight:bold] "-"
 	.track "-"
 
-	a.play[href=#] "play"
-	" "
-	a.next[href=#] "next"
-	" "
-	a.prev[href=#] "prev"
+	img.icon.prev[src=images/prev.svg]
+	img.icon.play[src=images/play.svg]
+	img.icon.next[src=images/next.svg]
 
 	.progress
 		.loadbar

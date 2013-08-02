@@ -2,16 +2,23 @@
 	@each albums
 		.album[data-id={{ _id }}]
 			.info
-				img.cover[src=images/nocover.svg]
+				@if hasCover
+					img.cover[src={{_href }}/cover]
+				@unless hasCover
+					img.cover[src=images/nocover.svg]
 				span.title "{{ title || 'Unknown album' }}"
 				span.artist
 					span.by "by "
 					span.name "{{ artist || 'Unknown artist' }}"
-				span.year "{{ year }} "
+				span.year "{{ year }}"
+
 			ul.tracklist
 				@each tracks
 					li.track[data-id={{ _id }}][data-file={{ _href }}/file][data-artist={{ artist }}][data-title={{ title }}]
-						img[src=images/playing.svg]
+						img.playing[src=images/playing.svg]
 						span.number "{{ number }}"
 						span.title "{{ title || 'Unknown title' }}"
+						span.controls
+							img.enqueue[src=images/playlist-enqueue	.svg][title=Play next]
+							img.add[src=images/playlist-add.svg][title=Add to playlist]
 						span.length "{{ humanTime(length) }}"

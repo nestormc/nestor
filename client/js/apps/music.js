@@ -54,7 +54,6 @@ function(when, ist, player, appletTemplate, albumlistTemplate) {
 						return false;
 					}
 
-
 					this.classList.add("selected");
 					firstClicked = this;
 
@@ -65,9 +64,42 @@ function(when, ist, player, appletTemplate, albumlistTemplate) {
 			"dblclick": function(e) {
 				e.preventDefault();
 
-				player.replace(container.$$(".selected"));
-				player.play();
+				var tracks = container.$$(".selected"),
+					index = tracks.indexOf(this);
 
+				if (tracks.length === 1) {
+					// Put whole album in playlist
+					var selectedTrack = tracks[0];
+
+					tracks = $$(selectedTrack.parentNode, ".track");
+					index = tracks.indexOf(selectedTrack);
+				}
+
+				player.replace(tracks);
+				player.play(index);
+
+				return false;
+			}
+		},
+
+		".controls .enqueue": {
+			"click": function(e) {
+				e.preventDefault();
+				e.stopPropagation();
+
+				player.enqueue(this.parentNode.parentNode, player.playing === -1 ? 0 : player.playing + 1);
+
+				return false;
+			}
+		},
+
+		".controls .add": {
+			"click": function(e) {
+				e.preventDefault();
+				e.stopPropagation();
+
+				player.enqueue(this.parentNode.parentNode);
+				
 				return false;
 			}
 		}
@@ -131,7 +163,7 @@ function(when, ist, player, appletTemplate, albumlistTemplate) {
 
 			player.currentTrackChanged.add(function(trackId) {
 				var track = container.$(".track[data-id='" + trackId + "'"),
-					playing = container.$(".playing");
+					playing = container.$(".track.playing");
 
 				if (playing) {
 					playing.classList.remove("playing");
