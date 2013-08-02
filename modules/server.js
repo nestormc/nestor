@@ -4,8 +4,8 @@
 var crypto = require("crypto"),
 	express = require("express"),
 	lessMiddleware = require("less-middleware"),
-	util = require("util"),
 	yarm = require("yarm"),
+	util = require("util"),
 	
 	config = require("./config").server,
 	logger = require("./logger").createLogger("http"),
@@ -23,6 +23,8 @@ app.use(express.session({
 		maxAge: 1000 * 60 * 60 * 24 * config.sessionDays
 	}
 }));
+
+/* Serve LESS-compiled CSS from client/ */
 app.use(lessMiddleware({
 	src: __dirname + "/../client",
 	force: true,
@@ -34,15 +36,23 @@ app.use(lessMiddleware({
 		return src;
 	}
 }));
+
+/* Serve static files from client/ */
 app.use(express["static"](__dirname + "/../client"));
-app.use(app.router);
+
+/* Serve YARM rest resources */
+app.use("/rest", yarm());
+
+/* Catchall error handler */
 app.use(function errorHandler(err, req, res, next) {
 	logger.error("Unhandled exception: %s\n%s", err.message, err.stack);
 	next(err);
 });
 
-app.use("/rest", yarm());
-
+/* Override Buffer toJSON */
+Buffer.prototype.toJSON = function() {
+	return "[Buffer]";
+}
 
 exports.authHandler = function(handler) {
 	yarm.resource("login", {

@@ -4,15 +4,19 @@
 var mongoose = require("mongoose"),
 	ffprobe = require("node-ffprobe"),
 	when = require("when"),
+	fs = require("fs"),
+	path = require("path"),
 
 	AlbumSchema, Album,
 	PlaylistSchema, Playlist,
-	rest;
+	rest, nestor;
 
 
 var mimetypes = {
 	"mp3": "audio/mpeg"
 };
+
+var coverSearch = {};
 
 
 /*!
@@ -78,6 +82,10 @@ AlbumSchema.virtual("year").get(function() {
 	return minYear + "-" + maxYear;
 });
 
+AlbumSchema.virtual("hasCover").get(function() {
+	return !!this.cover;
+});
+
 AlbumSchema.methods.findTrackIndex = function(path) {
 	for (var i = 0, l = this.tracks.length; i < l; i++) {
 		if (this.tracks[i].path === path) {
@@ -105,13 +113,53 @@ AlbumSchema.methods.addTrack = function(track, cb) {
 	this.update({ $push: { tracks: track } }, cb);
 };
 
-AlbumSchema.pre("save", function(next) {
+AlbumSchema.methods.fetchCover = function(trackPath) {
+	var album = this;
+
+	if (album.cover) {
+		// Already have one, thanks
+		return;
+	}
+
+	var searchPath = path.dirname(trackPath);
+
+	if (coverSearch[album._id] && coverSearch[album._id].length && coverSearch[album._id].indexOf(searchPath) !== -1) {
+		// Already looked in this directory
+		return;
+	}
+
+	coverSearch[album._id] = coverSearch[album._id] || [];
+	coverSearch[album._id].push(searchPath);
+
+	fs.stat(searchPath + "/cover.jpg", function(err, stat) {
+		if (stat) {
+			fs.readFile(searchPath + "/cover.jpg", function(err, data) {
+				if (!err) {
+					nestor.logger.debug("Found cover for \"" + album.artist + "-" + album.title + "\" in " + searchPath);
+					
+					album.cover = new Buffer(data);
+					delete coverSearch[album._id];
+					album.save();
+				}
+			});
+		}
+	});
+};
+
+AlbumSchema.post("init", function(album) {
 	// Sort tracks by number
-	this.tracks.sort(function(a, b) {
+	album.tracks.sort(function(a, b) {
 		return a.number - b.number;
 	});
+});
 
-	next();
+AlbumSchema.set("toObject", {
+	virtuals: true,
+
+	transform: function(doc, ret, options) {
+		delete ret.cover;
+		return ret;
+	}
 });
 
 Album = mongoose.model("album", AlbumSchema);
@@ -132,8 +180,9 @@ Playlist = mongoose.model("playlist", PlaylistSchema);
 
 /* Media analysis handler */
 function analyzeFile(args, next) {
-	var nestor = this,
-		path = args.path;
+	nestor = this;
+
+	var path = args.path;
 
 	function error(action, err) {
 		nestor.logger.error("Could not " + action  + ": %s", path, err.message + "\n" + err.stack);
@@ -162,6 +211,7 @@ function analyzeFile(args, next) {
 							error("save track %s in new album", err);
 						}
 
+						album.fetchCover(track.path);
 						next(false);
 					});
 				} else {
@@ -170,6 +220,7 @@ function analyzeFile(args, next) {
 							error("add track %s to matching album", err);
 						}
 
+						album.fetchCover(track.path);
 						next(false);
 					});
 				}
@@ -187,7 +238,7 @@ function analyzeFile(args, next) {
 		}
 		
 		if (!data.streams || data.streams.length != 1 || data.streams[0].codec_type !== "audio") {
-			nestor.logger.warn("Unknown file type %s", path);
+			// Unknown file type
 			next();
 		} else {
 			meta = data.metadata || { title: "", artist: "", album:	"", track: "", date: "" };
@@ -227,6 +278,8 @@ function analyzeFile(args, next) {
 								error("update album with track %s", err);
 							}
 
+							album.fetchCover(track.path);
+
 							next(false);
 						});
 					} else {
@@ -252,7 +305,7 @@ exports.init = function(nestor) {
 	rest = nestor.rest;
 	nestor.intents.register("media.analyzeFile", analyzeFile.bind(nestor));
 
-	rest.mongooseResource("albums", Album);
+	rest.mongooseResource("albums", Album, { sort: { artist: "asc", title: "asc" } });
 
 	return when.resolve();
 };

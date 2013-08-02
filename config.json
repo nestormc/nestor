@@ -20,7 +20,7 @@
 		"acl": "debug",
 		"http": "debug",
 		"media": "info",
-		"music": "info",
+		"music": "debug",
 		"nestor": "debug",
 		"intents": "info"
 	}
