@@ -1,7 +1,7 @@
 /*jshint browser:true */
 /*global require, define, $, $$ */
 
-define(["ist!tmpl/music/player", "ui"], function(template, ui) {
+define(["ist!tmpl/music/player", "signals", "ui"], function(template, signals, ui) {
 	"use strict";
 
 	function humanTime(duration) {
@@ -95,6 +95,14 @@ define(["ist!tmpl/music/player", "ui"], function(template, ui) {
 
 					return false;
 				}
+			},
+			".progress": {
+				"click": function(e) {
+					e.preventDefault();
+					player.seekTo(e.offsetX / this.offsetWidth);
+
+					return false;
+				}
 			}
 		};
 	}
@@ -104,8 +112,11 @@ define(["ist!tmpl/music/player", "ui"], function(template, ui) {
 		render: function(ui) {
 			this.rendered = template.render();
 			ui.behave(this.rendered, playerBehaviour(this));
+
 			return this.rendered;
 		},
+
+		currentTrackChanged: new signals.Signal(),
 
 		playing: -1,
 		tracks: [],
@@ -117,6 +128,7 @@ define(["ist!tmpl/music/player", "ui"], function(template, ui) {
 				track.src = "";
 			});
 
+			this.playing = -1;
 			this.tracks = [];
 		},
 
@@ -161,6 +173,8 @@ define(["ist!tmpl/music/player", "ui"], function(template, ui) {
 
 			track.play();
 			this.playing = index || 0;
+
+			this.currentTrackChanged.dispatch(track.data.id);
 		},
 
 		togglePlay: function() {
@@ -174,7 +188,7 @@ define(["ist!tmpl/music/player", "ui"], function(template, ui) {
 					track.pause();
 					return false;
 				}
-			} else {
+			} else if (this.tracks.length) {
 				this.play();
 				return true;
 			}
@@ -200,7 +214,7 @@ define(["ist!tmpl/music/player", "ui"], function(template, ui) {
 
 			var current = Math.floor(audio.currentTime),
 				total = Math.floor(audio.duration),
-				loaded = Math.floor(audio.buffered.end(audio.buffered.length - 1));
+				loaded = audio.buffered.length ? Math.floor(audio.buffered.end(audio.buffered.length - 1)) : 0;
 
 
 			$("#player .elapsed").innerText = audio ? humanTime(current) : "-";
@@ -209,6 +223,14 @@ define(["ist!tmpl/music/player", "ui"], function(template, ui) {
 			$("#player .loadbar").style.width = Math.floor(100 * loaded / total) + "%";
 			$("#player .artist").innerText = audio ? audio.data.artist  : "-";
 			$("#player .track").innerText = audio ? audio.data.title  : "-";
+		},
+
+		seekTo: function(frac) {
+			if (this.playing >= 0) {
+				var track = this.tracks[this.playing];
+
+				track.currentTime = track.duration * frac;
+			}
 		}
 	};
 });

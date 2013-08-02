@@ -28,7 +28,6 @@ function(when, ist, player, appletTemplate, albumlistTemplate) {
 				var firstClicked;
 
 				return function(e) {
-					console.log("click");
 					e.preventDefault();
 
 					if (!e.ctrlKey) {
@@ -129,6 +128,19 @@ function(when, ist, player, appletTemplate, albumlistTemplate) {
 					next(e);
 				});
 			});
+
+			player.currentTrackChanged.add(function(trackId) {
+				var track = container.$(".track[data-id='" + trackId + "'"),
+					playing = container.$(".playing");
+
+				if (playing) {
+					playing.classList.remove("playing");
+				}
+
+				if (track) {
+					track.classList.add("playing");
+				}
+			})
 		},
 		
 		renderApplet: function() {

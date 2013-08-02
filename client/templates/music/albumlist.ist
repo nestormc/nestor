@@ -1,6 +1,6 @@
 .albumlist
 	@each albums
-		.album
+		.album[data-id={{ _id }}]
 			.info
 				img.cover[src=images/nocover.svg]
 				span.title "{{ title || 'Unknown album' }}"
@@ -10,7 +10,8 @@
 				span.year "{{ year }} "
 			ul.tracklist
 				@each tracks
-					li.track[data-file={{ _href }}/file][data-artist={{ artist }}][data-title={{ title }}]
+					li.track[data-id={{ _id }}][data-file={{ _href }}/file][data-artist={{ artist }}][data-title={{ title }}]
+						img[src=images/playing.svg]
 						span.number "{{ number }}"
 						span.title "{{ title || 'Unknown title' }}"
 						span.length "{{ humanTime(length) }}"

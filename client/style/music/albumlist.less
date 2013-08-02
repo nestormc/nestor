@@ -46,6 +46,10 @@
 			border-collapse: collapse;
 			background-color: @lightGray;
 
+			&>* {
+				vertical-align: text-top;
+			}
+
 			&:first-child {
 				border-top-left-radius: .25em;
 				border-top-right-radius: .25em;
@@ -63,6 +67,16 @@
 
 			&.selected {
 				background-color: @yellow;
+			}
+
+			img {
+				height: 1.2em;
+				vertical-align: center;
+				visibility: hidden;
+			}
+
+			&.playing img {
+				visibility: visible;
 			}
 
 			.number {
