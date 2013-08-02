@@ -259,6 +259,7 @@ body {
 	bottom: @margins;
 	left: @barWidth + 2*@margins;
 	right: @margins;
+	overflow: auto;
 	
 	background-color: @lightGray;
 
@@ -298,8 +299,22 @@ body {
 	background-color: @midGray;
 	margin: .5em 0;
 	position: relative;
+
+	.loadbar {
+		position: absolute;
+		top: 0;
+		left: 0;
+
+		height: 100%;
+		width: 66%;
+		background-color: @mlGray;
+	}
 		
 	.bar {
+		position: absolute;
+		top: 0;
+		left: 0;
+		
 		height: 100%;
 		width: 37%;
 		background-color: @yellow;

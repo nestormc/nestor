@@ -10,8 +10,7 @@
 				span.year "{{ year }} "
 			ul.tracklist
 				@each tracks
-					li.track
+					li.track[data-file={{ _href }}/file][data-artist={{ artist }}][data-title={{ title }}]
 						span.number "{{ number }}"
 						span.title "{{ title || 'Unknown title' }}"
-						span.detail "{{ format }} {{ Math.floor(bitrate / 1000) }}kbps"
 						span.length "{{ humanTime(length) }}"

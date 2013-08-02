@@ -22,10 +22,28 @@ function(template, ist) {
 		
 		fragment.appendChild(node);
 	});
-	
-	
+
+	function behaviour(root, behaviours) {
+		if (!behaviours) {
+			behaviours = root;
+			root = document;
+		}
+
+		Object.keys(behaviours).forEach(function(selector) {
+			var events = behaviours[selector];
+
+			$$(root, selector).forEach(function(element) {
+				Object.keys(events).forEach(function(event) {
+					element.addEventListener(event, events[event]);
+				});
+			});
+		});
+	}
+
 	ui = {
 		app: "nestor",
+
+		behave: behaviour,
 		
 		subUI: function(appname) {
 			var sub = Object.create(ui);
@@ -65,12 +83,12 @@ function(template, ist) {
 		},
 		
 		container: (function() {
-			function showContainer() {
+			function showContainer(container) {
 				var that = this;
 				Object.keys(containers).forEach(function(name) {
 					var c = containers[name];
 					
-					c.style.display = c === that ? "block" : "none";
+					c.style.display = c === container ? "block" : "none";
 				});
 			}
 			
@@ -85,7 +103,8 @@ function(template, ist) {
 					// Would love to be able to Object.create(DOMNode) here :(
 					c.$ = $.bind(null, c);
 					c.$$ = $$.bind(null, c);
-					c.show = showContainer;
+					c.behave = behaviour.bind(null, c);
+					c.show = showContainer.bind(null, c);
 					
 					containers[aname] = c;
 				}

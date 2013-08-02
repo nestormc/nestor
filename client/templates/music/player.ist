@@ -1,0 +1,15 @@
+#player
+	.progress
+		.loadbar
+		.bar
+		.elapsed "-"
+		.total "-"
+
+	.artist[style=font-weight:bold] "-"
+	.track "-"
+
+	a.play[href=#] "play"
+	" "
+	a.next[href=#] "next"
+	" "
+	a.prev[href=#] "prev"
