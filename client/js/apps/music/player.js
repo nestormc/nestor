@@ -21,7 +21,8 @@ define(["ist!tmpl/music/player", "signals", "ui"], function(template, signals, u
 		audio.autoplay = false;
 		audio.isLoaded = false;
 
-		audio.addEventListener("canplaythrough", trackLoaded.bind(null, audio, player, audio));
+		audio.addEventListener("canplay", trackPlayable.bind(null, audio, player));
+		audio.addEventListener("canplaythrough", trackLoaded.bind(null, audio, player));
 		audio.addEventListener("ended", trackEnded.bind(null, audio, player));
 		audio.addEventListener("timeupdate", trackTimeUpdate.bind(null, audio, player));
 		audio.addEventListener("progress", trackTimeUpdate.bind(null, audio, player));
@@ -30,38 +31,34 @@ define(["ist!tmpl/music/player", "signals", "ui"], function(template, signals, u
 	}
 
 
-	function trackLoaded(track, player, originalTrack) {
-		var tracks = player.tracks,
-			index = tracks.indexOf(track);
+	function trackPlayable(track, player) {
+		var index = player.tracks.indexOf(track);
 
-		// Mark this one as loaded
+		track.isPlayable = true;
+
+		// Start playing if player wants to play this track
+		if (player.playing === index) {
+			track.currentTime = 0;
+			track.play();
+		}
+	}
+
+
+	function trackLoaded(track, player) {
 		track.isLoaded = true;
+		track.isLoading = false;
 
-		// Find next track in playlist
-		var next = tracks[index + 1] || tracks[0];
-
-		if (next === originalTrack) {
-			// Next is the original triggering track, stop here
-			return;
-		}
-
-		// Trigger preload on next track
-		next.preload = "auto";
-
-		if (next.isLoaded) {
-			// Already loaded, make it trigger the next one
-			trackLoaded.call(null, next, player, originalTrack);
-		}
+		// Enable player to preload the next track
+		player.loadNext();
 	}
 
 
 	function trackEnded(track, player) {
 		var tracks = player.tracks,
-			index = tracks.indexOf(track),
-			next = tracks[index + 1];
+			index = tracks.indexOf(track);
 
-		if (next) {
-			next.play();
+		if (index !== tracks.length - 1) {
+			player.play(index + 1);
 		}
 	}
 
@@ -132,21 +129,41 @@ define(["ist!tmpl/music/player", "signals", "ui"], function(template, signals, u
 			this.tracks = [];
 		},
 
+		loadNext: function() {
+			if (this.playing === -1) {
+				// Not playing, no need to load tracks
+				return;
+			}
+
+			if (this.tracks.some(function(track) { return track.isLoading; })) {
+				// A track is already loading, loadNext will be called again when it has finished
+				return;
+			}
+
+			// Load next unloaded track from currently playing track
+			for (var i = this.playing + 1, len = this.tracks.length; i < len; i++) {
+				var track = this.tracks[i];
+
+				if (!track.isLoaded) {
+					track.isLoading = true;
+					track.load();
+					return;
+				}
+			}
+		},
+
 		enqueue: function(element, position) {
 			var track = createAudioTrack(this);
 			track.data = element.dataset;
 			track.src = element.dataset.file;
 
-			if (this.tracks.filter(function(t) { return !t.isLoaded; }).length === 0) {
-				// All other tracks are already loaded, trigger loading of this track
-				track.preload = "auto";
-			}
-
 			if (typeof position !== "undefined") {
-				this.tracks.splice(position, 0, [track]);
+				this.tracks.splice(position, 0, track);
 			} else {
 				this.tracks.push(track);
 			}
+
+			this.loadNext();
 		},
 
 		replace: function(elements) {
@@ -164,15 +181,25 @@ define(["ist!tmpl/music/player", "signals", "ui"], function(template, signals, u
 				this.tracks[this.playing].pause();
 			}
 
-			track.preload = "auto";
-
-			// Try to rewind, will fail if not yet loaded
-			try {
-				track.currentTime = 0;
-			} catch(e) {}
-
-			track.play();
 			this.playing = index || 0;
+
+			if (!track.isPlayable) {
+				// Track is not playable yet
+
+				if (!track.isLoading) {
+					// It's not even loading, trigger that at least
+					track.isLoading = true;
+					track.load();
+				}
+
+				// Track will begin playback when receiving its canplay event
+			} else {
+				// Track is playable right now
+				track.currentTime = 0;
+				track.play();
+
+				this.loadNext();
+			}
 
 			this.currentTrackChanged.dispatch(track.data.id);
 		},
