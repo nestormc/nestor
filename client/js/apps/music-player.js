@@ -21,11 +21,27 @@ define(["ist!tmpl/music/player", "signals", "ui"], function(template, signals, u
 		audio.autoplay = false;
 		audio.isLoaded = false;
 
-		audio.addEventListener("canplay", trackPlayable.bind(null, audio, player));
-		audio.addEventListener("canplaythrough", trackLoaded.bind(null, audio, player));
-		audio.addEventListener("ended", trackEnded.bind(null, audio, player));
-		audio.addEventListener("timeupdate", trackTimeUpdate.bind(null, audio, player));
-		audio.addEventListener("progress", trackTimeUpdate.bind(null, audio, player));
+		var events = {
+			"canplay": trackPlayable.bind(null, audio, player),
+			"ended": trackEnded.bind(null, audio, player),
+			"timeupdate": trackTimeUpdate.bind(null, audio, player),
+			"progress": trackLoadProgress.bind(null, audio, player),
+			"error": trackError.bind(null, audio, player)
+		};
+
+		Object.keys(events).forEach(function(event) {
+			audio.addEventListener(event, events[event]);
+		});
+
+		audio.dispose = function() {
+			Object.keys(events).forEach(function(event) {
+				audio.removeEventListener(event, events[event]);
+			});
+
+			audio.pause();
+			audio.preload = "none";
+			audio.src = "";
+		};
 
 		return audio;
 	}
@@ -44,12 +60,11 @@ define(["ist!tmpl/music/player", "signals", "ui"], function(template, signals, u
 	}
 
 
-	function trackLoaded(track, player) {
-		track.isLoaded = true;
-		track.isLoading = false;
-
-		// Enable player to preload the next track
-		player.loadNext();
+	function trackError(track, player) {
+		console.log("Error with track " + track.data.id);
+		console.dir(track.error);
+		player.trackLoadingFailed.dispatch(track.data.id);
+		trackEnded(track, player);
 	}
 
 
@@ -59,6 +74,23 @@ define(["ist!tmpl/music/player", "signals", "ui"], function(template, signals, u
 
 		if (index !== tracks.length - 1) {
 			player.play(index + 1);
+		} else {
+			player.playing = -1;
+			player.updateTrackInfo();
+			player.currentTrackChanged.dispatch();
+			player.playStateChanged.dispatch(false);
+		}
+	}
+
+	function trackLoadProgress(track, player) {
+		if (track.isLoading && track.buffered.length) {
+			if (Math.abs(track.buffered.end(track.buffered.length - 1) - track.duration) < 0.1) {
+				// Track is loaded
+				track.isLoaded = true;
+				track.isLoading = false;
+
+				player.loadNext();
+			}
 		}
 	}
 
@@ -68,16 +100,15 @@ define(["ist!tmpl/music/player", "signals", "ui"], function(template, signals, u
 
 	function playerBehaviour(player) {
 		return {
-			"img.play": {
+			"a.play": {
 				"click": function(e) {
 					e.preventDefault();
-
-					this.src = player.togglePlay() ? "images/pause.svg" : "images/play.svg";
+					player.togglePlay();
 
 					return false;
 				}
 			},
-			"img.prev": {
+			"a.prev": {
 				"click": function(e) {
 					e.preventDefault();
 					player.prev();
@@ -85,7 +116,7 @@ define(["ist!tmpl/music/player", "signals", "ui"], function(template, signals, u
 					return false;
 				}
 			},
-			"img.next": {
+			"a.next": {
 				"click": function(e) {
 					e.preventDefault();
 					player.next();
@@ -96,7 +127,14 @@ define(["ist!tmpl/music/player", "signals", "ui"], function(template, signals, u
 			".progress": {
 				"click": function(e) {
 					e.preventDefault();
-					player.seekTo(e.offsetX / this.offsetWidth);
+
+					var offset = e.offsetX;
+
+					if (e.toElement !== this) {
+						offset += e.toElement.offsetLeft;
+					}
+
+					player.seekTo(offset / this.offsetWidth);
 
 					return false;
 				}
@@ -110,19 +148,23 @@ define(["ist!tmpl/music/player", "signals", "ui"], function(template, signals, u
 			this.rendered = template.render();
 			ui.behave(this.rendered, playerBehaviour(this));
 
+			this.playStateChanged.add(function(playing) {
+				$("#player a.play img").src = playing ? "images/pause.svg" : "images/play.svg";
+			});
+
 			return this.rendered;
 		},
 
 		currentTrackChanged: new signals.Signal(),
+		trackLoadingFailed: new signals.Signal(),
+		playStateChanged: new signals.Signal(),
 
 		playing: -1,
 		tracks: [],
 		
 		empty: function() {
 			this.tracks.forEach(function(track) {
-				track.pause();
-				track.preload = "none";
-				track.src = "";
+				track.dispose();
 			});
 
 			this.playing = -1;
@@ -201,6 +243,7 @@ define(["ist!tmpl/music/player", "signals", "ui"], function(template, signals, u
 				this.loadNext();
 			}
 
+			this.playStateChanged.dispatch(true);
 			this.currentTrackChanged.dispatch(track.data.id);
 		},
 
@@ -210,14 +253,13 @@ define(["ist!tmpl/music/player", "signals", "ui"], function(template, signals, u
 
 				if (track.paused) {
 					track.play();
-					return true;
+					this.playStateChanged.dispatch(true);
 				} else {
 					track.pause();
-					return false;
+					this.playStateChanged.dispatch(false);
 				}
 			} else if (this.tracks.length) {
 				this.play();
-				return true;
 			}
 		},
 
@@ -234,20 +276,22 @@ define(["ist!tmpl/music/player", "signals", "ui"], function(template, signals, u
 		},
 
 		updateTrackInfo: function(audio) {
+			var current, total;
+
 			if (this.playing !== this.tracks.indexOf(audio)) {
 				// This is not the current track
 				return;
 			}
 
-			var current = Math.floor(audio.currentTime),
-				total = Math.floor(audio.duration),
-				loaded = audio.buffered.length ? Math.floor(audio.buffered.end(audio.buffered.length - 1)) : 0;
+			if (audio) {
+				current = Math.floor(audio.currentTime);
+				total = Math.floor(audio.duration);
+			}
 
 
 			$("#player .elapsed").innerText = audio ? humanTime(current) : "-";
 			$("#player .total").innerText = audio ? humanTime(total) : "-";
-			$("#player .bar").style.width = Math.floor(100 * current / total) + "%";
-			$("#player .loadbar").style.width = Math.floor(100 * loaded / total) + "%";
+			$("#player .bar").style.width = audio ? Math.floor(100 * current / total) + "%" : 0;
 			$("#player .artist").innerText = audio ? audio.data.artist  : "-";
 			$("#player .track").innerText = audio ? audio.data.title  : "-";
 		},

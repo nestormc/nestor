@@ -4,18 +4,34 @@
 define(
 [
 	"when", "ist",
-	"./music/player",
+	"./music-player",
+	"./music-resources",
 	"ist!tmpl/music/applet",
-	"ist!tmpl/music/albumlist"
+	"ist!tmpl/music/albumlist",
+	"ist!tmpl/music/playlists"
 ],
-function(when, ist, player, appletTemplate, albumlistTemplate) {
+function(when, ist, player, resources, appletTemplate, albumlistTemplate, playlistsTemplate) {
 	"use strict";
 
 	var music,
-		container,
-		trackListBehaviour;
+		albumlistContainer,
+		albumlistBehaviour,
+		playlistsContainer;
 
-	trackListBehaviour = {
+	albumlistBehaviour = {
+		".albumlist": {
+			/* Unselect tracks */
+			"click": function(e) {
+				e.preventDefault();
+
+				albumlistContainer.$$(".selected").forEach(function(sel) {
+					sel.classList.remove("selected");
+				});
+
+				return false;
+			}
+		},
+
 		"li.track": {
 			/* Prevent text selection when shift-clicking tracks */
 			"mousedown": function(e) {
@@ -29,15 +45,16 @@ function(when, ist, player, appletTemplate, albumlistTemplate) {
 
 				return function(e) {
 					e.preventDefault();
+					e.stopPropagation();
 
 					if (!e.ctrlKey) {
-						container.$$(".selected").forEach(function(sel) {
+						albumlistContainer.$$(".selected").forEach(function(sel) {
 							sel.classList.remove("selected");
 						});
 					}
 
 					if (e.shiftKey && firstClicked) {
-						var tracks = container.$$("li.track"),
+						var tracks = albumlistContainer.$$("li.track"),
 							idx1 = tracks.indexOf(firstClicked),
 							idx2 = tracks.indexOf(this);
 
@@ -64,7 +81,7 @@ function(when, ist, player, appletTemplate, albumlistTemplate) {
 			"dblclick": function(e) {
 				e.preventDefault();
 
-				var tracks = container.$$(".selected"),
+				var tracks = albumlistContainer.$$(".selected"),
 					index = tracks.indexOf(this);
 
 				if (tracks.length === 1) {
@@ -113,7 +130,18 @@ function(when, ist, player, appletTemplate, albumlistTemplate) {
 			
 			return hours == 0 ? minutes + ":" + (seconds > 9 ? seconds : "0" + seconds)
 							  : hours + "h" + (minutes > 9 ? minutes : "0" + minutes) + "m" + (seconds > 9 ? seconds : "0" + seconds) + "s";
-		}
+		},
+
+		newArtist: (function() {
+			var lastArtist;
+
+			return function(artist) {
+				var result = (artist !== lastArtist);
+
+				lastArtist = artist;
+				return result;
+			};
+		}())
 	});
 	
 	music = {
@@ -132,38 +160,89 @@ function(when, ist, player, appletTemplate, albumlistTemplate) {
 
 			this.ui = ui;
 			
-			ui.loadCSS("albumlist", "albums");
+			ui.loadCSS("player");
+			ui.loadCSS("albumlist", "");
+
+			resources = resources(rest);
 
 			router.on("albums", function(err, req, next) {
+				var loadMore,
+					albumPartial = albumlistTemplate.findPartial("album");
+
 				if (err) {
 					next(err);
 					return;
 				}
 
-				container = ui.container("albums");
+				albumlistContainer = ui.container("albums");
+				albumlistContainer.scrolledToEnd.add(function() {
+					if (loadMore) {
+						albumlistContainer.$(".loading").style.display = "block";
+						loadMore();
+					}
+				});
 
-				while (container.firstChild) {
-					container.removeChild(container.firstChild);
+				while (albumlistContainer.firstChild) {
+					albumlistContainer.removeChild(albumlistContainer.firstChild);
 				}
 				
-				rest("albums").list({ limit: 0 })
-				.then(function(albums) {
-					container.appendChild(albumlistTemplate.render({
-						albums: albums._items
+				loadMore = resources.albums.list(function(err, albums) {
+
+					var albumlist = albumlistContainer.$(".albumlist");
+
+					if (!albumlist) {
+						// Initial render
+						albumlistContainer.appendChild(albumlistTemplate.render({
+							albums: albums
+						}));
+					} else if (albums) {
+						// Append new albums
+						albums.forEach(function(album) {
+							albumlist.appendChild(albumPartial.render(album));
+						});
+					} else {
+						// Nothing more to load
+						loadMore = null;
+					}
+
+					albumlistContainer.$(".loading").style.display = "none";
+					albumlistContainer.behave(albumlistBehaviour);
+				});
+				
+				albumlistContainer.show();
+				next();
+			});
+
+			router.on("playlists", function(err, req, next) {
+				if (err) {
+					next(err);
+					return;
+				}
+
+				playlistsContainer = ui.container("playlists");
+
+				while(playlistsContainer.firstChild) {
+					playlistsContainer.removeChild(playlistsContainer.firstChild);
+				}
+
+				resources.playlists.list(function(err, playlists) {
+					if (err) {
+						next(err);
+						return;
+					}
+
+					playlistsContainer.appendChild(playlistsTemplate.render({
+						playlists: playlists
 					}));
 
-					container.behave(trackListBehaviour);
-
-					container.show();
+					playlistsContainer.show();
 					next();
-				}).otherwise(function(e) {
-					next(e);
 				});
 			});
 
 			player.currentTrackChanged.add(function(trackId) {
-				var track = container.$(".track[data-id='" + trackId + "'"),
-					playing = container.$(".track.playing");
+				var track = albumlistContainer.$(".track[data-id='" + trackId + "']"),
+					playing = albumlistContainer.$(".track.playing");
 
 				if (playing) {
 					playing.classList.remove("playing");
@@ -172,7 +251,13 @@ function(when, ist, player, appletTemplate, albumlistTemplate) {
 				if (track) {
 					track.classList.add("playing");
 				}
-			})
+			});
+
+			player.trackLoadingFailed.add(function(trackId) {
+				var track = albumlistContainer.$(".track[data-id='" + trackId + "']");
+
+				track.classList.add("loaderror");
+			});
 		},
 		
 		renderApplet: function() {

@@ -92,7 +92,7 @@ exports.init = function(basedir) {
 	}
 	
 	// Publish client apps
-	yarm.arrayResource("clientApps", clientApps);
+	yarm.nativeResource("clientApps", clientApps);
 	
 	// Load (require) apps in parallel, then initialize them sequencially
 	return when.map(Object.keys(apps), loadApp)

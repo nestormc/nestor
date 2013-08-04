@@ -5,10 +5,7 @@ define(["when", "rest"], function(when, rest) {
 	"use strict";
 	
 	return function(ui, router) {
-		var deferred = when.defer(),
-			iface = {
-				rest: rest
-			};
+		var deferred = when.defer();
 		
 		
 		function createAppInterface(appname) {
@@ -21,30 +18,31 @@ define(["when", "rest"], function(when, rest) {
 		
 		
 		/* List available apps */
-		rest("clientApps").list({ fields: ["name"], limit: 0 })
-		.then(function(apps) {
-			var names = apps._items.map(function(item) { return item.name; });
-		
-			/* Load app modules */
-			require(names.map(function(app) { return "apps/" + app; }), function() {
-				var args = [].slice.call(arguments),
-					apps = {};
-				
-				names.forEach(function(name, index) {
-					apps[name] = args[index];
+		rest.list("clientApps", { limit: 0 }, function(err, apps) {
+			if (err) {
+				deferred.reject(err);
+			} else {
+				var names = apps.map(function(item) { return item.name; });
+			
+				/* Load app modules */
+				require(names.map(function(app) { return "apps/" + app; }), function() {
+					var args = [].slice.call(arguments),
+						apps = {};
+					
+					names.forEach(function(name, index) {
+						apps[name] = args[index];
+					});
+					
+					/* Initialize apps */
+					when.map(names, function(name) {
+						return when(apps[name].init(createAppInterface(name)));
+					}).then(function() {
+						deferred.resolve(apps);
+					}).otherwise(function(err) {
+						deferred.reject(err);
+					});
 				});
-				
-				/* Initialize apps */
-				when.map(names, function(name) {
-					return when(apps[name].init(createAppInterface(name)));
-				}).then(function() {
-					deferred.resolve(apps);
-				}).otherwise(function(err) {
-					deferred.reject(err);
-				});
-			});
-		}).otherwise(function(err) {
-			deferred.reject(err);
+			}
 		});
 		
 		return deferred.promise;

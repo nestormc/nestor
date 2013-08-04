@@ -3,6 +3,7 @@
  **/
 
 /* Roboto Condensed - Apache 2.0 license */
+/* Julian sans one - OFL 1.1 */
 
 @font-face {
     font-family: NestorFont;
@@ -11,7 +12,8 @@
 
 @font-face {
     font-family: NestorFont;
-    src: url(../fonts/Roboto-Bold.ttf);
+    src: url(../fonts/Roboto-Regular.ttf);
+    
     font-weight: bold;
 }
 
@@ -23,12 +25,10 @@
 
 @font-face {
     font-family: NestorFont;
-    src: url(../fonts/Roboto-BoldItalic.ttf);
+    src: url(../fonts/Roboto-Italic.ttf);
     font-weight: bold;
     font-style: italic;
 }
-
-/* Julian sans one - OFL 1.1 */
 
 @font-face {
     font-family: NestorTitleFont;
@@ -292,52 +292,3 @@ body {
 	}
 }
 
-
-/**
- ** App predefined styles
- **/
-
-.progress {
-	font-size: .5em;
-	line-height: 1.1em;
-	height: 1em;
-	
-	background-color: @midGray;
-	margin: .5em 0;
-	position: relative;
-
-	.loadbar {
-		position: absolute;
-		top: 0;
-		left: 0;
-
-		height: 100%;
-		width: 0;
-		background-color: @mlGray;
-	}
-		
-	.bar {
-		position: absolute;
-		top: 0;
-		left: 0;
-		
-		height: 100%;
-		width: 0;
-		background-color: @yellow;
-	}
-	
-	.elapsed,
-	.total {
-		position: absolute;
-		top: 0;
-		color: black;
-	}
-	
-	.total {
-		right: .25em;
-	}
-	
-	.elapsed {
-		left: .25em;
-	}
-}

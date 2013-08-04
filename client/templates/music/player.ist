@@ -1,13 +1,15 @@
 #player
-	.artist[style=font-weight:bold] "-"
+	.artist "-"
 	.track "-"
 
-	img.icon.prev[src=images/prev.svg]
-	img.icon.play[src=images/play.svg]
-	img.icon.next[src=images/next.svg]
+	a.prev[href=#]
+		img.icon[src=images/prev.svg]
+	a.play[href=#]
+		img.icon[src=images/play.svg]
+	a.next[href=#]
+		img.icon[src=images/next.svg]
 
 	.progress
-		.loadbar
 		.bar
 		.elapsed "-"
 		.total "-"

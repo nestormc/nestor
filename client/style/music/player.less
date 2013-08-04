@@ -1,0 +1,43 @@
+@import "../defs.less";
+
+#player {
+	.artist {
+		font-weight: bold;
+	}
+
+	.progress {
+		font-size: .5em;
+		line-height: 1.1em;
+		height: 1em;
+		
+		background-color: @midGray;
+		margin: .5em 0;
+		position: relative;
+			
+		.bar {
+			position: absolute;
+			top: 0;
+			left: 0;
+			
+			height: 100%;
+			width: 0;
+			background-color: @yellow;
+		}
+		
+		.elapsed,
+		.total {
+			cursor: default;
+			position: absolute;
+			top: 0;
+			color: black;
+		}
+		
+		.total {
+			right: .25em;
+		}
+		
+		.elapsed {
+			left: .25em;
+		}
+	}
+}

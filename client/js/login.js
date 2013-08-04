@@ -1,11 +1,53 @@
 /*jshint browser:true */
-/*global require, define, $, $$ */
+/*global require, define, $, $$, CryptoJS */
 
 define(["ist!tmpl/login", "signals", "rest"], function(template, signals, rest) {
 	"use strict";
 	
-	var currentInput;
+	var currentInput,
+		loginStatus = {
+			user: null,
+			salt: null
+		},
+		loginResource = {
+			status: function(cb) {
+				rest.get("login", function(err, result) {
+					loginStatus.user = (result ? result.user : null) || null;
+					loginStatus.salt = (result ? result.salt : null) || null;
+
+					cb(err, loginStatus.user);
+				});
+			},
+
+			login: function(user, password, cb) {
+				if (user === "admin") {
+					// Admin password: lowercase and remove spaces
+					password = password.toLowerCase().replace(/ /g, "");
+				}
+
+				rest.put("login", {
+					user: user,
+					password: CryptoJS.HmacSHA1(password, loginStatus.salt).toString()
+				}, function(err, result) {
+					loginStatus.user = (result ? result.user : null) || null;
+
+					if (err) {
+						cb(err);
+					} else {
+						cb(null, user);
+					}
+				});
+			},
+
+			logout: function(cb) {
+				loginStatus.user = null;
+				rest.del("login", function() {
+					loginResource.status(cb);
+				});
+			}
+		};
 	
+
 	function loginKeypress(e) {
 		if (e.keyCode === 13 && this.value) {
             var input = $("#password input");
@@ -19,24 +61,24 @@ define(["ist!tmpl/login", "signals", "rest"], function(template, signals, rest) 
 		}
 	}
 	
+
 	function passKeypress(e) {
 		if (e.keyCode === 13 && this.value) {
-			rest.login($("#login input").value, this.value).then(
-				function(user) {
-					if (!user) {
-						login("login failed");
-					} else {
-						currentInput = null;
-						
-						// Login successfull
-						login.loggedIn.dispatch(user);
-					}
+			loginResource.login($("#login input").value, this.value, function(err, user) {
+				if (!user) {
+					login("login failed");
+				} else {
+					currentInput = null;
+					
+					// Login successfull
+					login.loggedIn.dispatch(user);
 				}
-			);
+			});
 		}
 	}
 	
-	function blur(e) {
+
+	function blur() {
 		// Restore focus
 		if (currentInput) {
 			setTimeout(function() {
@@ -44,7 +86,8 @@ define(["ist!tmpl/login", "signals", "rest"], function(template, signals, rest) 
 			}, 50);
 		}
 	}
-	
+
+
 	// Show login UI
 	function login(error) {
 		if (!$("#login")) {
@@ -69,13 +112,16 @@ define(["ist!tmpl/login", "signals", "rest"], function(template, signals, rest) 
 		currentInput = input;
 	}
 	
+	
 	login.loggedIn = new signals.Signal();
 	
 	login.logout = function() {
-		rest.logout().then(function() {
+		loginResource.logout(function() {
 			login();
 		});
 	};
+
+	login.status = loginResource.status;
 	
 	return login;
 });

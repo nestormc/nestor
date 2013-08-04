@@ -2,11 +2,15 @@
 /*global require, define, $, $$, console */
 
 define(
-["ist!tmpl/main", "ist"],
-function(template, ist) {
+["ist!tmpl/main", "ist", "signals"],
+function(template, ist, signals) {
 	"use strict";
 	
-	var ui, containers = [];
+	var ui,
+		containers = [],
+		SCROLL_THRESHOLD = 64,
+		viewportBehaviour,
+		activeContainer;
 	
 	/* Add @dom directive to allow inserting DOM nodes into templates */
 	ist.registerHelper("dom", function(ctx, tmpl, fragment) {
@@ -30,15 +34,40 @@ function(template, ist) {
 		}
 
 		Object.keys(behaviours).forEach(function(selector) {
-			var events = behaviours[selector];
+			var events = behaviours[selector],
+				elems = selector === "&" ? [root] : $$(root, selector);
 
-			$$(root, selector).forEach(function(element) {
+			elems.forEach(function(element) {
+				var activeBehaviours;
+
+				// Remove previously applied behaviour
+				if (element.activeBehaviours && selector in element.activeBehaviours) {
+					activeBehaviours = element.activeBehaviours[selector];
+					Object.keys(activeBehaviours).forEach(function(event) {
+						element.removeEventListener(event, activeBehaviours[event]);
+					});
+				}
+
+				element.activeBehaviours = element.activeBehaviours || {};
+				activeBehaviours = element.activeBehaviours[selector] = {};
+
 				Object.keys(events).forEach(function(event) {
+					activeBehaviours[event] = events[event];
 					element.addEventListener(event, events[event]);
 				});
 			});
 		});
 	}
+
+	viewportBehaviour = {
+		"&": {
+			"scroll": function() {
+				if (activeContainer && this.scrollTop + this.offsetHeight > this.scrollHeight - SCROLL_THRESHOLD) {
+					activeContainer.scrolledToEnd.dispatch();
+				}
+			}
+		}
+	};
 
 	ui = {
 		app: "nestor",
@@ -68,7 +97,7 @@ function(template, ist) {
 				namespace;
 
 			if (typeof container === "undefined") {
-				namespace = "#bar .app." + this.name + " .applet";
+				namespace = "#bar .app." + this.app + " .applet";
 			} else if (container === "") {
 				namespace = "#viewport .container-" + this.app;
 			} else {
@@ -84,13 +113,14 @@ function(template, ist) {
 		
 		container: (function() {
 			function showContainer(container) {
-				var that = this;
-				Object.keys(containers).forEach(function(name) {
-					var c = containers[name];
-					
-					c.style.display = c === container ? "block" : "none";
-				});
+				if (activeContainer) {
+					activeContainer.style.display = "none";
+				}
+
+				container.style.display = "block";
+				activeContainer = container;
 			}
+
 			
 			return function(name) {
 				var aname = this.app + "-" + name;
@@ -105,6 +135,8 @@ function(template, ist) {
 					c.$$ = $$.bind(null, c);
 					c.behave = behaviour.bind(null, c);
 					c.show = showContainer.bind(null, c);
+
+					c.scrolledToEnd = new signals.Signal();
 					
 					containers[aname] = c;
 				}
@@ -137,6 +169,8 @@ function(template, ist) {
 					apps: manifests
 				})
 			);
+
+			behaviour($("#viewport"), viewportBehaviour);
 			
 			/* Setup page selection routes */
 			manifests.forEach(function(app) {

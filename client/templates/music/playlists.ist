@@ -1,0 +1,15 @@
+.playlists
+	@each playlists
+		.playlist
+			.info
+				"{{ name }} ({{ tracks.length }} tracks)"
+			ul.tracklist
+				@each tracks
+					li.track[data-id={{ _id }}][data-file=/rest/tracks/{{ _id }}/file][data-artist={{ artist }}][data-title={{ title }}]
+						img.playing[src=images/playing.svg]
+						span.number "{{ loop.index + 1 }}"
+						span.title "{{ title || 'Unknown title' }}"
+						span.controls
+							img.enqueue[src=images/playlist-enqueue	.svg][title=Play next]
+							img.add[src=images/playlist-add.svg][title=Add to playlist]
+						span.length "{{ humanTime(length) }}"

@@ -42,8 +42,8 @@
 	}
 
 	require(
-	["ist", "rest", "login", "ui", "router", "apploader"],
-	function(ist, rest, login, ui, router, apploader) {
+	["ist", "login", "ui", "router", "apploader"],
+	function(ist, login, ui, router, apploader) {
 		function checkLogin(user) {
 			if (user) {
 				router.on("/logout", function(err, req, next) {
@@ -63,7 +63,12 @@
 		}
 		
 		login.loggedIn.add(checkLogin);
-		
-		rest.loginStatus().then(checkLogin).otherwise(error);
+		login.status(function(err, user) {
+			if (err) {
+				error(err);
+			} else {
+				checkLogin(user);
+			}
+		});
 	});
 }(this));
