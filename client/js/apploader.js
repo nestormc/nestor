@@ -5,7 +5,8 @@ define(["require", "when", "rest"], function(mainRequire, when, rest) {
 	"use strict";
 	
 	return function(ui, router) {
-		var deferred = when.defer();
+		var deferred = when.defer(),
+			nestorAppModules = ["ist", "signals", "when"];
 		
 		
 		/* List available apps */
@@ -46,7 +47,7 @@ define(["require", "when", "rest"], function(mainRequire, when, rest) {
 						};
 
 						/* Shim global libraries */
-						["ist", "signals", "when"].forEach(function(module, index) {
+						nestorAppModules.forEach(function(module, index) {
 							appConfig.paths[module] = "../../dummy.js?module=" + module + "&for=" + app;
 							appConfig.shim[module] = {
 								exports: "_dummy",

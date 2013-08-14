@@ -1,7 +1,7 @@
 /*jshint browser:true */
-/*global require, define, $, $$, CryptoJS */
+/*global require, define, $, $$ */
 
-define(["ist!tmpl/login", "signals", "rest"], function(template, signals, rest) {
+define(["ist!tmpl/login", "hmac-sha1", "signals", "rest"], function(template, HmacSHA1, signals, rest) {
 	"use strict";
 	
 	var currentInput,
@@ -27,7 +27,7 @@ define(["ist!tmpl/login", "signals", "rest"], function(template, signals, rest) 
 
 				rest.put("login", {
 					user: user,
-					password: CryptoJS.HmacSHA1(password, loginStatus.salt).toString()
+					password: HmacSHA1(password, loginStatus.salt).toString()
 				}, function(err, result) {
 					loginStatus.user = (result ? result.user : null) || null;
 

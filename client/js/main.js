@@ -36,9 +36,19 @@
 
 		paths: {
 			"domReady": "bower/requirejs-domready/domReady",
-			"signals": "bower/js-signals/dist/signals.js",
+			"signals": "bower/js-signals/dist/signals",
+			"hmac-sha1": "lib/hmac-sha1",
 			"ist": "lib/ist",
 			"tmpl": "../templates"
+		},
+
+		shim: {
+			"hmac-sha1": {
+				exports: "CryptoJS",
+				init: function() {
+					return this.CryptoJS.HmacSHA1;
+				}
+			}
 		},
 
 		packages: [
