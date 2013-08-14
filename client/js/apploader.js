@@ -1,20 +1,11 @@
 /*jshint browser:true */
-/*global require, define, $, $$ */
+/*global require, define, $, $$, nestorAppModules */
 
-define(["when", "rest"], function(when, rest) {
+define(["require", "when", "rest"], function(mainRequire, when, rest) {
 	"use strict";
 	
 	return function(ui, router) {
 		var deferred = when.defer();
-		
-		
-		function createAppInterface(appname) {
-			return {
-				rest: rest,
-				router: router.subRouter(appname),
-				ui: ui.subUI(appname)
-			};
-		}
 		
 		
 		/* List available apps */
@@ -22,23 +13,82 @@ define(["when", "rest"], function(when, rest) {
 			if (err) {
 				deferred.reject(err);
 			} else {
-				var names = apps.map(function(item) { return item.name; });
-			
-				/* Load app modules */
-				require(names.map(function(app) { return "apps/" + app; }), function() {
-					var args = [].slice.call(arguments),
-						apps = {};
-					
-					names.forEach(function(name, index) {
-						apps[name] = args[index];
+				mainRequire(nestorAppModules, function() {
+					var args = [].slice.call(arguments);
+
+					var appInterface = {
+						rest: function(app) {
+							return rest;
+						},
+
+						router: function(app) {
+							return router.subRouter(app);
+						},
+
+						ui: function(app) {
+							return ui.subUI(app);
+						}
+					};
+
+
+					var names = apps.map(function(item) { return item.name; }),
+						appModules = {};
+
+					var loadPromises = names.map(function(app) {
+						var appDeferred = when.defer();
+						
+						/* Prepare app-specific require */
+						var appConfig = {
+							context: app,
+							baseUrl: "js/apps/" + app,
+							paths: {},
+							shim: {}
+						};
+
+						/* Shim global libraries */
+						["ist", "signals", "when"].forEach(function(module, index) {
+							appConfig.paths[module] = "../../dummy.js?module=" + module + "&for=" + app;
+							appConfig.shim[module] = {
+								exports: "_dummy",
+								init: function() {
+									return args[index];
+								}
+							};
+						});
+
+						/* Add app interface module shims */
+						Object.keys(appInterface).forEach(function(module) {
+							appConfig.paths[module] = "../../dummy.js?module=" + module + "&for=" + app;
+							appConfig.shim[module] = {
+								exports: "_dummy",
+								init: appInterface[module].bind(null, app)
+							};
+						});
+
+						var appRequire = require.config(appConfig);
+
+						/* Load app */
+
+						appRequire(["index"], function(appModule) {
+							appModules[app] = appModule;
+
+							when(appModule.init())
+							.then(function() {
+								appDeferred.resolve();
+							})
+							.otherwise(function(err) {
+								appDeferred.reject(err);
+							});
+						});
+
+						return appDeferred.promise;
 					});
-					
-					/* Initialize apps */
-					when.map(names, function(name) {
-						return when(apps[name].init(createAppInterface(name)));
-					}).then(function() {
-						deferred.resolve(apps);
-					}).otherwise(function(err) {
+
+					when.all(loadPromises)
+					.then(function() {
+						deferred.resolve(appModules);
+					})
+					.otherwise(function(err) {
 						deferred.reject(err);
 					});
 				});

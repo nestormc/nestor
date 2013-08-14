@@ -72,6 +72,50 @@ body {
 	background-color: @darkGray;
 }
 
+#heartbeat-lost {
+	display: none;
+	position: absolute;
+	
+	top: 0;
+	left: 0;
+	bottom: 0;
+	right: 0;
+
+	#background {
+		position: absolute;
+		
+		top: 0;
+		left: 0;
+		bottom: 0;
+		right: 0;
+
+		opacity: 0.75;
+		background-color: @darkGray;
+	}
+
+	#message-container {
+		font-size: .75em;
+		font-weight: bold;
+		text-align: center;
+		color: @yellow;
+
+		background-color: @darkerGray;
+		width: 30em;
+		padding: 1em;
+
+		position: absolute;
+		top: 5em;
+		left: 50%;
+		margin-left: -15em;
+
+		#message {
+			color: @mlGray;
+			font-weight: normal;
+		}
+	}
+}
+
+
 /**
  ** Loading screen and login
  **/

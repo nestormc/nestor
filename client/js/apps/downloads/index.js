@@ -1,7 +1,7 @@
 /*jshint browser:true */
 /*global require, define, $, $$ */
 
-define(['when'], function(when) {
+define(["when"], function(when) {
 	"use strict";
 	
 	return {
@@ -13,7 +13,7 @@ define(['when'], function(when) {
 			}
 		},
 		
-		init: function(nestor) {
+		init: function() {
 			return when.resolve();
 		},
 		

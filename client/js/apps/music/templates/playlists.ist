@@ -1,6 +1,6 @@
 .playlists
 	@each playlists
-		.playlist
+		.playlist !playlist
 			.info
 				"{{ name }} ({{ tracks.length }} tracks)"
 			ul.tracklist
@@ -13,3 +13,5 @@
 							img.enqueue[src=images/playlist-enqueue	.svg][title=Play next]
 							img.add[src=images/playlist-add.svg][title=Add to playlist]
 						span.length "{{ humanTime(length) }}"
+.loading
+	"Loading !"

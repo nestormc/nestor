@@ -3,20 +3,32 @@
 
 define(
 [
-	"when", "ist",
-	"./music-player",
-	"./music-resources",
-	"ist!tmpl/music/applet",
-	"ist!tmpl/music/albumlist",
-	"ist!tmpl/music/playlists"
+	"when", "ist", "ui", "router",
+
+	"player",
+	"resources",
+
+	"ist!templates/applet",
+	"ist!templates/albumlist",
+	"ist!templates/playlists"
 ],
-function(when, ist, player, resources, appletTemplate, albumlistTemplate, playlistsTemplate) {
+function(
+	when, ist, ui, router,
+
+	player,
+	resources,
+
+	appletTemplate,
+	albumlistTemplate,
+	playlistsTemplate
+) {
 	"use strict";
 
 	var music,
 		albumlistContainer,
 		albumlistBehaviour,
-		playlistsContainer;
+		playlistsContainer,
+		playlistsBehaviour;
 
 	albumlistBehaviour = {
 		".albumlist": {
@@ -121,6 +133,29 @@ function(when, ist, player, resources, appletTemplate, albumlistTemplate, playli
 			}
 		}
 	};
+
+	playlistsBehaviour = {
+		"li.track": {
+			/* Prevent text selection*/
+			"mousedown": function(e) {
+				e.preventDefault();
+				return false;
+			},
+
+			"dblclick": function(e) {
+				e.preventDefault();
+
+				var tracks = $$(this.parentNode, ".track"),
+					index = tracks.indexOf(this);
+
+				player.replace(tracks);
+				player.play(index);
+
+				return false;
+			}
+		},
+	};
+
 	
 	ist.pushScope({
 		humanTime: function(duration) {
@@ -153,17 +188,9 @@ function(when, ist, player, resources, appletTemplate, albumlistTemplate, playli
 			}
 		},
 		
-		init: function(nestor) {
-			var router = nestor.router,
-				ui = nestor.ui,
-				rest = nestor.rest;
-
-			this.ui = ui;
-			
+		init: function() {
 			ui.loadCSS("player");
 			ui.loadCSS("albumlist", "");
-
-			resources = resources(rest);
 
 			router.on("albums", function(err, req, next) {
 				var loadMore,
@@ -214,30 +241,51 @@ function(when, ist, player, resources, appletTemplate, albumlistTemplate, playli
 			});
 
 			router.on("playlists", function(err, req, next) {
+				var loadMore,
+					playlistPartial = playlistsTemplate.findPartial("playlist");
+
 				if (err) {
 					next(err);
 					return;
 				}
 
 				playlistsContainer = ui.container("playlists");
+				playlistsContainer.scrolledToEnd.add(function() {
+					if (loadMore) {
+						playlistsContainer.$(".loading").style.display = "block";
+						loadMore();
+					}
+				});
 
-				while(playlistsContainer.firstChild) {
+				while (playlistsContainer.firstChild) {
 					playlistsContainer.removeChild(playlistsContainer.firstChild);
 				}
+				
+				loadMore = resources.playlists.list(function(err, playlists) {
 
-				resources.playlists.list(function(err, playlists) {
-					if (err) {
-						next(err);
-						return;
+					var container = playlistsContainer.$(".playlists");
+
+					if (!container) {
+						// Initial render
+						playlistsContainer.appendChild(playlistsTemplate.render({
+							playlists: playlists
+						}));
+					} else if (playlists) {
+						// Append new playlists
+						playlists.forEach(function(playlist) {
+							container.appendChild(playlistPartial.render(playlist));
+						});
+					} else {
+						// Nothing more to load
+						loadMore = null;
 					}
 
-					playlistsContainer.appendChild(playlistsTemplate.render({
-						playlists: playlists
-					}));
-
-					playlistsContainer.show();
-					next();
+					playlistsContainer.$(".loading").style.display = "none";
+					playlistsContainer.behave(playlistsBehaviour);
 				});
+				
+				playlistsContainer.show();
+				next();
 			});
 
 			player.currentTrackChanged.add(function(trackId) {
@@ -261,7 +309,7 @@ function(when, ist, player, resources, appletTemplate, albumlistTemplate, playli
 		},
 		
 		renderApplet: function() {
-			return appletTemplate.render({ player: player.render(this.ui) });
+			return appletTemplate.render({ player: player.render() });
 		}
 	};
 	

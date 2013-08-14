@@ -1,8 +1,13 @@
 /*jshint browser:true */
 /*global require, define */
 
-define([], function() {
+define(["signals"], function(signals) {
 	"use strict";
+
+	var serverAlive = true,
+		heartBeatRate = 2000,
+		pendingRequests = [],
+		pendingThrottle = 200;
 
 	/**
 	 * State change handler for request()"s XMLHttpRequest object
@@ -42,6 +47,11 @@ define([], function() {
 	 * @param {Object} [data] request data
 	 */
 	function request(method, uri, data, callback) {
+		if (!serverAlive && uri !== "/heartbeat") {
+			pendingRequests.push([method, uri, data, callback]);
+			return;
+		}
+
 		var xhr = new XMLHttpRequest();
 			
 		if (method.toUpperCase() === "DEL") {
@@ -51,7 +61,7 @@ define([], function() {
 		xhr.onreadystatechange = onStateChange.bind(null, xhr, callback);
 		xhr.open(method.toUpperCase(), uri, true);
 		
-		if ("object" === typeof data) {
+		if ("object" === typeof data && null !== data) {
 			xhr.setRequestHeader("Content-Type", "application/json");
 			data = JSON.stringify(data);
 		}
@@ -89,7 +99,10 @@ define([], function() {
 	}
 
 
-	return {
+	var rest = {
+		heartBeatLost: new signals.Signal(),
+		heartBeatRestored: new signals.Signal(),
+
 		list: function(uri, options, cb) {
 			var querystring = {};
 			options = options || {};
@@ -209,4 +222,50 @@ define([], function() {
 			request.del(makeURI(uri, querystring), null, cb);
 		}
 	};
+
+
+
+
+
+	/* Setup heartbeat */
+	(function() {
+		function processPending() {
+			if (!serverAlive) {
+				return;
+			}
+
+			var req = pendingRequests.shift();
+
+			if (req) {
+				request.apply(null, req);
+				setTimeout(processPending, pendingThrottle);
+			}
+		}
+
+		rest.heartBeatRestored.add(processPending);
+
+		function heartBeat() {
+			request.get("/heartbeat", null, function(err) {
+				if (err) {
+					if (serverAlive) {
+						rest.heartBeatLost.dispatch(err);
+					}
+
+					serverAlive = false;
+				} else {
+					if (!serverAlive) {
+						rest.heartBeatRestored.dispatch();
+					}
+
+					serverAlive = true;
+				}
+
+				setTimeout(heartBeat, heartBeatRate);
+			});
+		}
+
+		heartBeat();
+	}());
+
+	return rest;
 });

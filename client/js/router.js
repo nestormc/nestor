@@ -4,9 +4,28 @@
 define([], function() {
 	"use strict";
 	
-	var listener, router,
+	var hashchange, popstate, router,
 		routes = {};
 	
+
+	var getRouteParameter = (function() {
+		var rxPlus = /\+/g,
+			rxRoute = /route=([^&]*)/;
+
+		function decode(str) {
+			return decodeURIComponent(str.replace(rxPlus, " "));
+		}
+
+		return function() {
+			var query = location.search.substring(1),
+				match = rxRoute.exec(query);
+
+			if (match) {
+				return decode(match[1]);
+			}
+		};
+	}());
+
 	
 	/**
 	 * Try to match a hash to a route
@@ -44,35 +63,44 @@ define([], function() {
 		/**
 		 * Start listening to hashchange events
 		 *
-		 * Uses window.onhashchange if available, else falls back to polling
-		 * location.hash for changes every 50ms
-		 *
 		 * @memberof router
 		 */
 		start: function() {
-			var oldhash,
-				self = this;
+			var self = this;
 				
-			if (!listener) {
-				if (typeof onhashchange !== "undefined") {
-					listener = function() {
-						self.navigateTo(location.hash.substr(1));
-					};
-					
-					addEventListener("hashchange", listener, false);
-				} else {
-					oldhash = location.hash;
-					listener = setInterval(function() {
-						if (location.hash !== oldhash) {
-							oldhash = location.hash;
-							self.navigateTo(location.hash.substr(1));
-						}
-					}, 50);
-				}
+			if (!hashchange) {
+				hashchange = function(e) {
+					e.preventDefault();
+
+					var route = location.hash.substr(1);
+
+					// Turn hash into a route query parameter
+					history.replaceState(null, null, "?route=" + route);
+
+					self.navigateTo(route);
+
+					return false;
+				};
+				
+				addEventListener("hashchange", hashchange, false);
 			}
+
+			if (!popstate) {
+				popstate = function() {
+					var route = getRouteParameter();
+
+					if (route && route.length > 0) {
+						self.navigateTo(route);
+					}
+				};
+
+				addEventListener("popstate", popstate, false);
+			}
+
+			var route = getRouteParameter();
 			
-			if (location.hash.length > 0) {
-				this.navigateTo(location.hash.substr(1));
+			if (route && route.length > 0) {
+				this.navigateTo(route);
 			}
 		},
 		
@@ -83,17 +111,17 @@ define([], function() {
 		reset: function() {
 			routes = {};
 			
-			if (listener) {
-				if (typeof onhashchange !== "undefined") {
-					removeEventListener("hashchange", listener, false);
-				} else {
-					clearInterval(listener);
-				}
-				
-				listener = null;
+			if (hashchange) {
+				removeEventListener("hashchange", hashchange, false);
+				hashchange = null;
+			}
+
+			if (popstate) {
+				removeEventListener("popstate", popstate, false);
+				popstate = null;
 			}
 			
-			this.set("");
+			history.replaceState(null, null, "?");
 		},
 		
 		
@@ -142,11 +170,6 @@ define([], function() {
 			}
 			
 			nextRoute();
-		},
-		
-		
-		set: function(hash) {
-			window.location = "#" + hash;
 		},
 		
 		
