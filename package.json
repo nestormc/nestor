@@ -3,12 +3,10 @@
   "name": "nestor",
   "description": "",
   "version": "0.0.1",
-  
   "repository": {
     "type": "git",
     "url": "git://github.com/njoyard/nestor.git"
   },
-  
   "dependencies": {
     "express": "*",
     "inotify-plusplus": "*",
@@ -18,9 +16,12 @@
     "mongoose-text-search": "*",
     "node-ffprobe": "*",
     "when": "*",
-    "yarm": "*"
+    "yarm": "*",
+    "bower": "~1.1.2"
   },
-  
+  "scripts": {
+    "postinstall": "node_modules/.bin/bower install"
+  },
   "bin": "./nestor.js",
   "preferGlobal": true
 }

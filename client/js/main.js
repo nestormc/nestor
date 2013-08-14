@@ -4,6 +4,10 @@
 (function(global) {
 	"use strict";
 	
+	/*!
+	 * DOM query helpers
+	 */
+
 	global.$ = function(element, selector) {
 		if (!selector) {
 			selector = element;
@@ -21,19 +25,29 @@
 		
 		return [].slice.call(element.querySelectorAll(selector));
 	};
-	
-	require.config({
+
+	/*!
+	 * Main require configuration
+	 */
+
+	var mainConfig = {
+		context: "nestor",
+		baseUrl: "js",
+
 		paths: {
-			"domReady": "lib/domReady",
+			"domReady": "bower/requirejs-domready/domReady",
+			"signals": "bower/js-signals/dist/signals.js",
 			"ist": "lib/ist",
-			"signals": "lib/signals",
 			"tmpl": "../templates"
 		},
-		
+
 		packages: [
-			 { name: "when", location: "lib/when/", main: "when" }
+			{ name: "when", location: "bower/when/", main: "when" }
 		]
-	});
+	};
+
+	var mainRequire = require.config(mainConfig);
+
 	
 	function error(err) {
 		console.log("=== TOPLEVEL ERROR ===");
@@ -41,9 +55,23 @@
 		console.log(err.stack);
 	}
 
-	require(
-	["ist", "login", "ui", "router", "apploader"],
-	function(ist, login, ui, router, apploader) {
+	mainRequire(
+	["ist", "login", "ui", "router", "apploader", "rest"],
+	function(ist, login, ui, router, apploader, rest) {
+		rest.heartBeatLost.add(function(err) {
+			var lost = $("#heartbeat-lost"),
+				msg = $(lost, "#message");
+
+			lost.style.display = "block";
+			msg.innerText = err.message;
+		});
+
+		rest.heartBeatRestored.add(function() {
+			var lost = $("#heartbeat-lost");
+
+			lost.style.display = "none";
+		});
+
 		function checkLogin(user) {
 			if (user) {
 				router.on("/logout", function(err, req, next) {

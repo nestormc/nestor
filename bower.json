@@ -1,0 +1,11 @@
+{
+  "name": "nestor client",
+  "version": "0.0.0",
+  "main": "client/index.html",
+  "dependencies": {
+    "js-signals": "*",
+    "requirejs": "*",
+    "requirejs-domready": "*",
+    "when": "*"
+  }
+}

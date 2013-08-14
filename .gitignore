@@ -1,3 +1,4 @@
 node_modules
 client/style/*.css
 client/style/*/*.css
+client/js/bower
