@@ -28,8 +28,8 @@ exports.init = function() {
 	server.authHandler(
 		function authUser(host, salt, user, passSalted, callback) {
 			var adminKey = crypto.createHmac("sha1", salt).update(adminPassword).digest("hex");
-			
-			if (adminEnabled &&	user === "admin" &&	passSalted === adminKey) {
+
+			if (adminEnabled &&     user === "admin" &&     passSalted === adminKey) {
 				logger.notice("Admin login from %s", host);
 				callback(null, true);
 			} else {

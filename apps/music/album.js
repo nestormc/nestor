@@ -166,14 +166,16 @@ module.exports = {
 
 			overrides: {
 				"albums/$/tracks/$/file": {
-					get: function(file, req, cb) {
+					get: function(chain, req, cb) {
+						var file = chain[chain.length - 1];
 						cb(null, new rest.ResponseFile(file.path, file.mimetype));
 					}
 				},
 
 				"albums/$/cover": {
-					get: function(coverBuffer, req, cb) {
-						cb(null, new rest.ResponseBody(coverBuffer, "image/jpeg"));
+					get: function(chain, req, cb) {
+						var buffer = chain[chain.length - 1];
+						cb(null, new rest.ResponseBody(buffer, "image/jpeg"));
 					}
 				}
 			}

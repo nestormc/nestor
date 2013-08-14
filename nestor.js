@@ -10,7 +10,10 @@ var mongoose = require('mongoose'),
 	apploader = require('./modules/apploader'),
 	config = require('./modules/config'),
 	intents = require('./modules/intents'),
+	logger = require('./modules/logger'),
 	server = require('./modules/server');
+
+logger.logo();
 
 ncall(function(cb) {
 	mongoose.connect(config.database, cb);
@@ -19,7 +22,7 @@ ncall(function(cb) {
 .then(acl.init)
 .then(server.init)
 .then(function() {
-	intents.dispatch("nestor.startup");	
+	intents.dispatch("nestor.startup");
 })
 .otherwise(function(err) {
 	console.log(err.message + "\n" + err.stack);

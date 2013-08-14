@@ -33,6 +33,14 @@ function getLogLevel(name) {
 }
 
 
+function logo(msg) {
+	return "\n" +
+	       "    o_O O_o    | " + msg[0] + "\n" +
+	       "     █\u001b[33m█\u001b[0m█\u001b[33m█\u001b[0m█    <  " + msg[1] + "\n" +
+		   "      \u001b[33m▔\u001b[0m█\u001b[33m▀\u001b[0m      | " + msg[2] + "\n\n";
+}
+
+
 // Setup level data (aliases, colors...)
 Object.keys(data).forEach(function(key) {
 	var dat = data[key],
@@ -66,6 +74,14 @@ Object.keys(data).forEach(function(key) {
 var Logger = function(context) {
 	this.context = context;
 	this.level = getLogLevel(context);
+};
+
+Logger.prototype.logo = function() {
+	currentStream.write(logo([
+		"Welcome to nestor !",
+		"Please wait a bit during the initial setup...",
+		"and have fun !"
+	]));
 };
 
 Logger.prototype._message = function(/* title, ttitle, numLevel, format, ... */) {

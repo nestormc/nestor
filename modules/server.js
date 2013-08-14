@@ -4,8 +4,8 @@
 var crypto = require("crypto"),
 	express = require("express"),
 	lessMiddleware = require("less-middleware"),
-	yarm = require("yarm"),
 	util = require("util"),
+	yarm = require("yarm"),
 	
 	config = require("./config").server,
 	logger = require("./logger").createLogger("http"),
@@ -40,6 +40,11 @@ app.use(lessMiddleware({
 /* Serve static files from client/ */
 app.use(express["static"](__dirname + "/../client"));
 
+/* Heartbeat handler */
+app.use("/heartbeat", function(req, res) {
+	res.send(204);
+});
+
 /* Serve YARM rest resources */
 app.use("/rest", yarm());
 
@@ -59,11 +64,11 @@ exports.authHandler = function(handler) {
 		/* Status/salt request */
 		get: function(req, callback) {
 			var status;
-
+			
 			if (!req.session.salt) {
 				req.session.salt = crypto.randomBytes(32).toString("base64");
 			}
-			
+
 			if (req.session.user) {
 				status = { user: req.session.user };
 			} else {
