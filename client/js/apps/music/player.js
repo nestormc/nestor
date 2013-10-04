@@ -35,6 +35,12 @@ define([
 
 	function playerBehaviour(player) {
 		return {
+			".cover": {
+				"error": function() {
+					this.src = "images/nocover.svg";
+				}
+			},
+
 			".progress": {
 				"mousedown": function(e) {
 					e.preventDefault();
@@ -132,7 +138,7 @@ define([
 	function stopPlayback(player) {
 		storage.set("player/playingTrack", -1);
 		player.playing = -1;
-		player.updateTrackInfo();
+		player.updatePlayTime();
 		player.currentTrackChanged.dispatch();
 		player.playStateChanged.dispatch(false);
 	}
@@ -186,6 +192,10 @@ define([
 			this.playStateChanged.add(function(playing) {
 				$("#player a.pause").style.display = playing ? "inline" : "none";
 				$("#player a.play").style.display = playing ? "none" : "inline";
+			});
+
+			this.currentTrackChanged.add(function(id, audio) {
+				player.updateTrackInfo(audio);
 			});
 
 			router.on("!togglePlay", function(err, req, next) {
@@ -330,7 +340,7 @@ define([
 			}
 
 			this.playStateChanged.dispatch(!seekOnly);
-			this.currentTrackChanged.dispatch(track.data.id);
+			this.currentTrackChanged.dispatch(track.data.id, track);
 		},
 
 		/* Toggle play/pause */
@@ -381,8 +391,21 @@ define([
 			}
 		},
 
-		/* Update track title and playing time */
+		/* Update playing track */
 		updateTrackInfo: function(audio) {
+			if (this.playing !== this.tracks.indexOf(audio)) {
+				// This is not the current track
+				return;
+			}
+
+			$("#player .cover").src = audio ? "/rest/covers/album:" + audio.data.artist + ":" + audio.data.album : "";
+			$("#player .artist").innerText = audio ? audio.data.artist  : "-";
+			$("#player .track").innerText = audio ? audio.data.title  : "-";
+		},
+
+
+		/* Update playing time */
+		updatePlayTime: function(audio) {
 			var current, total;
 
 			if (this.playing !== this.tracks.indexOf(audio)) {
@@ -396,12 +419,9 @@ define([
 				total = Math.floor(audio.duration);
 			}
 
-
 			$("#player .elapsed").innerText = audio ? humanTime(current) : "-";
 			$("#player .total").innerText = audio ? humanTime(total) : "-";
 			$("#player .bar").style.width = audio ? Math.floor(100 * current / total) + "%" : 0;
-			$("#player .artist").innerText = audio ? audio.data.artist  : "-";
-			$("#player .track").innerText = audio ? audio.data.title  : "-";
 		}
 	};
 });

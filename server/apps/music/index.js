@@ -3,7 +3,9 @@
 
 var ffprobe = require("node-ffprobe"),
 	when = require("when"),
+	path = require("path"),
 
+	cover = require("./cover"),
 	track = require("./track"),
 	playlist = require("./playlist"),
 
@@ -12,13 +14,13 @@ var ffprobe = require("node-ffprobe"),
 
 /* Media analysis handler */
 function analyzeFile(nestor, args, next) {
-	var path = args.path;
+	var filepath = args.path;
 
 	function error(action, err) {
-		nestor.logger.error("Could not " + action  + ": %s", path, err.message + "\n" + err.stack);
+		nestor.logger.error("Could not " + action  + ": %s", filepath, err.message + "\n" + err.stack);
 	}
 
-	ffprobe(path, function ffprobeHandler(err, data) {
+	ffprobe(filepath, function ffprobeHandler(err, data) {
 		if (err) {
 			error("probe file %s", err);
 			next();
@@ -31,7 +33,7 @@ function analyzeFile(nestor, args, next) {
 		} else {
 			var meta = data.metadata || { title: "", artist: "", album:	"", track: "", date: "" };
 			var trackdata = {
-				path: path,
+				path: filepath,
 				title: meta.title || "",
 				artist: meta.artist || "",
 				album: meta.album || "",
@@ -51,7 +53,7 @@ function analyzeFile(nestor, args, next) {
 				trackdata.year = -1;
 			}
 
-			Track.findOne({ path: path }, function(err, track) {
+			Track.findOne({ path: filepath }, function(err, track) {
 				if (err) {
 					error("find track %s", err);
 					next(false);
@@ -73,6 +75,7 @@ function analyzeFile(nestor, args, next) {
 							error("save track %s", err);
 						}
 
+						cover.fetchFSCover("album:" + trackdata.artist + ":" + trackdata.album, path.dirname(filepath));
 						next(false);
 					});
 				}
@@ -85,6 +88,7 @@ function analyzeFile(nestor, args, next) {
 exports.init = function(nestor) {
 	nestor.intents.register("media.analyzeFile", analyzeFile.bind(null, nestor));
 
+	cover.restSetup(nestor.rest);
 	track.restSetup(nestor.rest);
 	playlist.restSetup(nestor.rest);
 

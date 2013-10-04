@@ -7,7 +7,7 @@ define(["when", "rest"], function(when, rest) {
 	return {
 		tracks: {
 			list: function() {
-				return rest.incremental("tracks", 20);
+				return rest.incremental("tracks", 50);
 			},
 
 			update: function(id, data) {

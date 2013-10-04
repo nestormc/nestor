@@ -88,6 +88,12 @@ function(
 	}
 
 	var albumlistBehaviour = {
+		".cover": {
+			"error": function() {
+				this.src = "images/nocover.svg";
+			}
+		},
+
 		".list": {
 			/* Unselect tracks */
 			"click": function(e) {

@@ -51,7 +51,7 @@ define(["ui"], function(ui) {
 			player.play(index + 1);
 		} else {
 			player.playing = -1;
-			player.updateTrackInfo();
+			player.updatePlayTime();
 			player.currentTrackChanged.dispatch();
 			player.playStateChanged.dispatch(false);
 		}
@@ -72,7 +72,7 @@ define(["ui"], function(ui) {
 
 
 	function trackTimeUpdate(track, player) {
-		player.updateTrackInfo(track);
+		player.updatePlayTime(track);
 	}
 
 
