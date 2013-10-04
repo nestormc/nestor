@@ -1,15 +1,23 @@
 #player
-	.artist "-"
-	.track "-"
 
-	a.prev[href=#]
-		img.icon[src=images/prev.svg]
-	a.play[href=#]
-		img.icon[src=images/play.svg]
-	a.next[href=#]
-		img.icon[src=images/next.svg]
+	.controls
+		.total "-"
+		.elapsed "-"
+		a.prev[href=#!music/prev]
+			@svg "images/prev.svg"
+		a.play[href=#!music/togglePlay]
+			@svg "images/play.svg"
+		a.pause[href=#!music/togglePlay]
+			@svg "images/pause.svg"
+		a.next[href=#!music/next]
+			@svg "images/next.svg"
 
 	.progress
 		.bar
-		.elapsed "-"
-		.total "-"
+
+	img.cover[src=/rest/albums/51fc062ca6c35ee82600007d/cover]
+
+	.track "-"
+	.artist "-"
+
+	.clear

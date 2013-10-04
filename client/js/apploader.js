@@ -1,99 +1,88 @@
 /*jshint browser:true */
-/*global require, define, $, $$, nestorAppModules */
+/*global require, define */
 
 define(["require", "when", "rest"], function(mainRequire, when, rest) {
 	"use strict";
 	
-	return function(ui, router) {
+	return function(ui, router, storage) {
 		var deferred = when.defer(),
-			nestorAppModules = ["ist", "signals", "when"];
+			nestorAppModules = ["ist", "when", "rest", "dom"];
 		
 		
 		/* List available apps */
-		rest.list("clientApps", { limit: 0 }, function(err, apps) {
-			if (err) {
-				deferred.reject(err);
-			} else {
-				mainRequire(nestorAppModules, function() {
-					var args = [].slice.call(arguments);
+		rest.list("clientApps", { limit: 0 })
+		.then(function(apps) {
+			mainRequire(nestorAppModules, function() {
+				var args = [].slice.call(arguments);
 
-					var appInterface = {
-						rest: function(app) {
-							return rest;
-						},
+				var appInterface = {
+					router: function(app) {
+						return router.subRouter(app);
+					},
 
-						router: function(app) {
-							return router.subRouter(app);
-						},
+					storage: function(app) {
+						return storage.subStorage(app);
+					},
 
-						ui: function(app) {
-							return ui.subUI(app);
-						}
+					ui: function(app) {
+						return ui.subUI(app);
+					}
+				};
+
+
+				var names = apps.map(function(item) { return item.name; }),
+					appModules = {};
+
+				var loadPromises = names.map(function(app) {
+					var appDeferred = when.defer();
+					
+					/* Prepare app-specific require */
+					var appConfig = {
+						context: app,
+						baseUrl: "js/apps/" + app,
+						define: {}
 					};
 
-
-					var names = apps.map(function(item) { return item.name; }),
-						appModules = {};
-
-					var loadPromises = names.map(function(app) {
-						var appDeferred = when.defer();
-						
-						/* Prepare app-specific require */
-						var appConfig = {
-							context: app,
-							baseUrl: "js/apps/" + app,
-							paths: {},
-							shim: {}
-						};
-
-						/* Shim global libraries */
-						nestorAppModules.forEach(function(module, index) {
-							appConfig.paths[module] = "../../dummy.js?module=" + module + "&for=" + app;
-							appConfig.shim[module] = {
-								exports: "_dummy",
-								init: function() {
-									return args[index];
-								}
-							};
-						});
-
-						/* Add app interface module shims */
-						Object.keys(appInterface).forEach(function(module) {
-							appConfig.paths[module] = "../../dummy.js?module=" + module + "&for=" + app;
-							appConfig.shim[module] = {
-								exports: "_dummy",
-								init: appInterface[module].bind(null, app)
-							};
-						});
-
-						var appRequire = require.config(appConfig);
-
-						/* Load app */
-
-						appRequire(["index"], function(appModule) {
-							appModules[app] = appModule;
-
-							when(appModule.init())
-							.then(function() {
-								appDeferred.resolve();
-							})
-							.otherwise(function(err) {
-								appDeferred.reject(err);
-							});
-						});
-
-						return appDeferred.promise;
+					/* Predefine global libraries */
+					nestorAppModules.forEach(function(module, index) {
+						appConfig.define[module] = args[index];
 					});
 
-					when.all(loadPromises)
-					.then(function() {
-						deferred.resolve(appModules);
-					})
-					.otherwise(function(err) {
-						deferred.reject(err);
+					/* Predefine app interface modules */
+					Object.keys(appInterface).forEach(function(module) {
+						appConfig.define[module] = appInterface[module](app);
 					});
+
+					var appRequire = require.config(appConfig);
+
+					/* Load app */
+					appRequire(["index"], function(appModule) {
+						appModules[app] = appModule;
+
+						when(appModule.init())
+						.then(function() {
+							appDeferred.resolve();
+						})
+						.otherwise(function(err) {
+							appDeferred.reject(err);
+						});
+					});
+
+					return appDeferred.promise;
 				});
-			}
+
+				// There must be a way to make this prettier
+				when.all(loadPromises)
+				.then(function() {
+					deferred.resolve(appModules);
+				})
+				.otherwise(function(err) {
+					deferred.reject(err);
+				});
+			});
+		})
+		.otherwise(function(err) {
+			deferred.reject(err);
 		});
 		
 		return deferred.promise;

@@ -1,64 +1,20 @@
 /*jshint browser:true */
-/*global require, define, $, $$, console */
+/*global define, console */
 
 define(
-["ist!tmpl/main", "ist", "signals"],
-function(template, ist, signals) {
+["ist-wrapper", "ist!tmpl/main", "signals", "ajax", "dom", "debug"],
+function(ist, template, signals, ajax, dom, debug) {
 	"use strict";
 	
 	var ui,
-		containers = [],
+		containers = {},
+		stylesheets = [],
 		SCROLL_THRESHOLD = 64,
+		$ = dom.$,
+		$$ = dom.$$,
 		viewportBehaviour,
 		activeContainer;
 	
-	/* Add @dom directive to allow inserting DOM nodes into templates */
-	ist.registerHelper("dom", function(ctx, tmpl, fragment) {
-		var node = ctx.value;
-		
-		if (node.ownerDocument !== this.doc) {
-			node = this.doc.importNode(node);
-		}
-		
-		while (fragment.hasChildNodes()) {
-			fragment.removeChild(fragment.firstChild);
-		}
-		
-		fragment.appendChild(node);
-	});
-
-	function behaviour(root, behaviours) {
-		if (!behaviours) {
-			behaviours = root;
-			root = document;
-		}
-
-		Object.keys(behaviours).forEach(function(selector) {
-			var events = behaviours[selector],
-				elems = selector === "&" ? [root] : $$(root, selector);
-
-			elems.forEach(function(element) {
-				var activeBehaviours;
-
-				// Remove previously applied behaviour
-				if (element.activeBehaviours && selector in element.activeBehaviours) {
-					activeBehaviours = element.activeBehaviours[selector];
-					Object.keys(activeBehaviours).forEach(function(event) {
-						element.removeEventListener(event, activeBehaviours[event]);
-					});
-				}
-
-				element.activeBehaviours = element.activeBehaviours || {};
-				activeBehaviours = element.activeBehaviours[selector] = {};
-
-				Object.keys(events).forEach(function(event) {
-					activeBehaviours[event] = events[event];
-					element.addEventListener(event, events[event]);
-				});
-			});
-		});
-	}
-
 	viewportBehaviour = {
 		"&": {
 			"scroll": function() {
@@ -69,14 +25,40 @@ function(template, ist, signals) {
 		}
 	};
 
+	var madeSignals = [];
+
+	/**
+	 * Signal factory
+	 * Signals made with this factory are reset with the ui
+	 */
+	function makeSignal() {
+		var s = new signals.Signal(),
+			dispose = s.dispose.bind(s);
+
+		madeSignals.push(s);
+
+		s.dispose = function() {
+			dispose();
+			madeSignals.splice(madeSignals.indexOf(s), 1);
+		};
+
+		return s;
+	}
+
+
 	ui = {
 		app: "nestor",
 
-		behave: behaviour,
+		searchQueryChanged: makeSignal(),
+		searchQueryCancelled: makeSignal(),
+
+		appletsReady: makeSignal(),
+		stopping: makeSignal(),
 		
 		subUI: function(appname) {
 			var sub = Object.create(ui);
 			sub.app = appname;
+
 			return sub;
 		},
 		
@@ -85,6 +67,8 @@ function(template, ist, signals) {
 			console.error(title);
 			console.error(details);
 		},
+
+		signal: makeSignal,
 
 		/**
 		 * Load <filename>.css, namespacing it depending on the value of `container`.
@@ -97,7 +81,7 @@ function(template, ist, signals) {
 				namespace;
 
 			if (typeof container === "undefined") {
-				namespace = "#bar .app." + this.app + " .applet";
+				namespace = "#bar .app-" + this.app + " .applet";
 			} else if (container === "") {
 				namespace = "#viewport .container-" + this.app;
 			} else {
@@ -108,6 +92,7 @@ function(template, ist, signals) {
 			link.rel = "stylesheet";
 			link.href = "style/" + this.app + "/" + filename + "-min.css?namespace=" + encodeURIComponent(namespace);
 
+			stylesheets.push(link);
 			document.querySelector("head").appendChild(link);
 		},
 		
@@ -126,14 +111,14 @@ function(template, ist, signals) {
 				var aname = this.app + "-" + name;
 				
 				if (!containers[aname]) {
-					var c = ist.createNode("div[class=container container-{{ app }} container-{{name}}]", { app: this.app, name: aname });
+					var c = ist.create("div[class=container container-{{ app }} container-{{name}}]", { app: this.app, name: aname });
 						
 					$("#viewport").appendChild(c);
 					
 					// Would love to be able to Object.create(DOMNode) here :(
 					c.$ = $.bind(null, c);
 					c.$$ = $$.bind(null, c);
-					c.behave = behaviour.bind(null, c);
+					c.behave = dom.behave.bind(null, c);
 					c.show = showContainer.bind(null, c);
 
 					c.scrolledToEnd = new signals.Signal();
@@ -160,17 +145,24 @@ function(template, ist, signals) {
 			
 			/* Render main template */
 			$("#login-container").style.display = "none";
-			$("#main-container").style.display = "block";
+
+			var mainContainer = $("#main-container");
+			mainContainer.style.display = "block";
 			
-			$("#main-container").innerHTML = "";
-			$("#main-container").appendChild(
+			mainContainer.innerHTML = "";
+			mainContainer.appendChild(
 				template.render({
 					user: user,
 					apps: manifests
 				})
 			);
 
-			behaviour($("#viewport"), viewportBehaviour);
+			mainContainer.appendChild(debug.render());
+
+			/* Applets are in the DOM, dispatch signal for apps */
+			this.appletsReady.dispatch();
+
+			dom.behave($("#viewport"), viewportBehaviour);
 			
 			/* Setup page selection routes */
 			manifests.forEach(function(app) {
@@ -205,6 +197,82 @@ function(template, ist, signals) {
 				}
 				
 				next(err);
+			});
+
+			/* Setup search keypress handlers */
+			var search = $("#search"),
+				input = $("#search input");
+
+			addEventListener("keydown", function(e) {
+				// Ignore input in contentEditable and <input> elements
+				if (e.target.contentEditable === "true" || e.target.tagName === "INPUT") {
+					return;
+				}
+
+				// Ignore non printable characters
+				if (e.which < 32) {
+					return;
+				}
+
+				// Redirect input to search box
+				search.style.display = "block";
+				input.value = "";
+				input.focus();
+			});
+
+			dom.behave(input, {
+				"&": {
+					"keydown": function(e) {
+						// Prevent toplevel event handling
+						e.stopPropagation();
+
+						if (e.which === 27) {
+							search.style.display = "none";
+							ui.searchQueryCancelled.dispatch();
+						}
+					},
+
+					"keyup": function(e) {
+						// Prevent toplevel event handling
+						e.stopPropagation();
+
+						if (e.which !== 27) {
+							ui.searchQueryChanged.dispatch(this.value);
+						}
+					}
+				}
+			});
+
+			ui.searchQueryChanged.add(function(v) {
+				console.log("Search query: " + (v ? v : "<empty>"));
+			});
+
+			ui.searchQueryCancelled.add(function() {
+				console.log("Search query cancelled");
+			});
+		},
+
+		stop: function() {
+			// Dispatch stopping signal
+			this.stopping.dispatch();
+
+			// Destroy containers
+			Object.keys(containers).forEach(function(name) {
+				var c = containers[name];
+				c.parentNode.removeChild(c);
+			});
+			containers = {};
+			activeContainer = undefined;
+
+			// Remove stylesheets
+			stylesheets.forEach(function(s) {
+				s.parentNode.removeChild(s);
+			});
+			stylesheets = [];
+
+			// Reset all signals
+			madeSignals.forEach(function(s) {
+				s.removeAll();
 			});
 		}
 	};

@@ -1,7 +1,7 @@
 /*jshint browser:true */
-/*global require, define, $, $$ */
+/*global define, console */
 
-define(["signals"], function(signals) {
+define(["ui"], function(ui) {
 	"use strict";
 
 	function trackDispose(track, events) {
@@ -9,6 +9,7 @@ define(["signals"], function(signals) {
 			track.removeEventListener(event, events[event]);
 		});
 
+		track.trackLoaded.dispose();
 		track.pause();
 		track.preload = "none";
 		track.src = "";
@@ -24,8 +25,11 @@ define(["signals"], function(signals) {
 
 		// Start playing if player wants to play this track
 		if (player.playing === index) {
-			track.currentTime = 0;
-			track.play();
+			track.currentTime = track.requestedCurrentTime || 0;
+
+			if (!track.requestedSeekOnly) {
+				track.play();
+			}
 		}
 	}
 
@@ -78,7 +82,7 @@ define(["signals"], function(signals) {
 		audio.preload = "none";
 		audio.autoplay = false;
 		audio.isLoaded = false;
-		audio.trackLoaded = new signals.Signal();
+		audio.trackLoaded = ui.signal();
 
 		var events = {
 			"canplay": trackPlayable.bind(null, audio, player),

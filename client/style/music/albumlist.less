@@ -1,5 +1,8 @@
 @import "../defs.less";
 
+@albumMargins: 1em;
+@coverSize: 12em;
+
 .artistHeader {
 	font-family: NestorTitleFont;
 	font-size: 1.5em;
@@ -9,20 +12,57 @@
 }
 
 .album, .playlist {
+	background-color: white;
+	border: 1px solid @mlGray;
+	margin: @albumMargins;
+	padding: @albumMargins;
+
 	& + .artistHeader {
 		clear: both;
-		padding-top: 3em;
+		padding-top: 2*@albumMargins;
+	}
+
+	.edit-controls {
+		float: right;
+
+		.edit {
+			display: inline;
+		}
+
+		.save {
+			margin-right: .5em;
+		}
+
+		.cancel, .save {
+			display: none;
+		}
+
+		.icon {
+			vertical-align: baseline;
+
+			svg {
+				height: 1em;
+				width: 1em;
+			}
+		}
+	}
+
+	&.editing .edit-controls {
+		.edit {
+			display: none;
+		}
+
+		.cancel, .save {
+			display: inline;
+		}
 	}
 
 	.info {
-		clear: left;
-		padding: 1em;
-
 		img {
-			width: 12em;
-			height: 12em;
+			width: @coverSize;
+			height: @coverSize;
 			float: left;
-			margin-right: 1em;
+			margin-right: @albumMargins;
 		}
 
 		.title {
@@ -41,41 +81,40 @@
 			}
 		}
 
-		.year {
+		.year, .tracks {
 			display: block;
 			color: @midGray;
 		}
+
+		.playIndicator {
+			svg {
+				height: .75em;
+			}
+
+			margin-right: .25em;
+
+			display: none;
+			vertical-align: top;
+		}
+	}
+
+	&.playlist.playing .info .playIndicator {
+		display: inline;
 	}
 
 	ul.tracklist {
 		list-style-type: none;
-
-		margin: 1em;
+		margin-top: @albumMargins;
 
 		li.track {
-			border: 1px solid @mlGray;
-			border-bottom: none;
-			border-collapse: collapse;
-			background-color: @lightGray;
 			position: relative;
 
 			&>* {
 				vertical-align: text-top;
 			}
 
-			&:first-child {
-				border-top-left-radius: .25em;
-				border-top-right-radius: .25em;
-			}
-
-			&:last-child {
-				border-bottom-left-radius: .25em;
-				border-bottom-right-radius: .25em;
-				border-bottom: 1px solid @mlGray;
-			}
-
-			&:nth-child(2n) {
-				background-color: @white;
+			&:nth-child(2n+1) {
+				background-color: @xlightGray;
 			}
 
 			&.error {
@@ -83,30 +122,47 @@
 			}
 
 			&.selected {
-				background-color: @yellow;
-			}
+				background-color: @lyellow;
 
-			img {
-				height: 1.2em;
-				visibility: hidden;
-
+				&:nth-child(2n+1) {
+					background-color: @myellow;
+				}
 			}
 
 			.controls {
 				position: absolute;
 				right: 4em;
 
-				img {
+				visibility: hidden;
+
+				.icon {
 					margin-right: .5em;
+					vertical-align: baseline;
+
+					svg {
+						height: 1em;
+						width: 1em;
+					}
 				}
 			}
 
-			&:hover .controls img {
+			&:hover .controls {
 				visibility: visible;
-				vertical-align: baseline;
 			}
 
-			&.playing img.playing {
+			.playIndicator {
+				visibility: hidden;
+
+				svg {
+					height: .75em;
+
+					* {
+						fill: @yellow !important;
+					}
+				}
+			}
+
+			&.playing .playIndicator {
 				visibility: visible;
 			}
 
@@ -115,7 +171,7 @@
 				color: @mlGray;
 
 				display: inline-block;
-				width: 1em;
+				width: 1.5em;
 				text-align: right;
 			}
 
@@ -136,6 +192,18 @@
 	}
 }
 
-.album ul.tracklist {
-	margin-left: 14em;
+.album {
+	min-height: @coverSize + 2*@albumMargins;
+
+	ul.tracklist {
+		margin-left: @coverSize + @albumMargins;
+	}
+}
+
+.playlist {
+	ul.tracklist {
+		.track .artist {
+			color: @mlGray;
+		}
+	}
 }

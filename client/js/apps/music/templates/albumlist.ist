@@ -1,26 +1,41 @@
 .albumlist
-	@each albums
-		.album[data-id={{ _id }}] !album
-			.info
-				@if hasCover
-					img.cover[src={{_href }}/cover]
-				@unless hasCover
-					img.cover[src=images/nocover.svg]
-				span.title "{{ title || 'Unknown album' }}"
-				span.artist
-					span.by "by "
-					span.name "{{ artist || 'Unknown artist' }}"
-				span.year "{{ year }}"
+	@each artists
+		.artist[data-name={{ name }}]
+			.artistHeader "{{ name || 'Unknown artist' }}"
+			@each albums
+				.album[data-id={{ _id }}]
+					.edit-controls
+						a.icon.edit[title=Edit metadata][href=#!music/editAlbum/{{ _id }}]
+							@svg "images/edit.svg"
+						a.icon.save[title=Save changes][href=#!music/commitAlbumEdit/{{ _id }}]
+							@svg "images/commit.svg"
+						a.icon.cancel[title=Cancel changes][href=#!music/cancelAlbumEdit/{{ _id }}]
+							@svg "images/cancel.svg"
 
-			ul.tracklist
-				@each tracks
-					li.track[data-id={{ _id }}][data-file={{ _href }}/file][data-artist={{ artist }}][data-title={{ title }}]
-						img.playing[src=images/playing.svg]
-						span.number "{{ number }}"
-						span.title "{{ title || 'Unknown title' }}"
-						span.controls
-							img.enqueue[src=images/playlist-enqueue	.svg][title=Play next]
-							img.add[src=images/playlist-add.svg][title=Add to playlist]
-						span.length "{{ humanTime(length) }}"
+					.info
+						@if hasCover
+							img.cover[src={{_href }}/cover]
+						@unless hasCover
+							img.cover[src=images/nocover.svg]
+						span.title.editable "{{ title || 'Unknown album' }}"
+						span.artist
+							span.by "by "
+							span.name.editable "{{ artist || 'Unknown artist' }}"
+						span.year.editable "{{ year }}"
+
+					ul.tracklist
+						@each tracks
+							li.track[data-id={{ _id }}][data-file={{ _href }}/file][data-artist={{ artist }}][data-title={{ title }}]
+								span.playIndicator
+									@svg "images/playing.svg"
+								span.number.editable "{{ number }}"
+								span.title.editable "{{ title || 'Unknown title' }}"
+								span.controls
+									a.icon[title=Play next][href=#!music/enqueue/{{ _id }}]
+										@svg "images/playlist-enqueue.svg"
+									a.icon[title=Add to playlist][href=#!music/add/{{ _id }}]
+										@svg "images/playlist-add.svg"
+								span.length "{{ humanTime(length) }}"
+
 .loading
 	"Loading !"

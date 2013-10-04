@@ -1,12 +1,18 @@
 /*jshint browser:true */
-/*global require, define, $, $$ */
+/*global define */
 
-define([], function() {
+define(["dom"], function(dom) {
 	"use strict";
 	
-	var hashchange, popstate, router,
-		routes = {};
-	
+	var click, popstate, router, currentRoute,
+		rxInitialBang = /^!/,
+		rxInitialSlash = /^\//,
+		rxFinalSlash = /\/$/,
+		rxFinalStar = /\*$/,
+		rxAllColonVariables = /:[^\/]+/g,
+		routes = {},
+		actions = {};
+
 
 	var getRouteParameter = (function() {
 		var rxPlus = /\+/g,
@@ -66,31 +72,48 @@ define([], function() {
 		 * @memberof router
 		 */
 		start: function() {
-			var self = this;
-				
-			if (!hashchange) {
-				hashchange = function(e) {
-					e.preventDefault();
+			if (!click) {
+				/* Setup capture click handler to handle click on any links */
+				click = function(e) {
+					// Find <a> element that was clicked on
+					var link = dom.$P(e.target, "a", true);
+					if (!link) {
+						return;
+					}
 
-					var route = location.hash.substr(1);
+					// getAttribute to avoid getting the full URL
+					var href = link.getAttribute("href");
 
-					// Turn hash into a route query parameter
-					history.replaceState(null, null, "?route=" + route);
+					if (href === "#") {
+						e.preventDefault();
+						return false;
+					}
 
-					self.navigateTo(route);
+					if (href.indexOf("#") === 0) {
+						var path = href.substr(1);
 
-					return false;
+						e.preventDefault();
+
+						if (path[0] !== "!") {
+							// Regular (non-action) route path, push history state
+							history.pushState(null, null, "?route=" + path);
+						}
+
+						router.navigateTo(path);
+
+						return false;
+					}
 				};
-				
-				addEventListener("hashchange", hashchange, false);
+
+				addEventListener("click", click, true);
 			}
 
 			if (!popstate) {
-				popstate = function() {
+				popstate = function(e) {
 					var route = getRouteParameter();
 
 					if (route && route.length > 0) {
-						self.navigateTo(route);
+						router.navigateTo(route, e.state);
 					}
 				};
 
@@ -110,10 +133,11 @@ define([], function() {
 		 */
 		reset: function() {
 			routes = {};
-			
-			if (hashchange) {
-				removeEventListener("hashchange", hashchange, false);
-				hashchange = null;
+			actions = {};
+
+			if (click) {
+				removeEventListener("click", click, true);
+				click = null;
 			}
 
 			if (popstate) {
@@ -123,27 +147,42 @@ define([], function() {
 			
 			history.replaceState(null, null, "?");
 		},
+
 		
 		
 		/**
 		 * Navigate to a specific hash
 		 *
 		 * @param {String} hash hash to navigate to
+		 * @param state history state
 		 */
-		navigateTo: function(hash) {
-			var routeStrings = Object.keys(routes),
-				currentRoute = -1,
-				req = { route: hash },
+		navigateTo: function(path, state) {
+			var isAction = path[0] === "!",
+				store = isAction ? actions : routes,
+				routeStrings = Object.keys(store),
+				routeIndex = -1,
+				req = { path: path, state: state },
 				currentHandler, route;
-				
+
+
+			if (isAction) {
+				path = path.replace(rxInitialBang, "/");
+			} else {
+				if (currentRoute === path) {
+					return;
+				}
+
+				currentRoute = path;
+			}
+
 			
 			function nextRoute(err) {
 				do {
-					currentRoute++;
-					route = routes[routeStrings[currentRoute]];
+					routeIndex++;
+					route = store[routeStrings[routeIndex]];
 				
 					if (route) {
-						req.match = matchRoute(route, hash);
+						req.match = matchRoute(route, path);
 						if (req.match) {
 							currentHandler = -1;
 							nextHandler(err);
@@ -171,7 +210,7 @@ define([], function() {
 			
 			nextRoute();
 		},
-		
+
 		
 		/**
 		 * Register a route handler
@@ -180,17 +219,24 @@ define([], function() {
 		 * @param {Function} handler route handler
 		 */
 		on: function(route, handler) {
-			if (!routes[route]) {
-				var vmatch = route.match(/:[^\/]+/g);
+			var isAction = route[0] === "!",
+				store = isAction ? actions : routes;
+
+			if (isAction) {
+				route = route.replace(rxInitialBang, "/");
+			}
+
+			if (!store[route]) {
+				var vmatch = route.match(rxAllColonVariables);
 				
-				routes[route] = {
+				store[route] = {
 					vars: vmatch ? vmatch.map(function(v) { return v.substr(1); }) : [],
-					regexp: new RegExp("^" + route.replace(/:[^\/]+/g, "([^\\/]+)").replace(/\*$/, ".*") + "$"),
+					regexp: new RegExp("^" + route.replace(rxAllColonVariables, "([^\\/]+)").replace(rxFinalStar, ".*") + "$"),
 					handlers: []
 				};
 			}
-			
-			routes[route].handlers.push(handler);
+
+			store[route].handlers.push(handler);
 		},
 		
 		
@@ -204,10 +250,18 @@ define([], function() {
 			var sub = Object.create(router);
 			
 			// Remove leading/trailing slashes
-			prefix = prefix.replace(/^\//, "").replace(/\/$/, "");
+			prefix = prefix.replace(rxInitialSlash, "").replace(rxFinalSlash, "");
 			
 			sub.on = function(route, handler) {
-				router.on("/" + prefix + "/" + route.replace(/^\//, ""), handler);
+				var prefixedRoute;
+
+				if (route[0] === "!") {
+					prefixedRoute = "!" + prefix + "/" + route.replace(rxInitialBang, "");
+				} else {
+					prefixedRoute = "/" + prefix + "/" + route.replace(rxInitialSlash, "");
+				}
+
+				router.on(prefixedRoute, handler);
 			};
 			
 			return sub;

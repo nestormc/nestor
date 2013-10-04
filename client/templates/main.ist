@@ -7,14 +7,13 @@
 		#user-container
 			.user "{{ user }}"
 			ul.userlinks
-				li
-					a[href=#/settings] "settings"
-				li
-					a[href=#/logout] "logout"
+				@eachkey { debug: "!debug/open", settings: "/settings", logout: "/logout" }
+					li
+						a[href=#{{ value }}] "{{ key }}"
 					
 	/* Application list */
 	@each apps
-		[class=app {{ title }}]
+		[class=app app-{{ title }}]
 			.title
 				"{{ title }}"
 			.applet
@@ -27,3 +26,5 @@
 							"{{ key }}"
 					
 #viewport
+	#search
+		input[type=text]

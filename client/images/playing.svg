@@ -9,8 +9,8 @@
    xmlns="http://www.w3.org/2000/svg"
    xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
    xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
-   width="35.433071"
-   height="35.433071"
+   width="10.629922"
+   height="17.716536"
    id="svg2"
    version="1.1"
    inkscape:version="0.48.4 r9939"
@@ -22,9 +22,9 @@
      borderopacity="1.0"
      inkscape:pageopacity="0.0"
      inkscape:pageshadow="2"
-     inkscape:zoom="22.279382"
-     inkscape:cx="9.8847849"
-     inkscape:cy="17.654675"
+     inkscape:zoom="16"
+     inkscape:cx="10.590887"
+     inkscape:cy="2.3619464"
      inkscape:document-units="px"
      inkscape:current-layer="layer1"
      showgrid="true"
@@ -33,9 +33,13 @@
      inkscape:window-height="1017"
      inkscape:window-x="0"
      inkscape:window-y="30"
-     inkscape:window-maximized="1">
+     inkscape:window-maximized="1"
+     fit-margin-top="0"
+     fit-margin-left="0"
+     fit-margin-right="0"
+     fit-margin-bottom="0">
     <inkscape:grid
-       originy="0cm"
+       originy="-3.8516168e-09cm"
        originx="0cm"
        spacingy="0.0125cm"
        spacingx="0.1cm"
@@ -85,13 +89,13 @@
     </rdf:RDF>
   </metadata>
   <g
-     transform="translate(0,-1016.9291)"
+     transform="translate(0,-1034.6456)"
      id="layer1"
      inkscape:groupmode="layer"
      inkscape:label="Calque 1">
     <path
        style="fill:#acacac;fill-opacity:1;stroke:none"
-       d="m 14.173228,8.858268 0,17.716535 10.629922,-8.858267 z"
+       d="M 0,17.716536 0,35.433071 10.629922,26.574804 z"
        id="path5393"
        inkscape:connector-curvature="0"
        sodipodi:nodetypes="cccc"

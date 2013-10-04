@@ -1,10 +1,10 @@
 #login
 	.label-container
 		label "login"
-	input[type=text][!keyup=loginKeypress][!blur=blur]
+	input[type=text]
 	label.error
 
 #password
 	.label-container
 		label "password"
-	input[type=password][!keyup=passKeypress][!blur=blur]
+	input[type=password]

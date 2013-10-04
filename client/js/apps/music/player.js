@@ -1,25 +1,27 @@
 /*jshint browser:true */
-/*global require, define, $, $$ */
+/*global define */
 
 define([
-	"signals", "ui",
+	"ui", "storage", "dom", "router",
 
 	"resources",
 	"track",
 
-	"ist!templates/player"
+	"ist!templates/player",
+	"ist!templates/tempPlaylist"
 ], function(
-	signals, ui,
+	ui, storage, dom, router,
 
 	resources,
 	createAudioTrack,
 
-	template
+	template, playlistTemplate
 ) {
 	"use strict";
 
 	var // Time threshold to switch to previous track
-		PREV_THRESHOLD = 4;
+		PREV_THRESHOLD = 4,
+		$ = dom.$;
 
 
 	function humanTime(duration) {
@@ -33,30 +35,6 @@ define([
 
 	function playerBehaviour(player) {
 		return {
-			"a.play": {
-				"click": function(e) {
-					e.preventDefault();
-					player.togglePlay();
-
-					return false;
-				}
-			},
-			"a.prev": {
-				"click": function(e) {
-					e.preventDefault();
-					player.prev();
-
-					return false;
-				}
-			},
-			"a.next": {
-				"click": function(e) {
-					e.preventDefault();
-					player.next();
-
-					return false;
-				}
-			},
 			".progress": {
 				"mousedown": function(e) {
 					e.preventDefault();
@@ -138,7 +116,7 @@ define([
 			return;
 		}
 
-		// Load next unloaded track from currently playing track
+		// Load next track from currently playing track
 		for (var i = player.playing + 1, len = player.tracks.length; i < len; i++) {
 			var track = player.tracks[i];
 
@@ -152,6 +130,7 @@ define([
 
 
 	function stopPlayback(player) {
+		storage.set("player/playingTrack", -1);
 		player.playing = -1;
 		player.updateTrackInfo();
 		player.currentTrackChanged.dispatch();
@@ -162,21 +141,76 @@ define([
 	return {
 		/* Render player applet */
 		render: function() {
+			var player = this;
+
 			this.playlistResource = resources.playlists;
 			this.rendered = template.render();
-			ui.behave(this.rendered, playerBehaviour(this));
+			dom.behave(this.rendered, playerBehaviour(this));
+
+			/* Load state when applet is ready */
+			ui.appletsReady.add(function() {
+				var playlist = storage.get("player/playlist"),
+					playing = Number(storage.get("player/playingTrack", -1)),
+					currentTime = Number(storage.get("player/currentTime", 0));
+
+				if (playlist) {
+					resources.playlists.get(playlist)
+					.then(function(data) {
+						var elements = [].slice.call(playlistTemplate.render({ tracks: data.tracks }).childNodes);
+
+						player.currentPlaylist = playlist;
+						elements.forEach(function(element) {
+							enqueueTrack(player, element);
+						}, player);
+
+						if (playing !== -1) {
+							player.play(playing, currentTime, storage.get("player/playingState", "paused") === "paused");
+						}
+
+						player.currentPlaylistChanged.dispatch(playlist);
+					});
+				}
+			});
+
+			/* Dispose of all tracks and reset state when ui stops */
+			ui.stopping.add(function() {
+				player.tracks.forEach(function(track) {
+					track.dispose();
+				});
+
+				player.tracks = [];
+				player.playing = -1;
+				player.currentPlaylist = "!floating";
+			});
 
 			this.playStateChanged.add(function(playing) {
-				$("#player a.play img").src = playing ? "images/pause.svg" : "images/play.svg";
+				$("#player a.pause").style.display = playing ? "inline" : "none";
+				$("#player a.play").style.display = playing ? "none" : "inline";
+			});
+
+			router.on("!togglePlay", function(err, req, next) {
+				player.togglePlay();
+				next();
+			});
+
+			router.on("!next", function(err, req, next) {
+				player.next();
+				next();
+			});
+
+			router.on("!prev", function(err, req, next) {
+				player.prev();
+				next();
 			});
 
 			return this.rendered;
 		},
 
 		/* Signals */
-		currentTrackChanged: new signals.Signal(),
-		trackLoadingFailed: new signals.Signal(),
-		playStateChanged: new signals.Signal(),
+		currentTrackChanged: ui.signal(),
+		currentPlaylistChanged: ui.signal(),
+		trackLoadingFailed: ui.signal(),
+		playStateChanged: ui.signal(),
 
 		/* Current state */
 		playing: -1,
@@ -236,14 +270,22 @@ define([
 		 * @param [name] playlist name, defaults to "!floating"
 		 */
 		replace: function(elements, name) {
-			this.currentPlaylist = name || "!floating";
+			name = name || "!floating";
+			this.currentPlaylist = name;
+
+			this.currentPlaylistChanged.dispatch(name);
 
 			emptyPlaylist(this);
 			elements.forEach(function(element) {
 				enqueueTrack(this, element);
 			}, this);
 
-			this.playlistResource.replaceTracks(this.currentPlaylist, elements);
+			// No need to save if replacing from named playlist
+			if (name === "!floating") {
+				this.playlistResource.replaceTracks(name, elements);
+			}
+
+			storage.set("player/playlist", name);
 		},
 
 
@@ -251,8 +293,8 @@ define([
 		 *! Player controls
 		 */
 
-		/* Play track in current playlist at specified index */
-		play: function(index) {
+		/* Play track in current playlist at specified index, starting at specified time */
+		play: function(index, time, seekOnly) {
 			var track = this.tracks[index || 0];
 
 			if (this.playing >= 0) {
@@ -260,6 +302,11 @@ define([
 			}
 
 			this.playing = index || 0;
+			storage.set("player/playingTrack", this.playing);
+			storage.set("player/playingState", seekOnly ? "paused" : "playing");
+
+			track.requestedCurrentTime = time || 0;
+			track.requestedSeekOnly = seekOnly;
 
 			if (!track.isPlayable) {
 				// Track is not playable yet
@@ -273,13 +320,16 @@ define([
 				// Track will begin playback when receiving its canplay event
 			} else {
 				// Track is playable right now
-				track.currentTime = 0;
-				track.play();
+				track.currentTime = time || 0;
+
+				if (!seekOnly) {
+					track.play();
+				}
 
 				preloadNextTrack(this);
 			}
 
-			this.playStateChanged.dispatch(true);
+			this.playStateChanged.dispatch(!seekOnly);
 			this.currentTrackChanged.dispatch(track.data.id);
 		},
 
@@ -289,9 +339,11 @@ define([
 				var track = this.tracks[this.playing];
 
 				if (track.paused) {
+					storage.set("player/playingState", "playing");
 					track.play();
 					this.playStateChanged.dispatch(true);
 				} else {
+					storage.set("player/playingState", "paused");
 					track.pause();
 					this.playStateChanged.dispatch(false);
 				}
@@ -339,6 +391,7 @@ define([
 			}
 
 			if (audio) {
+				storage.set("player/currentTime", audio.currentTime);
 				current = Math.floor(audio.currentTime);
 				total = Math.floor(audio.duration);
 			}

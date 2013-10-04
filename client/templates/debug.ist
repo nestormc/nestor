@@ -1,0 +1,7 @@
+#debug
+	#rest
+		input[type=text]
+		a[href=#!debug/close] "close"
+		#loading
+		#display
+	#console

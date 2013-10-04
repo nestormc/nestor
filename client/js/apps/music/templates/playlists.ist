@@ -1,17 +1,35 @@
+@define "music-playlist-track"
+	li.track[data-id={{ trackId }}][data-file=/rest/tracks/{{ trackId }}/file][data-artist={{ artist }}][data-title={{ title }}]
+		span.playIndicator
+			@svg "images/playing.svg"
+		span.number "{{ loop.index + 1 }}"
+		span.artist "{{ artist || 'Unknown artist' }} "
+		span.title "{{ title || 'Unknown title' }}"
+		span.controls
+			a.icon[title=Play next][href=#!music/enqueue/{{ trackId }}]
+				@svg "images/playlist-enqueue.svg"
+			a.icon[title=Add to playlist][href=#!music/add/{{ trackId }}]
+				@svg "images/playlist-add.svg"
+		span.length "{{ humanTime(length) }}"
+
+
+@define "music-playlist"
+	.playlist[data-name={{ name }}]
+		.info
+			span.title
+				span.playIndicator[title=Currently playing]
+					@svg "images/playing.svg"
+				"{{ name === '!floating' ? 'Current playlist' : name }}"
+			span.artist "{{ artists.join(', ') }}"
+			span.tracks "{{ tracks.length }} tracks"
+		ul.tracklist
+			@each tracks
+				@use "music-playlist-track"
+
+
 .playlists
 	@each playlists
-		.playlist !playlist
-			.info
-				"{{ name }} ({{ tracks.length }} tracks)"
-			ul.tracklist
-				@each tracks
-					li.track[data-id={{ _id }}][data-file=/rest/tracks/{{ _id }}/file][data-artist={{ artist }}][data-title={{ title }}]
-						img.playing[src=images/playing.svg]
-						span.number "{{ loop.index + 1 }}"
-						span.title "{{ title || 'Unknown title' }}"
-						span.controls
-							img.enqueue[src=images/playlist-enqueue	.svg][title=Play next]
-							img.add[src=images/playlist-add.svg][title=Add to playlist]
-						span.length "{{ humanTime(length) }}"
+		@use "music-playlist"
+		
 .loading
 	"Loading !"

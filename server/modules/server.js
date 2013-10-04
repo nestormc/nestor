@@ -26,7 +26,7 @@ app.use(express.session({
 
 /* Serve LESS-compiled CSS from client/ */
 app.use(lessMiddleware({
-	src: __dirname + "/../client",
+	src: __dirname + "/../../client",
 	force: true,
 	pre: function(src, req) {
 		if (req.param("namespace")) {
@@ -38,11 +38,24 @@ app.use(lessMiddleware({
 }));
 
 /* Serve static files from client/ */
-app.use(express["static"](__dirname + "/../client"));
+app.use(express["static"](__dirname + "/../../client"));
 
 /* Heartbeat handler */
 app.use("/heartbeat", function(req, res) {
 	res.send(204);
+});
+
+/* Log REST requests */
+app.use("/rest", function(req, res, next) {
+	var message = util.format("%s %s", req.method, req.url);
+
+	if (req.body && Object.keys(req.body).length > 0) {
+		message += "\nRequest-body: " + util.inspect(req.body);
+	}
+
+	logger.debug(message);
+
+	next();
 });
 
 /* Serve YARM rest resources */
@@ -60,14 +73,18 @@ Buffer.prototype.toJSON = function() {
 }
 
 exports.authHandler = function(handler) {
+	function ensureSalt(req) {
+		if (!req.session.salt) {
+			req.session.salt = crypto.randomBytes(32).toString("base64");
+		}
+	}
+
 	yarm.resource("login", {
 		/* Status/salt request */
 		get: function(req, callback) {
 			var status;
-			
-			if (!req.session.salt) {
-				req.session.salt = crypto.randomBytes(32).toString("base64");
-			}
+
+			ensureSalt(req);
 
 			if (req.session.user) {
 				status = { user: req.session.user };
@@ -84,6 +101,8 @@ exports.authHandler = function(handler) {
 		put: function(req, patch, callback) {
 			var data = req.body,
 				status;
+
+			ensureSalt(req);
 
 			handler(
 				req.connection.remoteAddress,

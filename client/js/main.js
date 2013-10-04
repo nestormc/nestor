@@ -1,30 +1,8 @@
 /*jshint browser:true */
-/*global define, require, $, $$, console */
+/*global define, require, console */
 
-(function(global) {
+(function() {
 	"use strict";
-	
-	/*!
-	 * DOM query helpers
-	 */
-
-	global.$ = function(element, selector) {
-		if (!selector) {
-			selector = element;
-			element = document;
-		}
-		
-		return element.querySelector(selector);
-	};
-	
-	global.$$ = function(element, selector) {
-		if (!selector) {
-			selector = element;
-			element = document;
-		}
-		
-		return [].slice.call(element.querySelectorAll(selector));
-	};
 
 	/*!
 	 * Main require configuration
@@ -38,7 +16,7 @@
 			"domReady": "bower/requirejs-domready/domReady",
 			"signals": "bower/js-signals/dist/signals",
 			"hmac-sha1": "lib/hmac-sha1",
-			"ist": "lib/ist",
+			"ist": "bower/ist/dist/ist",
 			"tmpl": "../templates"
 		},
 
@@ -66,8 +44,10 @@
 	}
 
 	mainRequire(
-	["ist", "login", "ui", "router", "apploader", "rest"],
-	function(ist, login, ui, router, apploader, rest) {
+	["dom", "login", "ui", "router", "storage", "apploader", "rest"],
+	function(dom, login, ui, router, storage, apploader, rest) {
+		var $ = dom.$;
+
 		rest.heartBeatLost.add(function(err) {
 			var lost = $("#heartbeat-lost"),
 				msg = $(lost, "#message");
@@ -84,12 +64,16 @@
 
 		function checkLogin(user) {
 			if (user) {
+				storage.user = user;
+
 				router.on("/logout", function(err, req, next) {
+					ui.stop();
+					storage.user = undefined;
 					router.reset();
 					login.logout();
 				});
 				
-				apploader(ui, router)
+				apploader(ui, router, storage)
 				.then(function(apps) {
 					ui.start(user, apps, router);
 					router.start();
@@ -101,12 +85,9 @@
 		}
 		
 		login.loggedIn.add(checkLogin);
-		login.status(function(err, user) {
-			if (err) {
-				error(err);
-			} else {
-				checkLogin(user);
-			}
-		});
+		
+		login.status()
+		.then(checkLogin)
+		.otherwise(error);
 	});
-}(this));
+}());

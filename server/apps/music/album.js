@@ -14,6 +14,7 @@ var mimetypes = {
 
 var coverSearch = {};
 
+
 /**
  * Album schema
  */

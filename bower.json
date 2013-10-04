@@ -3,9 +3,11 @@
   "version": "0.0.0",
   "main": "client/index.html",
   "dependencies": {
+  	"ist": "*",
     "js-signals": "*",
     "requirejs": "*",
     "requirejs-domready": "*",
     "when": "*"
-  }
+  },
+  "private": true
 }

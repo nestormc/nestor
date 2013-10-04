@@ -1,0 +1,47 @@
+@define "inspector"
+	/* Arrays */
+	@if Array.isArray(v)
+		table.array
+			tr.head
+				th.expand[!click=function(){this.parentNode.parentNode.classList.toggle('expanded');}]
+				th "[Array]"
+			@each v
+				tr.data
+					td.key "{{ loop.index }}"
+					td
+						/* TODO fix this in IST, string elements are passed as weird array-like objects
+						   with the String ctor... ?! */
+						@with {v: loop.outer.v[loop.index]}
+							@use "inspector"
+
+	/* Non-null objects */
+	@if !Array.isArray(v) && typeof v === "object" && v !== null
+		table.object
+			tr.head
+				th.expand[!click=function(){this.parentNode.parentNode.classList.toggle('expanded');}]
+				th "[Object]"
+			@eachkey v
+				tr.data
+					td.key "{{ key }}"
+					td
+						@with {v: value}
+							@use "inspector"
+
+	/* Other primitives */
+	@if v === null
+		.null "null"
+
+	@if typeof v === "string"
+		.string "{{ v }}"
+
+	@if typeof v === "boolean"
+		.bool "{{ v }}"
+
+	@if typeof v === "number"
+		.number "{{ v }}"
+
+	@if typeof v === "undefined"
+		.undefined "undefined"
+
+@with {v: this}
+	@use "inspector"

@@ -1,0 +1,2 @@
+@each tracks
+	[data-id={{ trackId }}][data-file=/rest/tracks/{{ trackId }}/file][data-artist={{ artist }}][data-title={{ title }}]

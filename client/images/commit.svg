@@ -9,12 +9,12 @@
    xmlns="http://www.w3.org/2000/svg"
    xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
    xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
-   width="28.346457"
-   height="29.409449"
+   width="35.433071"
+   height="35.433071"
    id="svg2"
    version="1.1"
    inkscape:version="0.48.4 r9939"
-   sodipodi:docname="playlist-enqueue.svg">
+   sodipodi:docname="cancel.svg">
   <defs
      id="defs4">
     <linearGradient
@@ -47,27 +47,27 @@
      borderopacity="1.0"
      inkscape:pageopacity="0.0"
      inkscape:pageshadow="2"
-     inkscape:zoom="22.279382"
-     inkscape:cx="14.914158"
-     inkscape:cy="14.249425"
-     inkscape:document-units="cm"
-     inkscape:current-layer="layer1"
+     inkscape:zoom="8"
+     inkscape:cx="-5.7030905"
+     inkscape:cy="13.013893"
+     inkscape:document-units="px"
+     inkscape:current-layer="layer2"
      showgrid="true"
      units="cm"
      inkscape:window-width="1920"
-     inkscape:window-height="1017"
+     inkscape:window-height="1020"
      inkscape:window-x="0"
-     inkscape:window-y="30"
+     inkscape:window-y="27"
      inkscape:window-maximized="1">
     <inkscape:grid
        type="xygrid"
        id="grid2985"
-       empspacing="5"
+       empspacing="8"
        visible="true"
        enabled="true"
        snapvisiblegridlinesonly="true"
        units="cm"
-       spacingx="0.05cm"
+       spacingx="0.0125cm"
        spacingy="0.0125cm"
        originx="0cm"
        originy="0cm" />
@@ -80,36 +80,19 @@
         <dc:format>image/svg+xml</dc:format>
         <dc:type
            rdf:resource="http://purl.org/dc/dcmitype/StillImage" />
-        <dc:title />
+        <dc:title></dc:title>
       </cc:Work>
     </rdf:RDF>
   </metadata>
   <g
-     inkscape:label="Calque 1"
      inkscape:groupmode="layer"
-     id="layer1"
-     transform="translate(0,-1022.9527)">
-    <path
-       style="fill:#acacac;fill-opacity:1;fill-rule:evenodd;stroke:none"
-       d="m 0.5141319,1023.1035 c -0.24546922,0 -0.46897567,0.1921 -0.46897567,0.4375 l 0,2.6562 c 0,0.2454 0.22350645,0.4688 0.46897567,0.4688 l 23.8552291,0 3.908131,-3.4375 c -0.08009,-0.08 -0.189916,-0.125 -0.312651,-0.125 l -27.4507091,0 z"
-       id="rect3014"
-       inkscape:connector-curvature="0" />
+     id="layer2"
+     inkscape:label="edit">
     <path
        style="fill:#acacac;fill-opacity:1;stroke:none"
-       d="m 28.417323,1029.3236 0,12.4015 -7.090026,-6.2007 z"
-       id="path3834-2"
+       d="M 27.46063,6.6437011 31.889764,11.072835 14.173228,28.78937 3.5433074,18.159449 7.9724412,13.730315 14.206139,19.898191 z"
+       id="path3209"
        inkscape:connector-curvature="0"
-       sodipodi:nodetypes="cccc" />
-    <path
-       style="fill:#acacac;fill-opacity:1;fill-rule:evenodd;stroke:none"
-       d="M 0.46897567,1033.7455 C 0.22348524,1033.7453 0,1033.9689 0,1034.2142 l 0,2.6563 c 0,0.2454 0.22348514,0.4375 0.46897567,0.4375 l 15.49564433,-0.01 -1.772506,-1.7717 1.772506,-1.7716 z"
-       id="rect3012-9"
-       inkscape:connector-curvature="0"
-       sodipodi:nodetypes="sssscccs" />
-    <path
-       style="fill:#acacac;fill-opacity:1;fill-rule:evenodd;stroke:none"
-       d="m 0.51388178,1047.933 c -0.24546922,0 -0.46897567,-0.1921 -0.46897567,-0.4375 l 0,-2.6562 c 0,-0.2454 0.22350645,-0.4688 0.46897567,-0.4688 l 23.85522922,0 3.90813,3.4375 c -0.08009,0.08 -0.189915,0.125 -0.31265,0.125 l -27.45070922,0 z"
-       id="rect3014-7"
-       inkscape:connector-curvature="0" />
+       sodipodi:nodetypes="ccccccc" />
   </g>
 </svg>

@@ -3,29 +3,30 @@
  **/
 
 /* Roboto Condensed - Apache 2.0 license */
+/* Lato - OFL 1.1 */
 /* Julian sans one - OFL 1.1 */
 
 @font-face {
     font-family: NestorFont;
-    src: url(../fonts/Roboto-Light.ttf);
+    src: url(../fonts/Lato-Light.ttf);
 }
 
 @font-face {
     font-family: NestorFont;
-    src: url(../fonts/Roboto-Regular.ttf);
+    src: url(../fonts/Lato-Regular.ttf);
     
     font-weight: bold;
 }
 
 @font-face {
     font-family: NestorFont;
-    src: url(../fonts/Roboto-LightItalic.ttf);
+    src: url(../fonts/Lato-LightItalic.ttf);
     font-style: italic;
 }
 
 @font-face {
     font-family: NestorFont;
-    src: url(../fonts/Roboto-Italic.ttf);
+    src: url(../fonts/Lato-Italic.ttf);
     font-weight: bold;
     font-style: italic;
 }
@@ -267,10 +268,18 @@ body {
 		.applet {
 			margin-bottom: @margins;
 
-			img.icon {
+			img.icon, .icon svg {
 				width: 1em;
 				height: 1em;
 				margin: .2em;
+			}
+
+			svg * {
+				fill: @midGray !important;
+			}
+
+			a:hover svg * {
+				fill: @yellow !important;
 			}
 		}
 
@@ -313,8 +322,30 @@ body {
 	
 	background-color: @lightGray;
 
+	#search {
+		background-color: @darkGray;
+		padding: .25em;
+
+		display: none;
+
+		input {
+			border: 0;
+			background-color: @lightGray;
+		}
+	}
+
 	.container {
 		font-size: .75em;
+
+		.icon {
+			svg * {
+				fill: @mlGray !important;
+			}
+
+			&:hover svg * {
+				fill: @midGray !important;
+			}
+		}
 	}
 	
 	.datagrid {
@@ -336,3 +367,76 @@ body {
 	}
 }
 
+#debug {
+	background-color: @darkGray;
+	position: absolute;
+	top: 0;
+	left: 0;
+	right: 0;
+	bottom: 0;
+	display: none;
+
+	a {
+		color: @mlGray;
+	}
+
+	#loading {
+		color: white;
+		font-size: .75em;
+		font-style: italic;
+
+		display: none;
+	}
+
+	#display {
+		color: white;
+		font-size: .75em;
+		overflow: auto;
+		
+		&, td {
+			font-family: monospace;
+			vertical-align: top;
+		}
+
+		th {
+			text-align: left;
+		}
+
+		td.key:after {
+			content: ':';
+		}
+
+		th, td.key {
+			color: @mlGray;
+		}
+
+		.string:before, .string:after {
+			content: '"';
+		}
+
+		.string {
+			white-space: pre;
+		}
+
+		.undefined, .null {
+			font-style: italic;
+		}
+
+		th.expand:after {
+			content: '(+)';
+		}
+
+		table.expanded > tr > th.expand:after {
+			content: '(-)';
+		}
+
+		tr.data {
+			display: none;
+		}
+
+		table.expanded > tr.data {
+			display: table-row;
+		}
+
+	}
+}
