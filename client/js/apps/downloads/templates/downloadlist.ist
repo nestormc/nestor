@@ -1,0 +1,45 @@
+.downloadlist.content-box
+	table[width=100%].content-list
+		@if downloads.length === 0
+			tr.header
+				th "No downloads"
+		@else
+			@each downloads
+				tr.download[data-id={{ _id }}]
+					td
+						span.icon
+							@svg "images/" + type + ".svg"
+					td "{{ name }}"
+					td "{{ size === -1 ? '-' : humanSize(size, 'B') }}"
+					td "{{ state }}"
+					td[width=114em]
+						@with size ? 100 * downloaded / size : 0
+							@use "progress-bar"
+					td
+						@if uploadRate > 0
+							span.icon
+								@svg "images/upload.svg"
+							"{{ humanSize(uploadRate, 'B/s') }}"
+						@else
+							"-"
+					td
+						@if downloadRate > 0
+							span.icon
+								@svg "images/download.svg"
+							"{{ humanSize(downloadRate, 'B/s') }}"
+						@else
+							"-"
+					td
+						@if state !== "paused" && state !== "complete"
+							a.active-icon[title=Pause][href=#!downloads/pause/{{ _id }}]
+								@svg "images/pause.svg"
+
+						@if state === "paused"
+							a.active-icon[title=Resume][href=#!downloads/resume/{{ _id }}]
+								@svg "images/play.svg"
+
+						a.active-icon[title={{ state === "complete" || state === "error" ? "Remove" : "Cancel" }}][href=#!downloads/cancel/{{ _id }}]
+							@svg "images/cancel.svg"
+
+input#uri[type=text]
+input#startnew[type=button][value=download]

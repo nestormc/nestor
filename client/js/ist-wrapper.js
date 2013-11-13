@@ -14,8 +14,24 @@ define(["ist", "ajax", "dom"], function(ist, ajax, dom) {
 			fragment.appendChild(container);
 		}
 
+		if (container.loading === data.src || container.loaded === data.src) {
+			// Already loading or loaded this SVG, do nothing
+			return;
+		}
+
+		container.loading = data.src;
+		delete container.loaded;
+
 		ajax.cachedXML(data.src).then(function(xml) {
 			var svg = context.importNode(xml.querySelector("svg"), true);
+
+			if (container.loading !== data.src) {
+				// Already loading an other URI for this SVG, ignore this one
+				return;
+			}
+
+			delete container.loading;
+			container.loaded = data.src;
 
 			// Allow resize
 			svg.setAttribute("preserveAspectRatio", "xMinYMin meet");
@@ -32,6 +48,12 @@ define(["ist", "ajax", "dom"], function(ist, ajax, dom) {
 				container.appendChild(svg);
 			}
 		}).otherwise(function(err) {
+			if (container.loading !== data.src) {
+				// Already loading an other URI for this SVG, ignore the error
+				return;
+			}
+
+			delete container.loading;
 			console.error(err);
 		});
 	});

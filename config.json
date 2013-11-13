@@ -15,13 +15,19 @@
 			"defaultLimit": 10
 		}
 	},
-	
-	"loglevel": {
-		"acl": "debug",
-		"http": "debug",
-		"media": "info",
-		"music": "debug",
-		"nestor": "debug",
-		"intents": "info"
+
+	"log4js": {
+		"appenders": [
+			{ "type": "console" }
+		],
+
+		"levels": {
+			"intents": "INFO",
+			"media": "INFO"
+		}
+	},
+
+	"downloads": {
+		"incoming": "/home/niko/tmp"
 	}
 }

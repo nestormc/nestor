@@ -15,7 +15,7 @@
 	.progress
 		.bar
 
-	img.cover[src=/rest/albums/51fc062ca6c35ee82600007d/cover]
+	img.cover[src=images/nocover.svg]
 
 	.track "-"
 	.artist "-"

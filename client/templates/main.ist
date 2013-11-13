@@ -28,3 +28,10 @@
 #viewport
 	#search
 		input[type=text]
+
+
+/* Components */
+
+@define "progress-bar"
+	.progress
+		.bar[.style.width={{ this }}%]

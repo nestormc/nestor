@@ -2,9 +2,9 @@
 "use strict";
 
 var crypto = require("crypto"),
+	logger = require("log4js").getLogger("acl"),
 
 	config = require("./config").acl,
-	logger = require("./logger").createLogger("acl"),
 	server = require("./server"),
 	
 	adminEnabled, adminPassword;
@@ -17,7 +17,7 @@ exports.init = function() {
 	if (!adminPassword) {
 		adminPassword = crypto.randomBytes(6).toString("hex");
 		
-		logger.notice("admin password is %s %s %s %s",
+		logger.info("admin password is %s %s %s %s",
 			adminPassword.substr(0, 3),
 			adminPassword.substr(3, 3),
 			adminPassword.substr(6, 3),
@@ -30,7 +30,7 @@ exports.init = function() {
 			var adminKey = crypto.createHmac("sha1", salt).update(adminPassword).digest("hex");
 
 			if (adminEnabled && user === "admin" && passSalted === adminKey) {
-				logger.notice("Admin login from %s", host);
+				logger.info("Admin login from %s", host);
 				callback(null, true);
 			} else {
 				callback(null, false);

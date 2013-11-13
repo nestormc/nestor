@@ -74,7 +74,7 @@ define(["ui"], function(ui) {
 	function trackTimeUpdate(track, player) {
 		player.updatePlayTime(track);
 	}
-
+	
 
 	return function createAudioTrack(player, element) {
 		var audio = new Audio();

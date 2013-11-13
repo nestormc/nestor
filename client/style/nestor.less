@@ -274,7 +274,11 @@ body {
 				margin: .2em;
 			}
 
-			svg * {
+			.icon.active svg * {
+				fill: @yellow !important;
+			}
+
+			a svg * {
 				fill: @midGray !important;
 			}
 
@@ -337,13 +341,63 @@ body {
 	.container {
 		font-size: .75em;
 
-		.icon {
+		.icon, .active-icon {
+			svg {
+				height: 1em;
+				width: 1em;
+			}
+		}
+
+		.active-icon {
 			svg * {
 				fill: @mlGray !important;
 			}
 
 			&:hover svg * {
 				fill: @midGray !important;
+			}
+		}
+
+		.content-box {
+			background-color: white;
+			border: 1px solid @mlGray;
+			margin: @contentBoxMargin;
+			padding: @contentBoxMargin;
+
+			table {
+				border-spacing: 0;
+				border-collapse: collapse;
+			}
+
+			.content-list {
+				&>:nth-child(2n+1) {
+					background-color: @xlightGray;
+				}
+			}
+
+			.content-list-with-header {
+				&>:nth-child(2n+2) {
+					background-color: @xlightGray;
+				}
+			}
+
+			.progress {
+				height: .3em;
+				
+				background-color: @midGray;
+				margin: 0;
+				position: relative;
+					
+				.bar {
+					position: absolute;
+					top: 0;
+					left: 0;
+					
+					height: 100%;
+					width: 0;
+					background-color: @yellow;
+				}
+				
 			}
 		}
 	}

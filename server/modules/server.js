@@ -4,18 +4,16 @@
 var crypto = require("crypto"),
 	express = require("express"),
 	lessMiddleware = require("less-middleware"),
-	util = require("util"),
 	yarm = require("yarm"),
+	logger = require("log4js").getLogger("server"),
 	
 	config = require("./config").server,
-	logger = require("./logger").createLogger("http"),
+	share = require("./share"),
 	
 	app = express();
 
 
 /* Basic express configuration */
-app.use(express.bodyParser());
-app.use(express.methodOverride());
 app.use(express.cookieParser());
 app.use(express.session({
 	secret: crypto.randomBytes(32).toString("base64"),
@@ -47,30 +45,51 @@ app.use("/heartbeat", function(req, res) {
 
 /* Log REST requests */
 app.use("/rest", function(req, res, next) {
-	var message = util.format("%s %s", req.method, req.url);
-
 	if (req.body && Object.keys(req.body).length > 0) {
-		message += "\nRequest-body: " + util.inspect(req.body);
+		logger.debug("%s %s %j", req.method, req.url, req.body);
+	} else {
+		logger.debug("%s %s", req.method, req.url);
 	}
-
-	logger.debug(message);
-
+	
 	next();
 });
 
 /* Serve YARM rest resources */
+app.use("/rest", express.json());
 app.use("/rest", yarm());
+
+/* Downloads */
+app.get("/download/:shortId", function(req, res, next) {
+	share.pipeShortIdStream(req, req.params.shortId, function(name) {
+		res.setHeader("Content-Type", "application/octet-stream");
+		res.setHeader("Content-Disposition", "attachment; filename=\"" + name.replace(/"/g, "\\\"") + "\"");
+	}, res, function(err) {
+		if (err) {
+			res.send(404, "Not found");
+		}
+	});
+});
+
+app.get("/download/:provider/:resource", function(req, res, next) {
+	share.pipeDownloadStream(req.params.provider, req.params.resource, function(name) {
+		res.setHeader("Content-Type", "application/octet-stream");
+		res.setHeader("Content-Disposition", "attachment; filename=\"" + name.replace(/"/g, "\\\"") + "\"");
+	}, res, function(err) {
+		if (err) {
+			res.send(404, "Not found");
+		}
+	});
+});
 
 /* Catchall error handler */
 app.use(function errorHandler(err, req, res, next) {
 	logger.error("Unhandled exception: %s\n%s", err.message, err.stack);
-	next(err);
 });
 
-/* Override Buffer toJSON */
+/* Override Buffer toJSON, just in case yarm sends and object with a huge buffer */
 Buffer.prototype.toJSON = function() {
 	return "[Buffer]";
-}
+};
 
 exports.authHandler = function(handler) {
 	function ensureSalt(req) {

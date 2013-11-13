@@ -6,10 +6,12 @@ var fs = require("fs"),
 	when = require("when"),
 	wseq = require("when/sequence"),
 	yarm = require("yarm"),
+	log4js = require("log4js"),
+	logger = log4js.getLogger("nestor"),
 	
 	config = require("./config"),
-	logger = require("./logger"),
 	intents = require("./intents"),
+	share = require("./share"),
 	
 	apps = {},
 	clientApps = [];
@@ -19,7 +21,8 @@ exports.init = function(basedir) {
 		services = {
 			config: config,
 			rest: yarm,
-			intents: intents
+			intents: intents,
+			share: share
 		};
 	
 	try {
@@ -75,7 +78,7 @@ exports.init = function(basedir) {
 			).then(
 				function depsLoaded() {
 					var appServices = Object.create(services);
-					appServices.logger = logger.createLogger(name);
+					appServices.logger = log4js.getLogger(name);
 					
 					return app.init(appServices).then(
 						function appLoaded() {

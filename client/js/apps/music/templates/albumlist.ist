@@ -1,38 +1,50 @@
 .albumlist
 	@each artists
 		.artist[data-name={{ name }}]
-			.artistHeader "{{ name || 'Unknown artist' }}"
+			.artist-header "{{ name || 'Unknown artist' }}"
 			@each albums
-				.album[data-id={{ _id }}]
+				.album.content-box[data-id={{ _id }}][data-artist={{ artist }}][data-title={{ title }}]
 					.edit-controls
-						a.icon.edit[title=Edit metadata][href=#!music/editAlbum/{{ _id }}]
+						a.active-icon.edit[title=Edit metadata][href=#!music/editAlbum/{{ _id }}]
 							@svg "images/edit.svg"
-						a.icon.save[title=Save changes][href=#!music/commitAlbumEdit/{{ _id }}]
+						a.active-icon.save[title=Save changes][href=#!music/commitAlbumEdit/{{ _id }}]
 							@svg "images/commit.svg"
-						a.icon.cancel[title=Cancel changes][href=#!music/cancelAlbumEdit/{{ _id }}]
+						a.active-icon.cancel[title=Cancel changes][href=#!music/cancelAlbumEdit/{{ _id }}]
 							@svg "images/cancel.svg"
+						a.active-icon.download[title=Download album][href=/download/music/album:{{ _id }}]
+							@svg "images/download.svg"
 
 					.info
-						img.cover[src=/rest/covers/album:{{ artist }}:{{ title }}]
+						.cover
+							img.current[src=/rest/covers/album:{{ artist }}:{{ title }}]
+							.dropzone
+								img.valid
+								span.dragging
+									@svg "images/dragimage.svg"
+								span.invalid
+									@svg "images/cancel.svg"
 						span.title.editable "{{ title || 'Unknown album' }}"
 						span.artist
 							span.by "by "
 							span.name.editable "{{ artist || 'Unknown artist' }}"
 						span.year.editable "{{ year }}"
 
-					ul.tracklist
+					ul.tracklist.content-list
 						@each tracks
 							li.track[data-id={{ _id }}][data-file={{ _href }}/file][data-artist={{ artist }}][data-album={{ album }}][data-title={{ title }}]
-								span.playIndicator
+								span.play-indicator
 									@svg "images/playing.svg"
 								span.number.editable "{{ number }}"
 								span.title.editable "{{ title || 'Unknown title' }}"
 								span.controls
-									a.icon[title=Play next][href=#!music/enqueue/{{ _id }}]
+									a.active-icon[title=Play next][href=#!music/enqueue/{{ _id }}]
 										@svg "images/playlist-enqueue.svg"
-									a.icon[title=Add to playlist][href=#!music/add/{{ _id }}]
+									a.active-icon[title=Add to playlist][href=#!music/add/{{ _id }}]
 										@svg "images/playlist-add.svg"
+									a.active-icon[title=Download track][href=/download/music/track:{{ _id }}]
+										@svg "images/download.svg"
 								span.length "{{ humanTime(length) }}"
 
+.cover-search
 .loading
 	"Loading !"

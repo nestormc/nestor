@@ -10,14 +10,17 @@
   "dependencies": {
     "express": "*",
     "inotify-plusplus": "*",
-    "less-middleware": "git://github.com/njoyard/less.js-middleware.git",
+    "less-middleware": "njoyard/less.js-middleware",
+    "log4js": "*",
     "mongodb": "*",
     "mongoose": "*",
     "mongoose-text-search": "*",
     "node-ffprobe": "*",
+    "node-torrent": "superafroman/node-torrent",
     "when": "*",
-    "yarm": "*",
-    "bower": "~1.1.2"
+    "yarm": "njoyard/yarm",
+    "bower": "~1.1.2",
+    "zipstream": "red56/node-zipstream"
   },
   "scripts": {
     "postinstall": "node_modules/.bin/bower install"

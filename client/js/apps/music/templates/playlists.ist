@@ -1,28 +1,28 @@
 @define "music-playlist-track"
-	li.track[data-id={{ trackId }}][data-file=/rest/tracks/{{ trackId }}/file][data-artist={{ artist }}][data-title={{ title }}]
-		span.playIndicator
+	li.track[data-id={{ _id }}][data-file=/rest/tracks/{{ _id }}/file][data-artist={{ artist }}][data-album={{ album }}][data-title={{ title }}]
+		span.play-indicator
 			@svg "images/playing.svg"
 		span.number "{{ loop.index + 1 }}"
 		span.artist "{{ artist || 'Unknown artist' }} "
 		span.title "{{ title || 'Unknown title' }}"
 		span.controls
-			a.icon[title=Play next][href=#!music/enqueue/{{ trackId }}]
+			a.active-icon[title=Play next][href=#!music/enqueue/{{ _id }}]
 				@svg "images/playlist-enqueue.svg"
-			a.icon[title=Add to playlist][href=#!music/add/{{ trackId }}]
+			a.active-icon[title=Add to playlist][href=#!music/add/{{ _id }}]
 				@svg "images/playlist-add.svg"
 		span.length "{{ humanTime(length) }}"
 
 
 @define "music-playlist"
-	.playlist[data-name={{ name }}]
+	.playlist.content-box[data-name={{ name }}]
 		.info
 			span.title
-				span.playIndicator[title=Currently playing]
+				span.play-indicator[title=Currently playing]
 					@svg "images/playing.svg"
 				"{{ name === '!floating' ? 'Current playlist' : name }}"
 			span.artist "{{ artists.join(', ') }}"
 			span.tracks "{{ tracks.length }} tracks"
-		ul.tracklist
+		ul.tracklist.content-list
 			@each tracks
 				@use "music-playlist-track"
 

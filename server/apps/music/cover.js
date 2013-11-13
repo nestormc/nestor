@@ -4,7 +4,7 @@
 
 var mongoose = require("mongoose"),
 	fs = require("fs"),
-	path = require("path");
+	wget = require("../../modules/wget");
 
 
 /**
@@ -13,6 +13,7 @@ var mongoose = require("mongoose"),
 
 var CoverSchema = new mongoose.Schema({
 	key: { type: String, index: true },
+	type: String,
 	cover: Buffer
 });
 
@@ -44,8 +45,48 @@ module.exports = {
 			overrides: {
 				"covers/$": {
 					get: function(chain, req, cb) {
-						var buffer = chain[chain.length - 1].cover;
-						cb(null, new rest.ResponseBody(buffer, "image/jpeg"));
+						var cover = chain[chain.length - 1];
+						cb(null, new rest.ResponseBody(cover.cover, cover.type));
+					}
+				},
+
+				"covers": {
+					post: function(chain, req, cb) {
+						var key = req.body.key;
+
+						Cover.remove({ key: key }, function(err) {
+							if ("type" in req.body && "data" in req.body) {
+								if (err) {
+									cb(err);
+								} else {
+									var cover = new Cover({
+										key: key,
+										type: req.body.type,
+										cover: new Buffer(req.body.data, "base64")
+									});
+
+									cover.save(function(err) {
+										cb(err);
+									});
+								}
+							} else if ("url" in req.body) {
+								wget(req.body.url, function(err, type, buffer) {
+									if (err) {
+										cb(err);
+									} else {
+										var cover = new Cover({
+											key: key,
+											type: type,
+											cover: buffer
+										});
+
+										cover.save(function(err) {
+											cb(err);
+										});
+									}
+								});
+							}
+						});
 					}
 				}
 			}
@@ -80,6 +121,7 @@ module.exports = {
 							if (!err) {
 								cover = new Cover({
 									key: key,
+									type: "image/jpeg",
 									cover: new Buffer(data)
 								});
 

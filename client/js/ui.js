@@ -100,10 +100,45 @@ function(ist, template, signals, ajax, dom, debug) {
 			function showContainer(container) {
 				if (activeContainer) {
 					activeContainer.style.display = "none";
+					activeContainer.undisplayed.dispatch();
 				}
 
 				container.style.display = "block";
+				container.displayed.dispatch();
 				activeContainer = container;
+			}
+
+			function setContainerUpdater(container, updater, interval) {
+				var handle = null,
+					helpers = {
+						clear: function() {
+							clearTimeout(handle);
+							handle = null;
+						},
+
+						trigger: function() {
+							helpers.clear();
+							run();
+						}
+					};
+
+				function run() {
+					updater(done);
+				}
+
+				function done() {
+					handle = setTimeout(run, interval);
+				}
+
+				container.displayed.add(function() {
+					run();
+				});
+
+				container.undisplayed.add(function() {
+					helpers.clear();
+				});
+
+				return helpers;
 			}
 
 			
@@ -120,7 +155,10 @@ function(ist, template, signals, ajax, dom, debug) {
 					c.$$ = $$.bind(null, c);
 					c.behave = dom.behave.bind(null, c);
 					c.show = showContainer.bind(null, c);
+					c.setUpdater = setContainerUpdater.bind(null, c);
 
+					c.displayed = new signals.Signal();
+					c.undisplayed = new signals.Signal();
 					c.scrolledToEnd = new signals.Signal();
 					
 					containers[aname] = c;

@@ -1,24 +1,4 @@
 /*jshint browser:true */
-/*global require, define, $, $$ */
+/*global define */
 
-define(["when"], function(when) {
-	"use strict";
-	
-	return {
-		manifest: {
-			"title": "downloads",
-			"pages": {
-				"downloads": { icon: "downloads" },
-				"search": { icon: "search" }
-			}
-		},
-		
-		init: function() {
-			return when.resolve();
-		},
-		
-		renderApplet: function() {
-			return document.createTextNode("Downloads Applet");
-		}
-	};
-});
+define(["./downloads"], function(downloads) { "use strict"; return downloads; });

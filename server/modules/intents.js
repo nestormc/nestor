@@ -2,13 +2,12 @@
 "use strict";
 
 var util = require("util"),
+	logger = require("log4js").getLogger("intents"),
 	
 	intents = {},
 	handlers = {},
 	queues = {},
-	processing = {},
-	
-	logger = require("./logger").createLogger("intents");
+	processing = {};
 	
 	
 function prepareIntent(intent) {
@@ -28,7 +27,7 @@ function processQueue(intent) {
 		handlersCopy,
 		args = queues[intent].shift();
 
-	logger.debug("Processing intent %s (%s)", intent, args ? util.inspect(args) : "no data");
+	logger.debug("Processing intent %s (%j)", intent, args);
 
 	prepareIntent(intent);
 	handlersCopy = handlers[intent].slice();
@@ -74,7 +73,7 @@ intents.dispatch = function(intent, args) {
 		queues[intent] = [];
 	}
 
-	logger.debug("Intent %s dispatched (%s)", intent, args ? util.inspect(args) : "no data");
+	logger.debug("Intent %s dispatched (%j)", intent, args);
 	queues[intent].push(args);
 
 	if (!processing[intent]) processQueue(intent);
