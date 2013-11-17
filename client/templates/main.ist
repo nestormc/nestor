@@ -30,6 +30,10 @@
 		input[type=text]
 
 
+#popup
+	#background
+	#content
+
 /* Components */
 
 @define "progress-bar"

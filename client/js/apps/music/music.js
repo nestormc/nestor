@@ -23,7 +23,7 @@ function(
 	"use strict";
 
 	var music,
-		currentContainer, currentTrackId, currentPlaylist;
+		currentTrackId, currentPlaylist;
 
 
 	// TODO un-global this
@@ -44,6 +44,8 @@ function(
 				"playlists": { icon: "playlist" }
 			}
 		},
+
+		currentContainer: null,
 
 		setupListHandler: function(route, resource, updater, template, behaviour) {
 			var loaded = false,
@@ -116,16 +118,16 @@ function(
 					});
 				}
 
-				currentContainer = container;
+				music.currentContainer = container;
 				container.show();
 				next();
 			});
 		},
 
 		refreshCurrentTrack: function() {
-			if (currentContainer) {
-				var track = currentContainer.$(".track[data-id='" + currentTrackId + "']"),
-					playing = currentContainer.$(".track.playing");
+			if (music.currentContainer) {
+				var track = music.currentContainer.$(".track[data-id='" + currentTrackId + "']"),
+					playing = music.currentContainer.$(".track.playing");
 
 				if (playing) {
 					playing.classList.remove("playing");
@@ -138,10 +140,10 @@ function(
 		},
 
 		refreshCurrentPlaylist: function() {
-			if (currentContainer) {
-				var playlist = currentContainer.$(".playlist[data-name='" + currentPlaylist + "']"),
-					playing = currentContainer.$(".playlist.playing"),
-					floating = currentContainer.$(".playlist[data-name='!floating']");
+			if (music.currentContainer) {
+				var playlist = music.currentContainer.$(".playlist[data-name='" + currentPlaylist + "']"),
+					playing = music.currentContainer.$(".playlist.playing"),
+					floating = music.currentContainer.$(".playlist[data-name='!floating']");
 
 				if (floating) {
 					floating.style.display = currentPlaylist === "!floating" ? "block" : "none";
@@ -167,14 +169,14 @@ function(
 			/* Enqueue track actions */
 		
 			router.on("!enqueue/:id", function(err, req, next) {
-				var track = currentContainer.$(".track[data-id='" + req.match.id + "']");
+				var track = music.currentContainer.$(".track[data-id='" + req.match.id + "']");
 				player.enqueue(track, player.playing === -1 ? 0 : player.playing + 1);
 
 				next();
 			});
 
 			router.on("!add/:id", function(err, req, next) {
-				var track = currentContainer.$(".track[data-id='" + req.match.id + "']");
+				var track = music.currentContainer.$(".track[data-id='" + req.match.id + "']");
 				player.enqueue(track);
 
 				next();

@@ -5,7 +5,6 @@ var mongoose = require("mongoose"),
 	ncall = require("when/node/function").call,
 	logger = require("log4js").getLogger("nestor"),
 
-	acl = require("./modules/acl"),
 	apploader = require("./modules/apploader"),
 	config = require("./modules/config"),
 	intents = require("./modules/intents"),
@@ -23,7 +22,6 @@ module.exports = function startup() {
 		mongoose.connect(config.database, cb);
 	})
 	.then(apploader.init.bind(null, __dirname))
-	.then(acl.init)
 	.then(share.init)
 	.then(server.init)
 	.then(function() {

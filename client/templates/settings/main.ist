@@ -1,0 +1,10 @@
+@each panes
+	.pane.content-box
+		.info
+			.pane-icon
+				@svg "images/" + icon + ".svg"
+			.title "{{ title }}"
+			.description "{{ description }}"
+
+		.settings
+			@dom render()

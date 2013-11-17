@@ -21,6 +21,7 @@
 	        async: "bower/requirejs-plugins/src/async",
 	        goog: "bower/requirejs-plugins/src/goog",
 	        propertyParser : "bower/requirejs-plugins/src/propertyParser",
+	        moment: "bower/momentjs/moment",
 
 			tmpl: "../templates"
 		},
@@ -49,8 +50,8 @@
 	}
 
 	mainRequire(
-	["dom", "login", "ui", "router", "storage", "apploader", "rest"],
-	function(dom, login, ui, router, storage, apploader, rest) {
+	["dom", "login", "ui", "router", "settings", "storage", "apploader", "rest"],
+	function(dom, login, ui, router, settings, storage, apploader, rest) {
 		var $ = dom.$;
 
 		rest.heartBeatLost.add(function(err) {
@@ -67,6 +68,26 @@
 			lost.style.display = "none";
 		});
 
+		var getErrorParameter = (function() {
+			var rxPlus = /\+/g,
+				rxRoute = /error=([^&]*)/;
+
+			function decode(str) {
+				return decodeURIComponent(str.replace(rxPlus, " "));
+			}
+
+			return function() {
+				var query = location.search.substring(1),
+					match = rxRoute.exec(query);
+
+				if (match) {
+					return decode(match[1]);
+				}
+			};
+		}());
+
+		var loginError = getErrorParameter();
+
 		function checkLogin(user) {
 			if (user) {
 				storage.user = user;
@@ -80,12 +101,13 @@
 				
 				apploader(ui, router, storage)
 				.then(function(apps) {
-					ui.start(user, apps, router);
+					ui.start(user, apps, router, settings);
 					router.start();
 				})
 				.otherwise(error);
 			} else {
-				login();
+				login(loginError);
+				loginError = false;
 			}
 		}
 		

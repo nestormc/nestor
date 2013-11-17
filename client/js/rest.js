@@ -26,24 +26,9 @@ define(["ajax", "when", "signals"], function(ajax, when, signals) {
 			return d.promise;
 		}
 
-		ajax.text(method, uri, data)
-		.then(function(text) {
-			if (text) {
-				var throwed, obj;
-
-				try {
-					obj = JSON.parse(text);
-				} catch(e) {
-					throwed = true;
-					d.reject(e);
-				}
-
-				if (!throwed) {
-					d.resolve(obj);
-				}
-			} else {
-				d.resolve();
-			}
+		ajax.json(method, uri, data)
+		.then(function(json) {
+			d.resolve(json);
 		})
 		.otherwise(function(err) {
 			d.reject(err);

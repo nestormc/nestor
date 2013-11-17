@@ -1,7 +1,7 @@
 /*jshint browser:true */
 /*global require, define */
 
-define(["require", "when", "rest"], function(mainRequire, when, rest) {
+define(["require", "when", "rest", "settings/shares"], function(mainRequire, when, rest, shares) {
 	"use strict";
 	
 	return function(ui, router, storage) {
@@ -26,6 +26,10 @@ define(["require", "when", "rest"], function(mainRequire, when, rest) {
 
 					ui: function(app) {
 						return ui.subUI(app);
+					},
+
+					share: function(app) {
+						return shares.getShareInterface(app);
 					}
 				};
 

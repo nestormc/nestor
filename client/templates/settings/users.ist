@@ -1,0 +1,27 @@
+ul.content-list
+	@if users.length === 0
+		"No users"
+	@each users
+		li.list-item
+			.list-item-status "Last logged in {{ lastLogin }}"
+			
+			.list-item-description
+				.list-item-title "{{ displayName }}"
+				.list-item-subtitle
+					span.icon
+						@if provider === "google"
+							img[src=images/google/hover.png]
+						@if provider === "twitter"
+							@svg "images/twitter/hover.svg"
+
+					"{{ userid }}"
+
+			.list-item-actions
+				@if rights.indexOf("nestor:login") === -1
+	 				a.action-with-icon[title=Enable access for user][href=#!settings/users/enable/{{ identifier }}]
+	 					@svg "images/commit.svg"
+	 					"Enable access"
+				
+				a.action-with-icon[title=Remove user][href=#!settings/users/remove/{{ identifier }}]
+					@svg "images/cancel.svg"
+					"Remove user"

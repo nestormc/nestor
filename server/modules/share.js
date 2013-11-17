@@ -12,20 +12,21 @@ var crypto = require("crypto"),
 	zipstream = require("zipstream");
 
 
-/* Short ID generator (9 base64url-encoded random bytes) */
+/* Short ID generator (5 base64url-encoded random bytes) */
 function shortId() {
 	return crypto
-		.randomBytes(9)
+		.randomBytes(5)
 		.toString("base64")
 		.replace(/\//g, "_")
-		.replace(/\+/g, "-");
+		.replace(/\+/g, "-")
+		.replace(/=+$/, "");
 }
 
 
 /* Shared resource model */
 
 var ShareSchema = new mongoose.Schema({
-	shortId: String,
+	shortId: { type: String, default: "" },
 	provider: String,
 	resource: String,
 	description: String,
@@ -40,17 +41,29 @@ ShareSchema.methods.canSend = function() {
 		return false;
 	}
 
-	if (this.maxDownloads !== -1) {
-		if (this.downloadCount >= this.maxDownloads) {
-			return false;
-		}
-
-		this.downloadCount++;
-		this.save();
+	if (this.maxDownloads !== -1 && this.downloadCount >= this.maxDownloads) {
+		return false;
 	}
+
+
+	this.downloadCount++;
+	this.save();
 
 	return true;
 };
+
+ShareSchema.virtual("url").get(function() {
+	return getShareURI(this._request, this);
+});
+
+ShareSchema.pre("save", function(next) {
+	/* Generate short ID */
+	if (this.shortId === "") {
+		this.shortId = shortId();
+	}
+
+	next();
+});
 
 var Share = mongoose.model("share", ShareSchema);
 
@@ -232,6 +245,14 @@ function getResourceURI(req, provider, resource) {
 	);
 }
 
+function getShareURI(req, share) {
+	return util.format("%s://%s/download/%s",
+		req.protocol,
+		req.headers.host,
+		share.shortId
+	);	
+}
+
 function pipeDownloadStream(provider, resource, setName, outStream, cb) {
 	var builder = new DownloadStreamBuilder();
 
@@ -256,7 +277,18 @@ function pipeDownloadStream(provider, resource, setName, outStream, cb) {
 
 module.exports = {
 	init: function() {
-		yarm.mongooseResource("share", Share, { key: "shortId" });
+		yarm.mongooseResource("shares", Share, {
+			key: "shortId",
+
+			toObject: {
+				virtuals: true,
+
+				transform: function(doc, ret, options) {
+					delete ret._id;
+					delete ret.__v;
+				}
+			}
+		});
 	},
 
 	registerShareHandler: function(provider, handler) {

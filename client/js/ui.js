@@ -90,7 +90,7 @@ function(ist, template, signals, ajax, dom, debug) {
 
 			link.type = "text/css";
 			link.rel = "stylesheet";
-			link.href = "style/" + this.app + "/" + filename + "-min.css?namespace=" + encodeURIComponent(namespace);
+			link.href = "style/" + (this.app === "nestor" ? "" : this.app + "/") + filename + "-min.css?namespace=" + encodeURIComponent(namespace);
 
 			stylesheets.push(link);
 			document.querySelector("head").appendChild(link);
@@ -168,7 +168,7 @@ function(ist, template, signals, ajax, dom, debug) {
 			};
 		}()),
 		
-		start: function(user, apps, router) {
+		start: function(user, apps, router, settings) {
 			var manifests;
 			
 			/* Extract app manifests and render applet nodes */
@@ -195,7 +195,11 @@ function(ist, template, signals, ajax, dom, debug) {
 				})
 			);
 
+			/* Render debug pane */
 			mainContainer.appendChild(debug.render());
+
+			/* Initialize settings panes */
+			settings.init(this);
 
 			/* Applets are in the DOM, dispatch signal for apps */
 			this.appletsReady.dispatch();
@@ -312,6 +316,29 @@ function(ist, template, signals, ajax, dom, debug) {
 			madeSignals.forEach(function(s) {
 				s.removeAll();
 			});
+		},
+
+		popup: function(node, options) {
+			var popup = $("#popup"),
+				content = $(popup, "#content");
+			
+			content.appendChild(node);
+			popup.style.display = "block";
+
+			var controls = {
+				hide: function() {
+					content.innerHTML = "";
+					popup.style.display = "none";
+				},
+
+				resize: function() {
+					var height = content.offsetHeight;
+					content.style.marginTop = (-height/2) + "px";
+				}
+			};
+
+			controls.resize();
+			return controls;
 		}
 	};
 	

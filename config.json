@@ -1,15 +1,29 @@
 {
-	"acl": {
+	"auth": {
 		"admin": {
-			"enabled": true,
+			"disabled": false,
 			"password": "p"
+		},
+
+		"twitter": {
+			"key": "D1fV8bb96w3sgweMCzJ3JA",
+			"secret": "cl226nDDbbS8flvNBr8yB4AoZoXudWQJYhBKLbow0k"
 		}
 	},
 	
 	"database": "mongodb://localhost/nestor",
 	
 	"server": {
+		"host": "localhost",
 		"port": 8080,
+
+		"ssl": {
+			"mandatory": false,
+			"port": 443,
+			"keyFile": "server.key",
+			"certFile": "server.crt"
+		},
+
 		"sessionDays": 1,
 		"rest": {
 			"defaultLimit": 10
@@ -23,7 +37,9 @@
 
 		"levels": {
 			"intents": "INFO",
-			"media": "INFO"
+			"media": "INFO",
+			"server": "INFO",
+			"auth": "INFO"
 		}
 	},
 

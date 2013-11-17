@@ -13,6 +13,8 @@
 							@svg "images/cancel.svg"
 						a.active-icon.download[title=Download album][href=/download/music/album:{{ _id }}]
 							@svg "images/download.svg"
+						a.active-icon.share[title=Share album][href=#!music/shareAlbum/{{ _id }}/{{ artist }}/{{ title }}]
+							@svg "images/share.svg"
 
 					.info
 						.cover

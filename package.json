@@ -8,6 +8,7 @@
     "url": "git://github.com/njoyard/nestor.git"
   },
   "dependencies": {
+    "bower": "~1.1.2",
     "express": "*",
     "inotify-plusplus": "*",
     "less-middleware": "njoyard/less.js-middleware",
@@ -17,9 +18,12 @@
     "mongoose-text-search": "*",
     "node-ffprobe": "*",
     "node-torrent": "superafroman/node-torrent",
+    "passport": "*",
+    "passport-local": "*",
+    "passport-google": "*",
+    "passport-twitter": "*",
     "when": "*",
     "yarm": "njoyard/yarm",
-    "bower": "~1.1.2",
     "zipstream": "red56/node-zipstream"
   },
   "scripts": {

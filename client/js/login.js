@@ -1,26 +1,20 @@
 /*jshint browser:true */
 /*global define */
 
-define(["ist!tmpl/login", "hmac-sha1", "signals", "when", "rest", "dom"],
-function(template, hmacSHA1, signals, when, rest, dom) {
+define(["ist!tmpl/login", "signals", "when", "ajax", "dom"],
+function(template, signals, when, ajax, dom) {
 	"use strict";
 	
 	var $ = dom.$,
-		currentInput,
-		loginStatus = {
-			user: null,
-			salt: null
-		},
-		loginResource = {
+		currentInput;
+
+	var loginResource = {
 			status: function() {
 				var d = when.defer();
 
-				rest.get("login")
-				.then(function(result) {
-					loginStatus.user = (result ? result.user : null) || null;
-					loginStatus.salt = (result ? result.salt : null) || null;
-
-					d.resolve(loginStatus.user);
+				ajax.json("get", "/auth/status")
+				.then(function(status) {
+					d.resolve(status.user);
 				})
 				.otherwise(function(err) {
 					d.reject(err);
@@ -32,23 +26,11 @@ function(template, hmacSHA1, signals, when, rest, dom) {
 			login: function(user, password) {
 				var d = when.defer();
 
-				if (user === "admin") {
-					// Admin password: lowercase and remove spaces
-					password = password.toLowerCase().replace(/ /g, "");
-				}
-
-				rest.put("login", {
-					user: user,
-					password: hmacSHA1(password, loginStatus.salt).toString()
-				})
-				.then(function(result) {
-					loginStatus.user = result.user;
-
-					d.resolve(result.user);
+				ajax.json("post", "/auth/login", { username: user, password: password })
+				.then(function(status) {
+					d.resolve(status.user);
 				})
 				.otherwise(function(err) {
-					loginStatus.user = null;
-
 					d.reject(err);
 				});
 
@@ -56,9 +38,7 @@ function(template, hmacSHA1, signals, when, rest, dom) {
 			},
 
 			logout: function() {
-				loginStatus.user = null;
-
-				return rest.del("login").then(function() { return loginResource.status(); });
+				return ajax.text("get", "/auth/logout");
 			}
 		};
 	
@@ -83,6 +63,7 @@ function(template, hmacSHA1, signals, when, rest, dom) {
 					// Switch to password input
 					$("#password").style.display = "block";
 					$("#login").style.display = "none";
+					error(false);
 					
 					input.focus();
 					currentInput = input;
@@ -108,8 +89,17 @@ function(template, hmacSHA1, signals, when, rest, dom) {
 		}
 	};
 
+	function error(err) {
+		if (err === "not-authorized") {
+			err = "not authorized";
+		}
+
+		$("#login-container .error").innerHTML = err || "-";
+		$("#login-container .error").style.visibility = err ? "visible" : "hidden";
+	}
+
 	// Show login UI
-	function login(error) {
+	function login(err) {
 		if (!$("#login")) {
 			$("#login-container").replaceChild(
 				template.render({}),
@@ -123,7 +113,7 @@ function(template, hmacSHA1, signals, when, rest, dom) {
 		
 		$("#login-container").style.display = $("#login").style.display = "block";
 		$("#main-container").style.display = $("#password").style.display = "none";
-		$("#login .error").innerHTML = error || "";
+		error(err);
 		
 		input.value = $("#password input").value = "";
 		input.focus();

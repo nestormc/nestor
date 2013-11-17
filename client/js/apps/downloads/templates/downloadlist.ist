@@ -1,45 +1,53 @@
 .downloadlist.content-box
-	table[width=100%].content-list
+	input#uri[type=text]
+	input#startnew[type=button][value=download]
+	br
+	br
+
+	ul.content-list
 		@if downloads.length === 0
-			tr.header
-				th "No downloads"
+			"No downloads"
 		@else
 			@each downloads
-				tr.download[data-id={{ _id }}]
-					td
-						span.icon
-							@svg "images/" + type + ".svg"
-					td "{{ name }}"
-					td "{{ size === -1 ? '-' : humanSize(size, 'B') }}"
-					td "{{ state }}"
-					td[width=114em]
-						@with size ? 100 * downloaded / size : 0
-							@use "progress-bar"
-					td
-						@if uploadRate > 0
-							span.icon
-								@svg "images/upload.svg"
-							"{{ humanSize(uploadRate, 'B/s') }}"
+				li.list-item.download[data-id={{ _id }}]
+					@with size ? 100 * downloaded / size : 0
+						@use "progress-bar"
+
+					.list-item-status
+						@if ["paused", "complete", "error"].indexOf(state) !== -1
+							"{{ state }}"
 						@else
-							"-"
-					td
-						@if downloadRate > 0
+							@if uploadRate > 0
+								span.icon
+									@svg "images/upload.svg"
+								"{{ humanSize(uploadRate, 'B/s') }}"
+
+							@if downloadRate > 0
+								span.icon
+									@svg "images/download.svg"
+								"{{ humanSize(downloadRate, 'B/s') }}"
+
+					.list-item-description
+						.list-item-title "{{ name }}"
+
+						.list-item-subtitle
 							span.icon
-								@svg "images/download.svg"
-							"{{ humanSize(downloadRate, 'B/s') }}"
-						@else
-							"-"
-					td
+								@svg "images/" + type + ".svg"
+							"{{ size === -1 ? '-' : humanSize(size, 'B') }}"
+
+					.list-item-actions
 						@if state !== "paused" && state !== "complete"
-							a.active-icon[title=Pause][href=#!downloads/pause/{{ _id }}]
+							a.action-with-icon[title=Pause][href=#!downloads/pause/{{ _id }}]
 								@svg "images/pause.svg"
+								"Pause"
 
 						@if state === "paused"
-							a.active-icon[title=Resume][href=#!downloads/resume/{{ _id }}]
+							a.action-with-icon[title=Resume][href=#!downloads/resume/{{ _id }}]
 								@svg "images/play.svg"
+								"Resume"
 
-						a.active-icon[title={{ state === "complete" || state === "error" ? "Remove" : "Cancel" }}][href=#!downloads/cancel/{{ _id }}]
+						a.action-with-icon[title={{ state === "complete" || state === "error" ? "Remove" : "Cancel" }}][href=#!downloads/cancel/{{ _id }}]
 							@svg "images/cancel.svg"
+							"{{ state === 'complete' || state === 'error' ? 'Remove' : 'Cancel' }}"
 
-input#uri[type=text]
-input#startnew[type=button][value=download]
+					

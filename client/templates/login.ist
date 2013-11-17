@@ -2,9 +2,10 @@
 	.label-container
 		label "login"
 	input[type=text]
-	label.error
 
 #password
 	.label-container
 		label "password"
 	input[type=password]
+
+label.error "-"

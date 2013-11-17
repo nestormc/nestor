@@ -9,6 +9,7 @@ var crypto = require("crypto"),
 	
 	config = require("./config").server,
 	share = require("./share"),
+	auth = require("./auth"),
 	
 	app = express();
 
@@ -38,6 +39,10 @@ app.use(lessMiddleware({
 /* Serve static files from client/ */
 app.use(express["static"](__dirname + "/../../client"));
 
+/* Auth handler */
+app.use("/auth", express.json());
+auth.init(app, "http://" + config.host + ":" + config.port);
+
 /* Heartbeat handler */
 app.use("/heartbeat", function(req, res) {
 	res.send(204);
@@ -57,6 +62,11 @@ app.use("/rest", function(req, res, next) {
 /* Serve YARM rest resources */
 app.use("/rest", express.json());
 app.use("/rest", yarm());
+
+/* Override Buffer toJSON, just in case yarm sends and object with a huge buffer */
+Buffer.prototype.toJSON = function() {
+	return "[Buffer]";
+};
 
 /* Downloads */
 app.get("/download/:shortId", function(req, res, next) {
@@ -86,80 +96,8 @@ app.use(function errorHandler(err, req, res, next) {
 	logger.error("Unhandled exception: %s\n%s", err.message, err.stack);
 });
 
-/* Override Buffer toJSON, just in case yarm sends and object with a huge buffer */
-Buffer.prototype.toJSON = function() {
-	return "[Buffer]";
-};
-
-exports.authHandler = function(handler) {
-	function ensureSalt(req) {
-		if (!req.session.salt) {
-			req.session.salt = crypto.randomBytes(32).toString("base64");
-		}
-	}
-
-	yarm.resource("login", {
-		/* Status/salt request */
-		get: function(req, callback) {
-			var status;
-
-			ensureSalt(req);
-
-			if (req.session.user) {
-				status = { user: req.session.user };
-			} else {
-				status = { salt: req.session.salt };
-			}
-
-			process.nextTick(function() {
-				callback(null, status);
-			});
-		},
-
-		/* Login */
-		put: function(req, patch, callback) {
-			var data = req.body,
-				status;
-
-			ensureSalt(req);
-
-			handler(
-				req.connection.remoteAddress,
-				req.session.salt,
-				data.user,
-				data.password,
-				function(err, granted) {
-					if (granted) {
-						req.session.user = data.user;
-						status = { user: data.user };
-					} else {
-						status = {};
-					}
-
-					process.nextTick(function() {
-						callback(null, status);
-					});
-				}
-			);
-		},
-
-		/* Logout */
-		del: function(req, callback) {
-			req.session.destroy();
-
-			var err = new Error("No content");
-			err.code = 204;
-
-			process.nextTick(function() {
-				callback(err);
-			});
-		}
-	});
-};
-
-
 /* Launch HTTP server */
 exports.init = function() {
-	logger.info("Starting HTTP server on :%s", config.port);
-	app.listen(config.port);
+	logger.info("Starting HTTP server on %s:%s", config.host, config.port);
+	app.listen(config.port, config.host);
 };

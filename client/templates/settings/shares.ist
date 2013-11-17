@@ -1,0 +1,38 @@
+ul.content-list
+	@if shares.length === 0
+		"No shares"
+	@each shares
+		li.list-item
+			.list-item-status
+				@if downloadCount === 0
+					"Never downloaded"
+				@else
+					@if downloadCount === 1
+						"Downloaded once"
+					@else
+						"Downloaded {{ downloadCount }} times"
+
+			.list-item-description
+				.list-item-title "{{ description }}"
+
+				.list-item-subtitle
+					@if provider === "music"
+						span.icon
+							@svg "images/nocover.svg"
+					a[target=_blank][href={{ url }}] "download link"
+
+
+			.list-item-actions
+				@if disabled
+					a.action-with-icon[title=Enable link][href=#!settings/shares/enable/{{ shortId }}]
+						@svg "images/play.svg"
+						"Enable link"
+
+				@else
+					a.action-with-icon[title=Disable link][href=#!settings/shares/disable/{{ shortId }}]
+						@svg "images/pause.svg"
+						"Disable link"
+
+				a.action-with-icon[title=Remove link][href=#!settings/shares/remove/{{ shortId }}]
+					@svg "images/cancel.svg"
+					"Remove link"

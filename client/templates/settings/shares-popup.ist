@@ -1,0 +1,15 @@
+.title "Share resource"
+@if loading
+	.content.centered
+		img[src=images/throbber.gif]
+@else
+	@with share
+		.content
+			"{{ description }}"
+			br
+			input[type=text][disabled=disabled][value={{ url }}]
+
+	.buttons
+		@behave behaviour
+			input.cancel[type=button][value=Cancel]
+			input.share[type=button][value=Share]

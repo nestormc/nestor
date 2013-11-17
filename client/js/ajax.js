@@ -8,8 +8,7 @@ define(["when"], function(when) {
 	/**
 	 * State change handler for request()"s XMLHttpRequest object
 	 * Takes a deferred as an argument, and resolves it with the
-	 * parsed request JSON result, or rejects it when an error
-	 * occurs.
+	 * request result, or rejects it when an error occurs.
 	 */
 	function onStateChange(type, xhr, d) {
 		if (xhr.readyState !== 4) {
@@ -17,7 +16,23 @@ define(["when"], function(when) {
 		}
 		
 		if (xhr.status === 200) {
-			d.resolve(type === "text" ? xhr.responseText : xhr.responseXML);
+			if (type === "json") {
+				var err, data;
+
+				try {
+					data = JSON.parse(xhr.responseText);
+				} catch(e) {
+					err = e;
+				}
+
+				if (err) {
+					d.reject(err);
+				} else {
+					d.resolve(data);
+				}
+			} else {
+				d.resolve(type === "text" ? xhr.responseText : xhr.responseXML);
+			}
 		} else if (xhr.status === 204) {
 			// No content
 			d.resolve();
@@ -33,7 +48,7 @@ define(["when"], function(when) {
 	/**
 	 * JSON ajax request helper
 	 *
-	 * @param {String} type response type ("text" or "xml")
+	 * @param {String} type response type ("text", "xml" or "json")
 	 * @param {String} method request method; case-insensitive, maps "del" to "delete"
 	 * @param {String} uri request URI
 	 * @param {Object} [data] request data
@@ -67,11 +82,14 @@ define(["when"], function(when) {
 		return d.promise;
 	}
 
-	var cachedXML = {},
-		cachedText = {};
+	var cached = {
+			xml: {},
+			text: {},
+			json: {}
+		};
 
 	function cachedRequest(type, uri) {
-		var cache = type === "xml" ? cachedXML : cachedText;
+		var cache = cached[type];
 
 		if (!(uri in cache)) {
 			cache[uri] = request(type, "GET", uri);
@@ -84,7 +102,9 @@ define(["when"], function(when) {
 	return {
 		text: request.bind(null, "text"),
 		xml: request.bind(null, "xml"),
+		json: request.bind(null, "json"),
 		cachedText: cachedRequest.bind(null, "text"),
-		cachedXML: cachedRequest.bind(null, "xml")
+		cachedXML: cachedRequest.bind(null, "xml"),
+		cachedJSON: cachedRequest.bind(null, "json")
 	};
 });

@@ -5,6 +5,7 @@
   "dependencies": {
     "ist": "*",
     "js-signals": "*",
+    "momentjs": "*",
     "requirejs": "*",
     "requirejs-domready": "*",
     "requirejs-plugins": "*",

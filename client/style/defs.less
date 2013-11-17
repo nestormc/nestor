@@ -20,3 +20,24 @@
  **/
 
 @contentBoxMargin: 1em;
+
+/**
+ ** Style templates
+ **/
+
+.fill-container (@margin: 0) {
+	position: absolute;
+	top: @margin;
+	left: @margin;
+	right: @margin;
+	bottom: @margin;
+}
+
+.white-box (@margin: @contentBoxMargin) {
+	background-color: white;
+	border: 1px solid @mlGray;
+	margin: @margin;
+	padding: @margin;
+
+	box-shadow: 0 0 .25em @mlGray;
+}
