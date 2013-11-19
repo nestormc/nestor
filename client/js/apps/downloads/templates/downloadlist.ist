@@ -1,8 +1,9 @@
 .downloadlist.content-box
-	input#uri[type=text]
-	input#startnew[type=button][value=download]
-	br
-	br
+	@if-right "downloads:add"
+		input#uri[type=text]
+		input#startnew[type=button][value=download]
+		br
+		br
 
 	ul.content-list
 		@if downloads.length === 0

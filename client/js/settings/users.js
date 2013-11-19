@@ -2,24 +2,28 @@
 /*global define */
 
 define([
-	"router", "ui", "dom", "moment",
+	"router", "ui", "dom", "moment", "when",
 
 	"./resources",
 
 	"ist!tmpl/settings/users"
-], function(router, ui, dom, moment, resources, template) {
+], function(router, ui, dom, moment, when, resources, template) {
 	"use strict";
 
 	var rendered,
 		node;
 
-	function update() {
-		return resources.users.get().then(function(users) {
-			users._items.forEach(function(user) {
-				user.lastLogin = moment(user.lastLogin).fromNow();
-			});
+	var rightsPromise = resources.rights.get();
 
-			rendered.update({ users: users._items });
+	function update() {
+		return rightsPromise.then(function(rights) {
+			return resources.users.get().then(function(users) {
+				users._items.forEach(function(user) {
+					user.lastLogin = moment(user.lastLogin).fromNow();
+				});
+
+				rendered.update({ rights: rights._items, users: users._items });
+			});
 		});
 	}
 
@@ -44,6 +48,11 @@ define([
 				resources.users.enable(req.match.id)
 				.then(update)
 				.then(function() { next(); });
+			});
+
+			router.on("!settings/users/toggleRights/:id", function(err, req, next) {
+				dom.$(".user[data-id=\"" + req.match.id + "\"]").classList.toggle("show-rights");
+				next();
 			});
 
 			update();

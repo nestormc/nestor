@@ -1,3 +1,8 @@
+@if panes.length === 0
+	.pane.content-box
+		.info
+			.title "Nothing to see here :("
+
 @each panes
 	.pane.content-box
 		.info

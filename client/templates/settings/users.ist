@@ -2,7 +2,7 @@ ul.content-list
 	@if users.length === 0
 		"No users"
 	@each users
-		li.list-item
+		li.list-item.user[data-id={{ identifier }}]
 			.list-item-status "Last logged in {{ lastLogin }}"
 			
 			.list-item-description
@@ -16,11 +16,28 @@ ul.content-list
 
 					"{{ userid }}"
 
+			ul.rights
+				@each loop.outer.rights
+					li
+						span.icon
+							@if loop.outer.rights.indexOf(this.name) === -1
+								@svg "images/cancel.svg"
+							@else
+								@svg "images/commit.svg"
+
+						"{{ description }}"
+
 			.list-item-actions
 				@if rights.indexOf("nestor:login") === -1
-	 				a.action-with-icon[title=Enable access for user][href=#!settings/users/enable/{{ identifier }}]
-	 					@svg "images/commit.svg"
-	 					"Enable access"
+					a.action-with-icon[title=Enable access for user][href=#!settings/users/enable/{{ identifier }}]
+						@svg "images/commit.svg"
+						"Enable access"
+				@else
+					a.action-with-icon[title=Change user access rights][href=#!settings/users/toggleRights/{{ identifier }}]
+						@svg "images/more.svg"
+						span.more "More"
+						span.less "Less"
+
 				
 				a.action-with-icon[title=Remove user][href=#!settings/users/remove/{{ identifier }}]
 					@svg "images/cancel.svg"

@@ -1,13 +1,13 @@
 /*jshint browser:true */
 /*global define */
 define([
-	"router",
+	"router", "login",
 
 	"settings/users",
 	"settings/shares",
 
 	"ist!tmpl/settings/main"
-], function(router, users, shares, template) {
+], function(router, login, users, shares, template) {
 	"use strict";
 
 	var rendered;
@@ -16,8 +16,11 @@ define([
 		panes: [],
 
 		init: function(ui) {
-			this.addPane(users);
-			this.addPane(shares);
+			if (login.hasRight("nestor:users"))
+				this.addPane(users);
+
+			if (login.hasRight("nestor:shares"))
+				this.addPane(shares);
 
 			ui.loadCSS("settings", "");
 

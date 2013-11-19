@@ -6,7 +6,8 @@ function(template, signals, when, ajax, dom) {
 	"use strict";
 	
 	var $ = dom.$,
-		currentInput;
+		currentInput,
+		currentStatus;
 
 	var loginResource = {
 			status: function() {
@@ -14,9 +15,11 @@ function(template, signals, when, ajax, dom) {
 
 				ajax.json("get", "/auth/status")
 				.then(function(status) {
+					currentStatus = status;
 					d.resolve(status.user);
 				})
 				.otherwise(function(err) {
+					currentStatus = {};
 					d.reject(err);
 				});
 
@@ -28,9 +31,11 @@ function(template, signals, when, ajax, dom) {
 
 				ajax.json("post", "/auth/login", { username: user, password: password })
 				.then(function(status) {
+					currentStatus = status;
 					d.resolve(status.user);
 				})
 				.otherwise(function(err) {
+					currentStatus = {};
 					d.reject(err);
 				});
 
@@ -130,6 +135,18 @@ function(template, signals, when, ajax, dom) {
 	};
 
 	login.status = loginResource.status;
+
+	login.hasRight = function(right) {
+		if (!currentStatus.user) {
+			return false;
+		} else {
+			if (currentStatus.policy === "allow") {
+				return currentStatus.rights.indexOf(right) === -1;
+			} else {
+				return currentStatus.rights.indexOf(right) !== -1;
+			}
+		}
+	};
 	
 	return login;
 });

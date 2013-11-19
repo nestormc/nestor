@@ -9,7 +9,9 @@ var crypto = require("crypto"),
 	path = require("path"),
 	util = require("util"),
 	yarm = require("yarm"),
-	zipstream = require("zipstream");
+	zipstream = require("zipstream"),
+
+	auth = require("./auth");
 
 
 /* Short ID generator (5 base64url-encoded random bytes) */
@@ -289,6 +291,12 @@ module.exports = {
 				}
 			}
 		});
+
+		auth.declareRights([{
+			name: "nestor:shares",
+			description: "Share resources and manage shared resources",
+			route: "/shares*"
+		}]);
 	},
 
 	registerShareHandler: function(provider, handler) {

@@ -88,6 +88,15 @@ function analyzeFile(nestor, args, next) {
 exports.init = function(nestor) {
 	nestor.intents.register("media.analyzeFile", analyzeFile.bind(null, nestor));
 
+	nestor.auth.declareRights([
+		{
+			name: "edit-tags",
+			route: "/tracks/:id",
+			methods: ["PUT", "PATCH"],
+			description: "Edit album and track metadata"
+		}
+	]);
+
 	cover.restSetup(nestor.rest);
 	track.restSetup(nestor.rest);
 	playlist.restSetup(nestor.rest);

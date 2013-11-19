@@ -39,6 +39,12 @@ define(["rest"], function(rest) {
 			enable: function(identifier) {
 				return rest.patch("users/" + identifier, { rights: ["nestor:login"] });
 			}
+		},
+
+		rights: {
+			get: function() {
+				return rest.get("rights", { limit: 0 });
+			}
 		}
 	};
 });

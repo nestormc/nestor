@@ -33,5 +33,30 @@
 	.settings {
 		margin-top: @contentBoxMargin;
 		margin-left: @iconSize + @contentBoxMargin;
+
+		.user {
+			.rights {
+				list-style-type: none;
+				display: none;
+			}
+
+			.less {
+				display: none;
+			}
+
+			&.show-rights {
+				.rights {
+					display: block;
+				}
+
+				.more {
+					display: none;
+				}
+
+				.less {
+					display: inline;
+				}
+			}
+		}
 	}
 }

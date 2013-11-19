@@ -39,7 +39,7 @@
 			"intents": "INFO",
 			"media": "INFO",
 			"server": "INFO",
-			"auth": "INFO"
+			"auth": "DEBUG"
 		}
 	},
 

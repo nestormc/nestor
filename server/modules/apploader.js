@@ -9,6 +9,7 @@ var fs = require("fs"),
 	log4js = require("log4js"),
 	logger = log4js.getLogger("nestor"),
 	
+	auth = require("./auth"),
 	config = require("./config"),
 	intents = require("./intents"),
 	share = require("./share"),
@@ -79,6 +80,7 @@ exports.init = function(basedir) {
 				function depsLoaded() {
 					var appServices = Object.create(services);
 					appServices.logger = log4js.getLogger(name);
+					appServices.auth = auth.getRightsInterface(name);
 					
 					return app.init(appServices).then(
 						function appLoaded() {

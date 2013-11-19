@@ -1,8 +1,23 @@
 /*jshint browser:true */
 /*global define */
 
-define(["ist", "ajax", "dom"], function(ist, ajax, dom) {
+define(["ist", "ajax", "dom", "login"], function(ist, ajax, dom, login) {
 	"use strict";
+
+
+	ist.helper("if-right", function(context, value, tmpl, fragment) {
+		var rendered = fragment.extractRenderedFragment();
+	
+		if (login.hasRight(value)) {
+			if (rendered) {
+				rendered.update(context);
+			} else {
+				rendered = tmpl.render(context);
+			}
+
+			fragment.appendRenderedFragment(rendered);
+		}
+	});
 
 
 	ist.helper("svg", function(context, value, tmpl, fragment) {

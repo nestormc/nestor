@@ -14,6 +14,9 @@ var crypto = require("crypto"),
 	logger = require("log4js").getLogger("auth");
 
 
+var knownRights = [];
+
+
 var AdminUser = {
 	identifier: "admin",
 
@@ -25,7 +28,10 @@ var AdminUser = {
 
 	hasRight: function() {
 		return !config.admin.disabled;
-	}
+	},
+
+	policy: "allow",
+	rights: []
 };
 
 
@@ -123,7 +129,11 @@ function handleAuthentification(strategy, req, res, next) {
 
 			if (strategy === "local") {
 				// Send JSON response
-				res.send(200, { user: user.displayName });
+				res.send(200, {
+					user: user.displayName,
+					policy: user.policy,
+					rights: user.rights
+				});
 			} else {
 				// Redirect to root
 				res.redirect("/");
@@ -135,6 +145,8 @@ function handleAuthentification(strategy, req, res, next) {
 
 module.exports = {
 	init: function(app, host) {
+		/* Setup users and rights resources */
+
 		yarm.mongooseResource("users", User, {
 			key: "identifier",
 
@@ -148,35 +160,34 @@ module.exports = {
 			}
 		});
 
-		app.use(passport.initialize());
-		app.use(passport.session());
+		yarm.resource("rights", {
+			count: function(req, cb) {
+				yarm.callback(cb, null, knownRights.length);
+			},
 
-		app.post("/auth/login", function(req, res, next) {
-			handleAuthentification("local", req, res, next);
-		});
+			list: function(req, offset, limit, cb) {
+				var arr;
 
-		app.get("/auth/google", passport.authenticate("google"));
-		app.get("/auth/google/return", function(req, res, next) {
-			handleAuthentification("google", req, res, next);
-		});
+				if (limit > 0) {
+					arr = knownRights.slice(offset, offset + limit);
+				} else {
+					arr = knownRights.slice(offset);
+				}
 
-		app.get("/auth/twitter", passport.authenticate("twitter"));
-		app.get("/auth/twitter/return", function(req, res, next) {
-			handleAuthentification("twitter", req, res, next);
-		});
-
-		app.get("/auth/logout", function(req, res, next) {
-			req.logout();
-			res.send(204);
-		});
-
-		app.get("/auth/status", function(req, res, next) {
-			if (req.isAuthenticated()) {
-				res.send({ user: req.user.displayName });
-			} else {
-				res.send({});
+				yarm.callback(cb, null, arr.map(function(right) {
+					return {
+						name: right.name,
+						description: right.description
+					};
+				}));
 			}
 		});
+
+
+		/* Initialize passport */
+
+		app.use(passport.initialize());
+		app.use(passport.session());
 
 		passport.serializeUser(function(user, done) {
 			done(null, user.identifier);
@@ -189,6 +200,9 @@ module.exports = {
 				User.findOne({ identifier: id }, done);
 			}
 		});
+
+
+		/* Setup auth strategies */
 
 		passport.use(new LocalStrategy(
 			function (username, password, done) {
@@ -268,5 +282,123 @@ module.exports = {
 				);
 			}
 		));
+
+
+		/* Setup login routes */
+
+		app.post("/auth/login", function(req, res, next) {
+			handleAuthentification("local", req, res, next);
+		});
+
+		app.get("/auth/google", passport.authenticate("google"));
+		app.get("/auth/google/return", function(req, res, next) {
+			handleAuthentification("google", req, res, next);
+		});
+
+		app.get("/auth/twitter", passport.authenticate("twitter"));
+		app.get("/auth/twitter/return", function(req, res, next) {
+			handleAuthentification("twitter", req, res, next);
+		});
+
+		app.get("/auth/logout", function(req, res, next) {
+			req.logout();
+			res.send(204);
+		});
+
+		app.get("/auth/status", function(req, res, next) {
+			if (req.isAuthenticated()) {
+				res.send({
+					user: req.user.displayName,
+					policy: req.user.policy,
+					rights: req.user.rights
+				});
+			} else {
+				res.send({});
+			}
+		});
+
+
+		/* Setup rights checking middleware */
+
+		app.use("/rest", function(req, res, next) {
+			var restricted = !req.isAuthenticated() || knownRights.some(function(right) {
+				if ((!right.methods || right.methods.indexOf(req.method) !== -1) && req.path.match(right.regexp)) {
+					if (!req.user.hasRight(right.name)) {
+						logger.debug("Denied access to /rest%s to user %s who's missing right %s",
+							req.path, req.user.identifier, right.name);
+						return true;
+					}
+				}
+
+				return false;
+			});
+
+			if (restricted) {
+				res.send(401, "Forbidden");
+			} else {
+				next();
+			}
+		});
+
+		/* Setup auth rights */
+
+		this.declareRights([{
+			name: "nestor:users",
+			route: "/users",
+			description: "Manage users and their rights"
+		}]);
+	},
+
+	declareRights: function(rights) {
+		rights.forEach(function(right) {
+			right.regexp = new RegExp(
+				"^" +
+				right.route.replace(/\*/g, ".*").replace(/:\w+/g, "[^\/]+") +
+				"$", "i"
+			);
+		});
+
+		knownRights = knownRights.concat(rights);
+	},
+
+	checkRights: function(req, names, any) {
+		var method = any ? "some" : "every";
+
+		if (!Array.isArray(names)) {
+			names = [names];
+		}
+
+		if (!req.isAuthenticated()) {
+			return false;
+		} else {
+			return names[method](function(name) {
+				return req.user.hasRight(name);
+			});
+		}
+	},
+
+	getRightsInterface: function(app) {
+		return {
+			declareRights: function(rights) {
+				module.exports.declareRights(rights.map(function(right) {
+					return {
+						name: app + ":" + right.name,
+						route: right.route,
+						methods: right.methods,
+						description: right.description
+					};
+				}));
+			},
+
+			checkRights: function(req, names, any) {
+				if (!Array.isArray(names)) {
+					names = [names];
+				}
+
+				return module.exports.checkRights(req, names.map(function(name) {
+					return app + ":" + name;
+				}), any);
+			}
+		};
 	}
 };

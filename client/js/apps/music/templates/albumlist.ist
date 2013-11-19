@@ -5,16 +5,26 @@
 			@each albums
 				.album.content-box[data-id={{ _id }}][data-artist={{ artist }}][data-title={{ title }}]
 					.edit-controls
-						a.active-icon.edit[title=Edit metadata][href=#!music/editAlbum/{{ _id }}]
-							@svg "images/edit.svg"
-						a.active-icon.save[title=Save changes][href=#!music/commitAlbumEdit/{{ _id }}]
-							@svg "images/commit.svg"
-						a.active-icon.cancel[title=Cancel changes][href=#!music/cancelAlbumEdit/{{ _id }}]
-							@svg "images/cancel.svg"
-						a.active-icon.download[title=Download album][href=/download/music/album:{{ _id }}]
+						@if-right "music:edit-tags"
+							a.action-with-icon.edit[title=Edit metadata][href=#!music/editAlbum/{{ _id }}]
+								@svg "images/edit.svg"
+								"Edit"
+
+							a.action-with-icon.save[title=Save changes][href=#!music/commitAlbumEdit/{{ _id }}]
+								@svg "images/commit.svg"
+								"Save"
+
+							a.action-with-icon.cancel[title=Cancel changes][href=#!music/cancelAlbumEdit/{{ _id }}]
+								@svg "images/cancel.svg"
+								"Cancel"
+
+						a.action-with-icon.download[title=Download album][href=/download/music/album:{{ _id }}]
 							@svg "images/download.svg"
-						a.active-icon.share[title=Share album][href=#!music/shareAlbum/{{ _id }}/{{ artist }}/{{ title }}]
+							"Download"
+
+						a.action-with-icon.share[title=Share album][href=#!music/shareAlbum/{{ _id }}/{{ artist }}/{{ title }}]
 							@svg "images/share.svg"
+							"Share"
 
 					.info
 						.cover
