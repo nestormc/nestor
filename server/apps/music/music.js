@@ -4,6 +4,7 @@
 var ffprobe = require("node-ffprobe"),
 	when = require("when"),
 	path = require("path"),
+	taglib = require("taglib"),
 
 	cover = require("./cover"),
 	track = require("./track"),
@@ -20,67 +21,53 @@ function analyzeFile(nestor, args, next) {
 		nestor.logger.error("Could not " + action  + ": %s", filepath, err.message + "\n" + err.stack);
 	}
 
-	ffprobe(filepath, function ffprobeHandler(err, data) {
+	taglib.read(filepath, function(err, meta, audio) {
 		if (err) {
-			error("probe file %s", err);
-			next();
-			return;
+			error("read file %s", err);
+			return next();
 		}
+
+		var trackdata = {
+			path: filepath,
+			title: meta.title || "",
+			artist: meta.artist || "",
+			album: meta.album || "",
+			number: meta.track || -1,
+			year: meta.year || -1,
+
+			bitrate: audio.bitrate,
+			length: audio.length
+		};
 		
-		if (!data.streams || data.streams.length != 1 || data.streams[0].codec_type !== "audio") {
-			// Unknown file type
-			next();
-		} else {
-			var meta = data.metadata || { title: "", artist: "", album:	"", track: "", date: "" };
-			var trackdata = {
-				path: filepath,
-				title: meta.title || "",
-				artist: meta.artist || "",
-				album: meta.album || "",
-				number: parseInt(meta.track, 10),
-				year: parseInt(meta.date, 10),
-				
-				format: data.format.format_name,
-				bitrate: data.format.bit_rate,
-				length: data.format.duration
-			};
-			
-			if (isNaN(trackdata.number)) {
-				trackdata.number = -1;
-			}
-			
-			if (isNaN(trackdata.year)) {
-				trackdata.year = -1;
+		Track.findOne({ path: filepath }, function(err, track) {
+			if (err) {
+				error("find track %s", err);
+				next(false);
+				return;
 			}
 
-			Track.findOne({ path: filepath }, function(err, track) {
-				if (err) {
-					error("find track %s", err);
+			if (track) {
+				track.update(trackdata, function(err) {
+					if (err) {
+						error("update track %s", err);
+					}
+
 					next(false);
-					return;
-				}
+				});
+			} else {
+				track = new Track(trackdata);
+				track._isNew = true;
+				
+				track.save(function(err) {
+					if (err) {
+						error("save track %s", err);
+					}
 
-				if (track) {
-					track.update(trackdata, function(err) {
-						if (err) {
-							error("update track %s", err);
-						}
-
-						next(false);
-					});
-				} else {
-					track = new Track(trackdata);
-					track.save(function(err) {
-						if (err) {
-							error("save track %s", err);
-						}
-
-						cover.fetchFSCover("album:" + trackdata.artist + ":" + trackdata.album, path.dirname(filepath));
-						next(false);
-					});
-				}
-			});
-		}
+					cover.fetchFSCover("album:" + trackdata.artist + ":" + trackdata.album, path.dirname(filepath));
+					next(false);
+				});
+			}
+		});
 	});
 }
 
