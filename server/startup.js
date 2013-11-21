@@ -24,6 +24,8 @@ module.exports = function startup() {
 		process.exit(1);
 	});
 
+	logger.info("Starting nestor");
+
 	ncall(function(cb) {
 		mongoose.connect(config.database, cb);
 	})
