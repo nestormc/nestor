@@ -1,8 +1,10 @@
 /*jshint node:true */
 "use strict";
 
-var cfg = require("../../config.json"),
-	log4js = require("log4js");
+var log4js = require("log4js"),
+	argv = require("optimist").argv;
+
+var cfg = require(argv.config || "../../config.json");
 
 log4js.configure(cfg.log4js);
 
