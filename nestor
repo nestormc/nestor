@@ -5,9 +5,4 @@ if [ ! -f $MAINSCRIPT ]; then
 	MAINSCRIPT=/usr/share/nestor/$MAINSCRIPT
 fi
 
-CONFIG=config.json
-if [ ! -f $CONFIG ]; then
-	CONFIG=/etc/nestor/$CONFIG
-fi
-
-env node $MAINSCRIPT --config=$CONFIG $*
+env node $MAINSCRIPT $*
