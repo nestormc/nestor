@@ -23,7 +23,7 @@ function analyzeFile(nestor, args, next) {
 
 	taglib.read(filepath, function(err, meta, audio) {
 		if (err) {
-			error("read file %s", err);
+			// error("read file %s", err);
 			return next();
 		}
 

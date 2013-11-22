@@ -31,33 +31,33 @@ function mapDownload(providerName, download) {
 function getDownloadResource(rest, providerName, download) {
 	return {
 		"get": function(req, cb) {
-			rest.callback(cb, null, mapDownload(providerName, download));
+			process.nextTick(function() { cb(null, mapDownload(providerName, download)); });
 		},
 
 		"del": function(req, cb) {
 			download.cancel();
-			rest.callback(cb);
+			process.nextTick(function() { cb(); });
 		},
 
 		"put": function(req, isPatch, cb) {
 			if (!isPatch) {
-				rest.callback(cb, rest.HTTPError.methodNotAllowed);
+				process.nextTick(function() { cb(rest.HTTPError.methodNotAllowed); });
 			} else {
 				if ("action" in req.body) {
 					if (req.body.action === "pause") {
 						download.pause();
-						return rest.callback(cb);
+						return process.nextTick(function() { cb(); });
 					}
 
 					if (req.body.action === "resume") {
 						download.resume();
-						return rest.callback(cb);
+						return process.nextTick(function() { cb(); });
 					}
-				} 
+				}
 
-				rest.callback(cb, rest.HTTPError(400, "Bad request"));
+				process.nextTick(function() { cb(rest.HTTPError(400, "Bad request")); });
 			}
-		}  
+		}
 	};
 }
 
@@ -66,9 +66,11 @@ exports.init = function(nestor) {
 
 	rest.resource("downloads", {
 		"count": function(req, cb) {
-			rest.callback(cb, null, Object.keys(providers).reduce(function(sum, name) {
-				return sum + providers[name].downloadCount;
-			}, 0));
+			process.nextTick(function() {
+				cb(null, Object.keys(providers).reduce(function(sum, name) {
+					return sum + providers[name].downloadCount;
+				}, 0));
+			});
 		},
 
 		"list": function(req, offset, limit, cb) {
@@ -82,22 +84,24 @@ exports.init = function(nestor) {
 				list = list.slice(offset);
 			}
 
-			rest.callback(cb, null, list);
+			process.nextTick(function() { cb(null, list); });
 		},
 
 		"sub": function(name, cb) {
 			if (name === "stats") {
 				cb(null, {
 					"get": function(req, cb) {
-						rest.callback(cb, null, Object.keys(providers).reduce(function(stats, name) {
-							var pstats = providers[name].stats;
+						process.nextTick(function() {
+							cb(null, Object.keys(providers).reduce(function(stats, name) {
+								var pstats = providers[name].stats;
 
-							stats.active += pstats.active;
-							stats.uploadRate += pstats.uploadRate;
-							stats.downloadRate += pstats.downloadRate;
+								stats.active += pstats.active;
+								stats.uploadRate += pstats.uploadRate;
+								stats.downloadRate += pstats.downloadRate;
 
-							return stats;
-						}, { active: 0, uploadRate: 0, downloadRate: 0 }));
+								return stats;
+							}, { active: 0, uploadRate: 0, downloadRate: 0 }));
+						});
 					}
 				});
 			} else if (name.indexOf(":") === -1) {
@@ -136,9 +140,9 @@ exports.init = function(nestor) {
 				}, false);
 
 			if (handled) {
-				rest.callback(cb);
+				process.nextTick(function() { cb(); });
 			} else {
-				rest.callback(cb, rest.HTTPError(400, "Bad request"));
+				process.nextTick(function() { cb(rest.HTTPError(400, "Bad request")); });
 			}
 		}
 	});

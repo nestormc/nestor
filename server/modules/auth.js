@@ -162,7 +162,7 @@ module.exports = {
 
 		yarm.resource("rights", {
 			count: function(req, cb) {
-				yarm.callback(cb, null, knownRights.length);
+				process.nextTick(function() { cb(null, knownRights.length); });
 			},
 
 			list: function(req, offset, limit, cb) {
@@ -174,12 +174,14 @@ module.exports = {
 					arr = knownRights.slice(offset);
 				}
 
-				yarm.callback(cb, null, arr.map(function(right) {
-					return {
-						name: right.name,
-						description: right.description
-					};
-				}));
+				process.nextTick(function() {
+					cb(null, arr.map(function(right) {
+						return {
+							name: right.name,
+							description: right.description
+						};
+					}));
+				});
 			}
 		});
 
