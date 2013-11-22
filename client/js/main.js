@@ -93,10 +93,11 @@
 				storage.user = user;
 
 				router.on("/logout", function(err, req, next) {
-					ui.stop();
-					storage.user = undefined;
-					router.reset();
-					login.logout();
+					ui.stop().then(function() {
+						storage.user = undefined;
+						router.reset();
+						login.logout();
+					});
 				});
 				
 				apploader(ui, router, storage)

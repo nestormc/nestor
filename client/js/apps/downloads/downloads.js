@@ -99,19 +99,8 @@ define([
 				next();
 			});
 
-			ui.appletsReady.add(function() {
-				function updateApplet() {
-					resources.stats.get()
-					.then(function(stats) {
-						renderedApplet.update(stats);
-						setTimeout(updateApplet, 1000);
-					})
-					.otherwise(function(err) {
-						ui.error("Error while updating download applet", err);
-					});
-				}
-
-				updateApplet();
+			ui.stopping.add(function() {
+				downloadsContainer = renderedApplet = renderedDownloads = null;
 			});
 
 			return when.resolve();
@@ -120,6 +109,10 @@ define([
 		renderApplet: function() {
 			renderedApplet = appletTemplate.render({});
 			return renderedApplet;
+		},
+
+		updateApplet: function() {
+			return resources.stats.get().then(function(stats) { renderedApplet.update(stats); });
 		}
 	};
 });

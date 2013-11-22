@@ -2,8 +2,8 @@
 /*global define, console */
 
 define(
-["ist-wrapper", "ist!tmpl/main", "signals", "ajax", "dom", "debug"],
-function(ist, template, signals, ajax, dom, debug) {
+["ist-wrapper", "ist!tmpl/main", "signals", "when", "ajax", "dom", "debug"],
+function(ist, template, signals, when, ajax, dom, debug) {
 	"use strict";
 	
 	var ui,
@@ -177,6 +177,29 @@ function(ist, template, signals, ajax, dom, debug) {
 					manifest = app.manifest;
 				
 				manifest.appletNode = app.renderApplet();
+
+				if (app.updateApplet) {
+					ui.appletsReady.add(function() {
+						function runUpdate() {
+							app.updateApplet()
+							.then(function() {
+								manifest.updateTimeout = setTimeout(runUpdate, 2000);
+							})
+							.otherwise(function(err) {
+								ui.error("Error updating " + name + " applet", err.stack);
+							});
+						}
+
+						runUpdate();
+					});
+
+					ui.stopping.add(function() {
+						if (manifest.updateTimeout) {
+							clearTimeout(manifest.updateTimeout);
+						}
+					});
+				}
+
 				return manifest;
 			});
 			
@@ -295,27 +318,35 @@ function(ist, template, signals, ajax, dom, debug) {
 		},
 
 		stop: function() {
+			var d = when.defer();
+
+			this.stopping.add(function() {
+				// Destroy containers
+				Object.keys(containers).forEach(function(name) {
+					var c = containers[name];
+					c.parentNode.removeChild(c);
+				});
+				containers = {};
+				activeContainer = undefined;
+
+				// Remove stylesheets
+				stylesheets.forEach(function(s) {
+					s.parentNode.removeChild(s);
+				});
+				stylesheets = [];
+
+				// Reset all signals
+				madeSignals.forEach(function(s) {
+					s.removeAll();
+				});
+
+				d.resolve();
+			});
+
 			// Dispatch stopping signal
 			this.stopping.dispatch();
 
-			// Destroy containers
-			Object.keys(containers).forEach(function(name) {
-				var c = containers[name];
-				c.parentNode.removeChild(c);
-			});
-			containers = {};
-			activeContainer = undefined;
-
-			// Remove stylesheets
-			stylesheets.forEach(function(s) {
-				s.parentNode.removeChild(s);
-			});
-			stylesheets = [];
-
-			// Reset all signals
-			madeSignals.forEach(function(s) {
-				s.removeAll();
-			});
+			return d.promise;
 		},
 
 		popup: function(node, options) {
