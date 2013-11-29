@@ -6,21 +6,25 @@ var crypto = require("crypto"),
 	lessMiddleware = require("less-middleware"),
 	yarm = require("yarm"),
 	logger = require("log4js").getLogger("server"),
+	MongoStore = require("connect-mongo")(express),
 	
-	config = require("./config").server,
+	config = require("./config"),
+	serverConfig = config.server,
+
 	share = require("./share"),
 	auth = require("./auth"),
 	
 	app = express();
 
 
-/* Basic express configuration */
+/* Basic express serverConfiguration */
 app.use(express.cookieParser());
 app.use(express.session({
-	secret: crypto.randomBytes(32).toString("base64"),
+	secret: serverConfig.cookieSecret,
 	cookie: {
-		maxAge: 1000 * 60 * 60 * 24 * config.sessionDays
-	}
+		maxAge: 1000 * 60 * 60 * 24 * (serverConfig.sessionDays || 2)
+	},
+	store: new MongoStore({ url: config.database })
 }));
 
 /* Serve LESS-compiled CSS from client/ */
@@ -41,7 +45,7 @@ app.use(express["static"](__dirname + "/../../client"));
 
 /* Auth handler */
 app.use("/auth", express.json());
-auth.init(app, "http://" + config.host + ":" + config.port);
+auth.init(app, "http://" + serverConfig.host + ":" + serverConfig.port);
 
 /* Heartbeat handler, can be used to check for connectivity with nestor */
 app.use("/heartbeat", function(req, res) {
@@ -98,6 +102,6 @@ app.use(function errorHandler(err, req, res, next) {
 
 /* Launch HTTP server */
 exports.init = function() {
-	logger.info("Starting HTTP server on %s:%s", config.host, config.port);
-	app.listen(config.port, config.host);
+	logger.info("Starting HTTP server on %s:%s", serverConfig.host, serverConfig.port);
+	app.listen(serverConfig.port, serverConfig.host);
 };

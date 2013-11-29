@@ -8,7 +8,8 @@
     "url": "git://github.com/njoyard/nestor.git"
   },
   "dependencies": {
-    "bower": "~1.1.2",
+    "bower": "*",
+    "connect-mongo": "*",
     "daemon": "*",
     "express": "*",
     "fluent-ffmpeg": "*",

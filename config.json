@@ -24,7 +24,9 @@
 			"certFile": "server.crt"
 		},
 
-		"sessionDays": 1,
+		"sessionDays": 14,
+		"cookieSecret": "nestor",
+
 		"rest": {
 			"defaultLimit": 10
 		}
