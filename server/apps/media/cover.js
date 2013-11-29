@@ -4,6 +4,10 @@
 
 var mongoose = require("mongoose"),
 	fs = require("fs"),
+	path = require("path"),
+	ffmpeg = require("fluent-ffmpeg"),
+	stream = require("stream"),
+
 	wget = require("../../modules/wget");
 
 
@@ -19,6 +23,73 @@ var CoverSchema = new mongoose.Schema({
 
 var Cover = mongoose.model("cover", CoverSchema);
 
+
+/**
+ * Cover fetching helpers
+ */
+
+var fetchFSCover = (function() {
+	var searching = {};
+
+	return function(logger, key, dir) {
+		if (searching[key] && searching[key].length && searching[key].indexOf(dir) !== -1) {
+			// Already looked/looking in this directory
+			return;
+		}
+
+		searching[key] = searching[key] || [];
+		searching[key].push(dir);
+
+		fs.stat(path.join(dir, "/cover.jpg"), function(err, stat) {
+			if (stat) {
+				fs.readFile(path.join(dir, "/cover.jpg"), function(err, data) {
+					if (!err) {
+						var cover = new Cover({
+							key: key,
+							type: "image/jpeg",
+							cover: new Buffer(data)
+						});
+
+						cover.save(function(err) {
+							if (!err) {
+								delete searching[key];
+							}
+						});
+					}
+				});
+			}
+		});
+	};
+}());
+
+function fetchVideoCover(logger, key, path, time) {
+	var passthrough = new stream.PassThrough();
+
+	var buffers = [];
+	var length = 0;
+
+	passthrough.on("data", function(data) {
+		buffers.push(data);
+		length += data.length;
+	});
+
+	passthrough.on("end", function() {
+		var cover = new Cover({
+			key: key,
+			type: "image/jpeg",
+			cover: Buffer.concat(buffers, length)
+		});
+
+		cover.save();
+	});
+
+	(new ffmpeg({ source: path }))
+		.setStartTime(Math.floor(time))
+		.withNoAudio()
+		.toFormat("image2")
+		.takeFrames(1)
+		.writeToStream(passthrough);
+}
 
 /**
  * Exports
@@ -93,44 +164,25 @@ module.exports = {
 		});
 	},
 
-	fetchFSCover: (function() {
-		var searching = {};
+	findCover: (function() {
+		return function(logger, key, hints) {
 
-		return function(key, path) {
+			logger.debug("cover request for %s", key);
+	
 			Cover.findOne({ key: key }, function(err, cover) {
-				if (err) {
+				if (err || cover) {
+					// DB error or already existing cover
 					return;
 				}
 
-				if (cover) {
-					// Cover exists for key
-					return;
-				}
-
-				if (searching[key] && searching[key].length && searching[key].indexOf(path) !== -1) {
-					// Already looked/looking in this directory
-					return;
-				}
-
-				searching[key] = searching[key] || [];
-				searching[key].push(path);
-
-				fs.stat(path + "/cover.jpg", function(err, stat) {
-					if (stat) {
-						fs.readFile(path + "/cover.jpg", function(err, data) {
-							if (!err) {
-								cover = new Cover({
-									key: key,
-									type: "image/jpeg",
-									cover: new Buffer(data)
-								});
-
-								cover.save();
-							}
-						});
+				hints.forEach(function(hint) {
+					if (hint.type === "directory") {
+						fetchFSCover(logger, key, hint.path);
+					} else if (hint.type === "video") {
+						fetchVideoCover(logger, key, hint.path, hint.time);
 					}
 				});
 			});
 		};
-	}())
+	})()
 };

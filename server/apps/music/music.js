@@ -1,12 +1,9 @@
 /*jshint node:true */
 "use strict";
 
-var ffprobe = require("node-ffprobe"),
-	when = require("when"),
+var when = require("when"),
 	path = require("path"),
-	taglib = require("taglib"),
 
-	cover = require("./cover"),
 	track = require("./track"),
 	playlist = require("./playlist"),
 
@@ -15,59 +12,77 @@ var ffprobe = require("node-ffprobe"),
 
 /* Media analysis handler */
 function analyzeFile(nestor, args, next) {
-	var filepath = args.path;
+	var filepath = args.path,
+		mimetype = args.mime,
+		metadata = args.meta;
 
 	function error(action, err) {
 		nestor.logger.error("Could not " + action  + ": %s", filepath, err.message + "\n" + err.stack);
 	}
 
-	taglib.read(filepath, function(err, meta, audio) {
+	var hasAudioStreams = metadata.streams.some(function(stream) { return stream.codec_type === "audio"; });
+	var hasVideoStreams = metadata.streams.some(function(stream) { return stream.codec_type === "video"; });
+
+	if (!hasAudioStreams || hasVideoStreams) {
+		return next();
+	}
+
+	var meta = metadata.metadata || { title: "", artist: "", album:  "", track: "", date: "" };
+	var trackdata = {
+		path: filepath,
+		mime: mimetype,
+
+		title: meta.title || "",
+		artist: meta.artist || "",
+		album: meta.album || "",
+		number: parseInt(meta.track, 10),
+		year: parseInt(meta.date, 10),
+
+		format: metadata.format.format_name,
+		bitrate: metadata.format.bit_rate,
+		length: metadata.format.duration
+	};
+
+	if (isNaN(trackdata.number)) {
+		trackdata.number = -1;
+	}
+
+	if (isNaN(trackdata.year)) {
+		trackdata.year = -1;
+	}
+
+	Track.findOne({ path: filepath }, function(err, track) {
 		if (err) {
-			// error("read file %s", err);
-			return next();
+			error("find track %s", err);
+			next(false);
+			return;
 		}
 
-		var trackdata = {
-			path: filepath,
-			title: meta.title || "",
-			artist: meta.artist || "",
-			album: meta.album || "",
-			number: meta.track || -1,
-			year: meta.year || -1,
+		if (track) {
+			track.update(trackdata, function(err) {
+				if (err) {
+					error("update track %s", err);
+				}
 
-			bitrate: audio.bitrate,
-			length: audio.length
-		};
-		
-		Track.findOne({ path: filepath }, function(err, track) {
-			if (err) {
-				error("find track %s", err);
 				next(false);
-				return;
-			}
+			});
+		} else {
+			track = new Track(trackdata);
+			track._isNew = true;
+			
+			track.save(function(err) {
+				if (err) {
+					error("save track %s", err);
+				}
 
-			if (track) {
-				track.update(trackdata, function(err) {
-					if (err) {
-						error("update track %s", err);
-					}
-
-					next(false);
+				nestor.intents.dispatch("media.fetchCover", {
+					key: "album:" + trackdata.artist + ":" + trackdata.album,
+					hints: [{ type: "directory", path: path.dirname(filepath) }]
 				});
-			} else {
-				track = new Track(trackdata);
-				track._isNew = true;
-				
-				track.save(function(err) {
-					if (err) {
-						error("save track %s", err);
-					}
 
-					cover.fetchFSCover("album:" + trackdata.artist + ":" + trackdata.album, path.dirname(filepath));
-					next(false);
-				});
-			}
-		});
+				next(false);
+			});
+		}
 	});
 }
 
@@ -84,7 +99,6 @@ exports.init = function(nestor) {
 		}
 	]);
 
-	cover.restSetup(nestor.rest);
 	track.restSetup(nestor.rest);
 	playlist.restSetup(nestor.rest);
 

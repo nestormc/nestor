@@ -14,6 +14,7 @@ var mongoose = require("mongoose"),
  */
 var TrackSchema = new mongoose.Schema({
 	path: { type: String, index: 1 },
+	mime: String,
 
 	artist: String,
 	album: String,
@@ -29,7 +30,7 @@ var TrackSchema = new mongoose.Schema({
 TrackSchema.index({ artist: 1, album: 1, number: 1 });
 
 TrackSchema.virtual("file").get(function() {
-	return { path: this.path };
+	return { path: this.path, mime: this.mime };
 });
 
 TrackSchema.pre("save", function(next) {
@@ -84,17 +85,9 @@ module.exports = {
 			overrides: {
 				"tracks/$/file": {
 					get: function(chain, req, cb) {
-						var file = chain[chain.length - 1],
-							mime = "";
-
-						var child = spawn("file", ["-ib", file.path]);
-						
-						child.stdout.on("data", function(data) {
-							mime += data.toString();
-						});
-
-						child.stdout.on("end", function() {
-							cb(null, new rest.ResponseFile(file.path, mime));
+						var file = chain[chain.length - 1];
+						process.nextTick(function() {
+							cb(null, new rest.ResponseFile(file.path, file.mime));
 						});
 					}
 				}

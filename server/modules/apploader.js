@@ -13,6 +13,7 @@ var fs = require("fs"),
 	config = require("./config"),
 	intents = require("./intents"),
 	share = require("./share"),
+	util = require("./util"),
 	
 	apps = {},
 	clientApps = [];

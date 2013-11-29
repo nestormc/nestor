@@ -32,15 +32,19 @@
 
 	"log4js": {
 		"appenders": [
-			{ "type": "console" }
+			{ "type": "console", "layout": { "type": "basic" } }
 		],
 
 		"levels": {
 			"intents": "INFO",
 			"media": "INFO",
-			"server": "INFO",
+			"server": "DEBUG",
 			"auth": "DEBUG"
 		}
+	},
+
+	"media": {
+		"walkJobs": 128
 	},
 
 	"downloads": {

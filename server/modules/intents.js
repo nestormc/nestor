@@ -25,7 +25,9 @@ function processQueue(intent) {
 
 	var index = 0,
 		handlersCopy,
-		args = queues[intent].shift();
+		data = queues[intent].shift(),
+		args = data.args,
+		then = data.then;
 
 	logger.debug("Processing intent %s (%j)", intent, args);
 
@@ -33,16 +35,22 @@ function processQueue(intent) {
 	handlersCopy = handlers[intent].slice();
 	
 	function next(param) {
-		if (param !== false && handlersCopy[index]) {
-			handlersCopy[index++](args, next);
-		} else {
-			// No more handlers or stop requested with next(false)
-			if (index === 0) {
-				logger.warn("No handlers for intent %s", intent);
-			}
+		setImmediate(function() {
+			if (param !== false && handlersCopy[index]) {
+				handlersCopy[index++](args, next);
+			} else {
+				// No more handlers or stop requested with next(false)
+				if (index === 0) {
+					logger.warn("No handlers for intent %s", intent);
+				}
 
-			processQueue(intent);
-		}
+				if (typeof then === "function") {
+					then();
+				}
+
+				processQueue(intent);
+			}
+		});
 	}
 	
 	next();
@@ -68,13 +76,13 @@ intents.unregister = function(intent, handler) {
 	}
 };
 
-intents.dispatch = function(intent, args) {
+intents.dispatch = function(intent, args, then) {
 	if (!queues[intent]) {
 		queues[intent] = [];
 	}
 
 	logger.debug("Intent %s dispatched (%j)", intent, args);
-	queues[intent].push(args);
+	queues[intent].push({ args: args, then: then });
 
 	if (!processing[intent]) processQueue(intent);
 };
