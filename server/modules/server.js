@@ -43,7 +43,7 @@ app.use(express["static"](__dirname + "/../../client"));
 app.use("/auth", express.json());
 auth.init(app, "http://" + config.host + ":" + config.port);
 
-/* Heartbeat handler */
+/* Heartbeat handler, can be used to check for connectivity with nestor */
 app.use("/heartbeat", function(req, res) {
 	res.send(204);
 });

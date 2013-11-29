@@ -1,8 +1,33 @@
 /*jshint browser:true */
 /*global define */
 
-define(["when"], function(when) {
+define(["when", "signals"], function(when, signals) {
 	"use strict";
+
+
+	var pendingRequests = [],
+		heartbeatRate = 1000,
+		heartbeatRunning = false;
+
+
+	function doHeartBeat() {
+		heartbeatRunning = true;
+
+		request("text", "GET", "/heartbeat")
+		.then(function() {
+			heartbeatRunning = false;
+			ajax.connectionStatusChanged.dispatch(true);
+
+			pendingRequests.forEach(function(r) {
+				request(r.data.type, r.data.method, r.data.uri, r.data.data, r.deferred);
+			});
+
+			pendingRequests = [];
+		})
+		.otherwise(function() {
+			setTimeout(doHeartBeat, heartbeatRate);
+		});
+	}
 
 
 	/**
@@ -36,10 +61,23 @@ define(["when"], function(when) {
 		} else if (xhr.status === 204) {
 			// No content
 			d.resolve();
+		} else if (xhr.status === 0) {
+			// No connectivity
+
+			if (xhr.requestData.uri === "/heartbeat") {
+				d.reject();
+			} else {
+				pendingRequests.push({ data: xhr.requestData, deferred: d });
+				if (!heartbeatRunning) {
+					ajax.connectionStatusChanged.dispatch(false);
+					doHeartBeat();
+				}
+			}
 		} else {
-			d.reject(new Error("HTTP " + xhr.status));
+			d.reject(new Error("HTTP "+ xhr.status));
 		}
 		
+		xhr.requestData = null;
 		xhr.onreadystatechange = null;
 		xhr.abort();
 	}
@@ -53,14 +91,16 @@ define(["when"], function(when) {
 	 * @param {String} uri request URI
 	 * @param {Object} [data] request data
 	 */
-	function request(type, method, uri, data) {
-		var xhr = new XMLHttpRequest(),
-			d = when.defer();
+	function request(type, method, uri, data, d) {
+		var xhr = new XMLHttpRequest();
+		
+		d = d || when.defer();
 			
 		if (method.toUpperCase() === "DEL") {
 			method = "DELETE";
 		}
 		
+		xhr.requestData = { type: type, method: method, uri: uri, data: data };
 		xhr.onreadystatechange = onStateChange.bind(null, type, xhr, d);
 		xhr.open(method.toUpperCase(), uri, true);
 
@@ -99,7 +139,9 @@ define(["when"], function(when) {
 	}
 
 	
-	return {
+	var ajax = {
+		connectionStatusChanged: new signals.Signal(),
+
 		text: request.bind(null, "text"),
 		xml: request.bind(null, "xml"),
 		json: request.bind(null, "json"),
@@ -107,4 +149,6 @@ define(["when"], function(when) {
 		cachedXML: cachedRequest.bind(null, "xml"),
 		cachedJSON: cachedRequest.bind(null, "json")
 	};
+
+	return ajax;
 });

@@ -4,13 +4,11 @@
 define(["ajax", "when", "signals"], function(ajax, when, signals) {
 	"use strict";
 
-	var serverAlive = true,
-		heartBeatRate = 20000,
-		pendingRequests = [],
-		pendingThrottle = 200;
+	
+	var restAvailable = false,
+		pendingRequests = [];
 
-	
-	
+
 	/**
 	 * JSON ajax request helper
 	 *
@@ -21,18 +19,24 @@ define(["ajax", "when", "signals"], function(ajax, when, signals) {
 	function request(method, uri, data, d) {
 		d = d || when.defer();
 
-		if (!serverAlive && uri !== "/heartbeat") {
-			pendingRequests.push([method, uri, data, d]);
-			return d.promise;
+		if (!restAvailable) {
+			pendingRequests.push({
+				method: method,
+				uri: uri,
+				data: data,
+				deferred: d
+			});
+		} else {
+			ajax.json(method, uri, data)
+			.then(function(json) {
+				d.resolve(json);
+			})
+			.otherwise(function(err) {
+				console.log("=== REST ERROR on " + method + " " + uri + " ===");
+				console.error(err.stack);
+				d.reject(err);
+			});
 		}
-
-		ajax.json(method, uri, data)
-		.then(function(json) {
-			d.resolve(json);
-		})
-		.otherwise(function(err) {
-			d.reject(err);
-		});
 
 		return d.promise;
 	}
@@ -64,9 +68,6 @@ define(["ajax", "when", "signals"], function(ajax, when, signals) {
 
 
 	var rest = {
-		heartBeatLost: new signals.Signal(),
-		heartBeatRestored: new signals.Signal(),
-
 		list: function(uri, options) {
 			var querystring = {};
 			options = options || {};
@@ -210,51 +211,22 @@ define(["ajax", "when", "signals"], function(ajax, when, signals) {
 
 		del: function(uri, querystring) {
 			return request.del(makeURI(uri, querystring));
+		},
+
+		stop: function() {
+			restAvailable = false;
+		},
+
+		start: function() {
+			restAvailable = true;
+
+			pendingRequests.forEach(function(r) {
+				request(r.method, r.uri, r.data, r.deferred);
+			});
+
+			pendingRequests = [];
 		}
 	};
-
-
-
-	/* Setup heartbeat */
-	(function() {
-		function processPending() {
-			if (!serverAlive) {
-				return;
-			}
-
-			var req = pendingRequests.shift();
-
-			if (req) {
-				request.apply(null, req);
-				setTimeout(processPending, pendingThrottle);
-			}
-		}
-
-		rest.heartBeatRestored.add(processPending);
-
-		function heartBeat() {
-			request.get("/heartbeat", null)
-			.then(function() {
-				if (!serverAlive) {
-						rest.heartBeatRestored.dispatch();
-				}
-
-				serverAlive = true;
-			})
-			.otherwise(function(err) {
-				if (serverAlive) {
-					rest.heartBeatLost.dispatch(err);
-				}
-
-				serverAlive = false;
-			})
-			.ensure(function() {
-				setTimeout(heartBeat, heartBeatRate);
-			});
-		}
-
-		heartBeat();
-	}());
 
 	return rest;
 });

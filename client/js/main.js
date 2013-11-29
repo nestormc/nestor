@@ -37,7 +37,9 @@
 
 		packages: [
 			{ name: "when", location: "bower/when/", main: "when" }
-		]
+		],
+
+		deps: [ "when/monitor/console" ]
 	};
 
 	var mainRequire = require.config(mainConfig);
@@ -50,22 +52,21 @@
 	}
 
 	mainRequire(
-	["dom", "login", "ui", "router", "settings", "storage", "apploader", "rest"],
-	function(dom, login, ui, router, settings, storage, apploader, rest) {
+	["dom", "login", "ui", "router", "settings", "storage", "apploader", "ajax", "rest"],
+	function(dom, login, ui, router, settings, storage, apploader, ajax, rest) {
 		var $ = dom.$;
 
-		rest.heartBeatLost.add(function(err) {
-			var lost = $("#heartbeat-lost"),
-				msg = $(lost, "#message");
-
-			lost.style.display = "block";
-			msg.innerText = err.message;
-		});
-
-		rest.heartBeatRestored.add(function() {
+		ajax.connectionStatusChanged.add(function(connected) {
 			var lost = $("#heartbeat-lost");
 
-			lost.style.display = "none";
+			if (connected) {
+				lost.style.display = "none";
+			} else {
+				var msg = $(lost, "#message");
+
+				lost.style.display = "block";
+				msg.innerText = "Oops...";
+			}
 		});
 
 		var getErrorParameter = (function() {
@@ -96,10 +97,12 @@
 					ui.stop().then(function() {
 						storage.user = undefined;
 						router.reset();
+						rest.stop();
 						login.logout();
 					});
 				});
 				
+				rest.start();
 				apploader(ui, router, storage)
 				.then(function(apps) {
 					ui.start(user, apps, router, settings);
