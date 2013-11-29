@@ -4,10 +4,11 @@ define([
 	"router", "login",
 
 	"settings/users",
+	"settings/dirs",
 	"settings/shares",
 
 	"ist!tmpl/settings/main"
-], function(router, login, users, shares, template) {
+], function(router, login, users, dirs, shares, template) {
 	"use strict";
 
 	var rendered;
@@ -18,6 +19,9 @@ define([
 		init: function(ui) {
 			if (login.hasRight("nestor:users"))
 				this.addPane(users);
+
+			if (login.hasRight("media:watched-dirs"))
+				this.addPane(dirs);
 
 			if (login.hasRight("nestor:shares"))
 				this.addPane(shares);
