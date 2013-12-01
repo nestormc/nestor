@@ -8,4 +8,12 @@
 		label "password"
 	input[type=password]
 
+#auth-providers
+	a[href=/auth/google][title=Sign in with Google]
+		img.base[src=images/google/base.png]
+		img.hover[src=images/google/hover.png]
+	a[href=/auth/twitter][title=Sign in with Twitter]
+		img.base[src=images/twitter/base.svg]
+		img.hover[src=images/twitter/hover.svg]
+
 label.error "-"

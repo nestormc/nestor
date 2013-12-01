@@ -134,6 +134,7 @@ define(["dom"], function(dom) {
 		reset: function() {
 			routes = {};
 			actions = {};
+			currentRoute = undefined;
 
 			if (click) {
 				removeEventListener("click", click, true);

@@ -62,10 +62,13 @@ function(template, signals, when, ajax, dom) {
 
 		"input[type=text]": {
 			"keyup": function loginKeypress(e) {
+				showProviders(this.value.length === 0);
+
 				if (e.keyCode === 13 && this.value) {
 		            var input = $("#password input");
 
 					// Switch to password input
+					showProviders(false);
 					$("#password").style.display = "block";
 					$("#login").style.display = "none";
 					error(false);
@@ -94,6 +97,7 @@ function(template, signals, when, ajax, dom) {
 		}
 	};
 
+
 	function error(err) {
 		if (err === "not-authorized") {
 			err = "not authorized";
@@ -102,6 +106,12 @@ function(template, signals, when, ajax, dom) {
 		$("#login-container .error").innerHTML = err || "-";
 		$("#login-container .error").style.visibility = err ? "visible" : "hidden";
 	}
+
+
+	function showProviders(show) {
+		$("#auth-providers").style.display = show ? "block" : "none";
+	}
+
 
 	// Show login UI
 	function login(err) {
@@ -115,9 +125,10 @@ function(template, signals, when, ajax, dom) {
 		}
 
         var input = $("#login input");
-		
+
 		$("#login-container").style.display = $("#login").style.display = "block";
 		$("#main-container").style.display = $("#password").style.display = "none";
+        showProviders(true);
 		error(err);
 		
 		input.value = $("#password input").value = "";
