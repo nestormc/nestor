@@ -22,7 +22,6 @@
     "passport-local": "*",
     "passport-google": "*",
     "passport-twitter": "*",
-    "taglib": "*",
     "when": "*",
     "yarm": "*",
     "zipstream": "red56/node-zipstream"
