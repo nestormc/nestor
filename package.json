@@ -16,7 +16,6 @@
     "log4js": "*",
     "mongodb": "*",
     "mongoose": "*",
-    "nestor-plugin-registry": "*",
     "optimist": "*",
     "passport": "*",
     "passport-local": "*",

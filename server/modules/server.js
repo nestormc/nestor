@@ -96,7 +96,7 @@ app.use("/rest", function(req, res, next) {
 app.use("/rest", express.json());
 app.use("/rest", yarm());
 
-/* Override Buffer toJSON, just in case yarm sends and object with a huge buffer */
+/* Override Buffer toJSON, just in case yarm sends an object with a huge buffer */
 Buffer.prototype.toJSON = function() {
 	return "[Buffer]";
 };

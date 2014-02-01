@@ -1,62 +1,70 @@
 /*jshint node:true*/
 "use strict";
 
-var registry = require("nestor-plugin-registry");
 var when = require("when");
-var timeout = require("when/timeout");
+var mongoose = require("mongoose");
+var yarm = require("yarm");
 
 var config = require("./config");
 var intents = require("./intents");
 var log4js = require("log4js");
 var logger = log4js.getLogger("nestor");
 
+var services = {
+		config: config,
+		intents: intents,
+		mongoose: mongoose,
+		rest: yarm
+	};
 
-function loadPlugins() {
-	var d = when.defer();
-	var services = {
-			config: config,
-			intents: intents
-		};
-	
-	var names = Object.keys(config.plugins);
-	var count = 0;
+var loadPromises = {};
+function loadPlugin(moduleName) {
+	if (!(moduleName in loadPromises)) {
+		var d = when.defer();
+		loadPromises[moduleName] = d.promise;
 
-	registry.on("plugin", function(manifest, initializer) {
-		logger.debug("Loaded plugin %s", manifest.name);
-
-		var appServices = Object.create(services);
-		appServices.logger = log4js.getLogger(manifest.name);
-
+		var plugin;
 		try {
-			initializer(appServices);
+			plugin = require(moduleName);
 		} catch(e) {
-			logger.error("Could not initialize plugin %s: %s", manifest.name, e.message);
+			logger.error("Could not load plugin %s: %s", moduleName, e.message);
 			d.reject(e);
 		}
 
-		count++;
+		if (plugin) {
+			var manifest = plugin.manifest;
+			var deps = manifest.dependencies || [];
 
-		if (count === names.length) {
-			// All plugins have been loaded
-			d.resolve();
-		}
-	});
+			loadPlugins(deps).then(function() {
+				var pluginServices = Object.create(services);
+				pluginServices.logger = log4js.getLogger(manifest.name);
 
-	for (var i = 0; i < names.length; i++) {
-		var name = names[i];
+				try {
+					plugin(pluginServices);
+				} catch(e) {
+					logger.error("Could not initialize plugin %s: %s", manifest.name, e.message);
+					d.reject(e);
+					return;
+				}
 
-		try {
-			require(name);
-		} catch(e) {
-			logger.error("Could not load plugin %s: %s", name, e.message);
-			return when.reject(e);
+				logger.info("Loaded plugin %s", manifest.name);
+
+				d.resolve();
+			}).otherwise(function(e) {
+				d.reject(e);
+			});
 		}
 	}
 
-	logger.debug("Loaded %d plugins", names.length);
-
-	return timeout(1000, d.promise);
+	return loadPromises[moduleName];
 }
 
 
-module.exports = loadPlugins;
+function loadPlugins(moduleNames) {
+	return when.map(moduleNames, loadPlugin);
+}
+
+
+module.exports = function() {
+	return loadPlugins(Object.keys(config.plugins));
+};
