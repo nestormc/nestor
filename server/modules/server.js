@@ -1,13 +1,11 @@
 /*jshint node:true */
 "use strict";
 
-var crypto = require("crypto"),
-	express = require("express"),
+var express = require("express"),
 	lessMiddleware = require("less-middleware"),
 	yarm = require("yarm"),
 	logger = require("log4js").getLogger("server"),
 	MongoStore = require("connect-mongo")(express),
-	registry = require("nestor-plugin-registry"),
 	
 	config = require("./config"),
 	serverConfig = config.server,
@@ -53,24 +51,10 @@ app.use(lessMiddleware({
 /* Serve static files from client/ */
 app.use(express.static(__dirname + "/../../client"));
 
-/* Serve plugin static files */
+/* Plugin  */
 var plugins = [];
 yarm.native("plugins", plugins).readonly(true);
 
-registry.on("plugin", function(manifest) {
-	if (manifest.clientDir) {
-		plugins.push(manifest.name);
-
-		app.use("/plugins/" + manifest.name, lessMiddleware({
-			src: manifest.clientDir,
-			force: true,
-			paths: [__dirname + "/../../client/style"],
-			preprocessor: lessPreprocessor.bind(null, true)
-		}));
-
-		app.use("/plugins/" + manifest.name, express.static(manifest.clientDir));
-	}
-});
 
 /* Auth handler */
 app.use("/auth", express.json());
@@ -131,11 +115,23 @@ app.use(function errorHandler(err, req, res, next) {
 
 
 intents.on("nestor:startup", function() {
-	/* Dispatch yarm helper */
-	intents.emit("nestor:rest", yarm);
-
 	/* Launch HTTP server */
 	logger.info("Starting HTTP server on %s:%s", serverConfig.host, serverConfig.port);
 	app.listen(serverConfig.port, serverConfig.host);
 });
 
+
+module.exports = {
+	registerPlugin: function(name, dir) {
+		plugins.push(name);
+
+		app.use("/plugins/" + name, lessMiddleware({
+			src: dir,
+			force: true,
+			paths: [__dirname + "/../../client/style"],
+			preprocessor: lessPreprocessor.bind(null, true)
+		}));
+
+		app.use("/plugins/" + name, express.static(dir));
+	}
+};
