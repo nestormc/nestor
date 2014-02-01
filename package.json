@@ -9,7 +9,6 @@
   },
   "dependencies": {
     "bower": "*",
-    "chokidar": "*",
     "connect-mongo": "*",
     "daemon": "*",
     "express": "*",
@@ -18,7 +17,6 @@
     "mongodb": "*",
     "mongoose": "*",
     "nestor-plugin-registry": "*",
-    "node-ffprobe": "njoyard/node-ffprobe",
     "optimist": "*",
     "passport": "*",
     "passport-local": "*",
