@@ -19,11 +19,12 @@ ul.content-list
 			ul.rights
 				@each loop.outer.rights
 					li
-						span.icon
-							@if loop.outer.rights.indexOf(this.name) === -1
-								@svg "images/cancel.svg"
-							@else
-								@svg "images/commit.svg"
+						@if loop.outer.rights.indexOf(this.name) === -1
+							span.icon.active
+								@svg "images/bullet.svg"
+						@else
+							span.icon
+								@svg "images/bullet.svg"
 
 						"{{ description }}"
 

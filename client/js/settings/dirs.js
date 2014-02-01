@@ -11,7 +11,7 @@ define([
 	"use strict";
 
 	var rendered,
-		node;
+		paneNode;
 
 	function update() {
 		return resources.dirs.get().then(function(dirs) {
@@ -27,7 +27,7 @@ define([
 		render: function() {
 			if (!rendered) {
 				rendered = template.render({ dirs: [] });
-				node = rendered.firstChild;
+				paneNode = rendered.firstChild;
 
 				router.on("!settings/dirs/remove/:id", function(err, req, next) {
 					resources.dirs.remove(req.match.id)
@@ -38,7 +38,7 @@ define([
 
 			update();
 
-			return node;
+			return paneNode;
 		}
 	};
 });

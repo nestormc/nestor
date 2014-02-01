@@ -1,8 +1,25 @@
 #!/bin/bash
 
+PIDFILE=/tmp/nestor.pid
+
 MAINSCRIPT=nestor.js
 if [ ! -f $MAINSCRIPT ]; then
 	MAINSCRIPT=/usr/share/nestor/$MAINSCRIPT
 fi
 
-env node $MAINSCRIPT $*
+if [ -f $PIDFILE ]; then
+	kill `cat $PIDFILE`
+fi
+
+if [ "x$1" = "xkill" ]; then
+	exit
+fi
+
+NODEOPT=
+if [ "x$1" = "xdebug" ]; then
+	NODEOPT=--debug-brk
+	shift
+fi
+
+env node $NODEOPT $MAINSCRIPT $* &
+echo $! > $PIDFILE

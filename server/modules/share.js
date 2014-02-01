@@ -8,10 +8,9 @@ var crypto = require("crypto"),
 	mongoose = require("mongoose"),
 	path = require("path"),
 	util = require("util"),
-	yarm = require("yarm"),
 	zipstream = require("zipstream"),
 
-	auth = require("./auth");
+	intents = require("./intents");
 
 
 /* Short ID generator (5 base64url-encoded random bytes) */
@@ -38,6 +37,7 @@ var ShareSchema = new mongoose.Schema({
 	disabled: { type: Boolean, default: false }
 });
 
+
 ShareSchema.methods.canSend = function() {
 	if (new Date() > this.expires || this.disabled) {
 		return false;
@@ -54,9 +54,11 @@ ShareSchema.methods.canSend = function() {
 	return true;
 };
 
+
 ShareSchema.virtual("url").get(function() {
 	return getShareURI(this._request, this);
 });
+
 
 ShareSchema.pre("save", function(next) {
 	/* Generate short ID */
@@ -67,6 +69,7 @@ ShareSchema.pre("save", function(next) {
 	next();
 });
 
+
 var Share = mongoose.model("share", ShareSchema);
 
 
@@ -76,6 +79,7 @@ function DownloadStreamBuilder() {
 	this.files = [];
 	this.downloadName = null;
 }
+
 
 DownloadStreamBuilder.prototype = {
 	_buildFileList: function(cb) {
@@ -235,6 +239,7 @@ DownloadStreamBuilder.prototype = {
 	}
 };
 
+
 var handlers = {};
 
 
@@ -247,6 +252,7 @@ function getResourceURI(req, provider, resource) {
 	);
 }
 
+
 function getShareURI(req, share) {
 	return util.format("%s://%s/download/%s",
 		req.protocol,
@@ -254,6 +260,7 @@ function getShareURI(req, share) {
 		share.shortId
 	);	
 }
+
 
 function pipeDownloadStream(provider, resource, setName, outStream, cb) {
 	var builder = new DownloadStreamBuilder();
@@ -277,38 +284,35 @@ function pipeDownloadStream(provider, resource, setName, outStream, cb) {
 }
 
 
-module.exports = {
-	init: function() {
-		yarm.mongooseResource("shares", Share, {
-			key: "shortId",
+intents.on("nestor:share", function(args) {
+	handlers[args.provider] = args.handler;
+});
 
-			toObject: {
-				virtuals: true,
 
-				transform: function(doc, ret, options) {
-					delete ret._id;
-					delete ret.__v;
-				}
+intents.on("nestor:rest", function(rest) {
+	rest.mongoose("shares", Share)
+		.set("key", "shortId")
+		.set("toObject", {
+			virtuals: true,
+
+			transform: function(doc, ret, options) {
+				delete ret._id;
+				delete ret.__v;
 			}
 		});
+});
 
-		auth.declareRights([{
-			name: "nestor:shares",
-			description: "Share resources and manage shared resources",
-			route: "/shares*"
-		}]);
-	},
 
-	registerShareHandler: function(provider, handler) {
-		handlers[provider] = handler;
+intents.on("nestor:startup", function() {
+	intents.emit("nestor:right", {
+		name: "nestor:shares",
+		description: "Share resources and manage shared resources",
+		route: "/shares*"
+	});
+});
 
-		return {
-			getURI: function(req, resource) {
-				return module.exports.getResourceURI(req, provider, resource);
-			}
-		};
-	},
 
+module.exports = {
 	getResourceURI: getResourceURI,
 	pipeDownloadStream: pipeDownloadStream,
 

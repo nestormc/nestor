@@ -12,7 +12,7 @@ define([
 	"use strict";
 
 	var rendered,
-		node;
+		paneNode;
 
 	function update() {
 		return resources.shares.get().then(function(shares) {
@@ -28,7 +28,7 @@ define([
 		render: function() {
 			if (!rendered) {
 				rendered = template.render({ shares: [] });
-				node = rendered.firstChild;
+				paneNode = rendered.firstChild;
 
 				router.on("!settings/shares/remove/:id", function(err, req, next) {
 					resources.shares.remove(req.match.id)
@@ -51,7 +51,7 @@ define([
 
 			update();
 
-			return node;
+			return paneNode;
 		},
 
 		getShareInterface: function(provider) {

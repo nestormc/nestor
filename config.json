@@ -15,7 +15,7 @@
 	
 	"server": {
 		"host": "localhost",
-		"port": 8080,
+		"port": 8357,
 
 		"ssl": {
 			"mandatory": false,
@@ -34,19 +34,31 @@
 
 	"log4js": {
 		"appenders": [
-			{ "type": "console", "layout": { "type": "basic" } }
+			{ "type": "console" }
 		],
 
 		"levels": {
+			"auth": "INFO",
 			"intents": "INFO",
-			"media": "INFO",
+			"nestor": "DEBUG",
 			"server": "DEBUG",
-			"auth": "DEBUG"
+			"scheduler": "INFO",
+
+			"cover": "DEBUG",
+			"media": "INFO",
+			"music": "INFO"
 		}
 	},
 
+	"plugins": {
+		"nestor-coverart": {},
+		"nestor-downloads": {}
+	},
+
 	"media": {
-		"walkJobs": 128
+		"watch": [
+			"/home/niko/Musique/test nestor"
+		]
 	},
 
 	"downloads": {

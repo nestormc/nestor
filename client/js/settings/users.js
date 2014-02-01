@@ -11,7 +11,7 @@ define([
 	"use strict";
 
 	var rendered,
-		node;
+		paneNode;
 
 	var rightsPromise = resources.rights.get();
 
@@ -35,7 +35,7 @@ define([
 		render: function() {
 			if (!rendered) {
 				rendered = template.render({ users: [] });
-				node = rendered.firstChild;
+				paneNode = rendered.firstChild;
 			}
 
 			router.on("!settings/users/remove/:id", function(err, req, next) {
@@ -57,7 +57,7 @@ define([
 
 			update();
 
-			return node;
+			return paneNode;
 		}
 	};
 });

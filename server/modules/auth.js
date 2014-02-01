@@ -11,7 +11,8 @@ var crypto = require("crypto"),
 	yarm = require("yarm"),
 
 	config = require("./config").auth,
-	logger = require("log4js").getLogger("auth");
+	logger = require("log4js").getLogger("auth"),
+	intents = require("./intents");
 
 
 var knownRights = [];
@@ -143,49 +144,68 @@ function handleAuthentification(strategy, req, res, next) {
 }
 
 
+intents.on("nestor:right", function(right) {
+	right.regexp = new RegExp(
+		"^" +
+		right.route.replace(/\*/g, ".*").replace(/:\w+/g, "[^\/]+") +
+		"$", "i"
+	);
+	
+	knownRights.push(right);
+});
+
+function countRights(req, cb) {
+	process.nextTick(function() { cb(null, knownRights.length); });
+}
+
+function listRights(req, offset, limit, cb) {
+	var arr;
+
+	if (limit > 0) {
+		arr = knownRights.slice(offset, offset + limit);
+	} else {
+		arr = knownRights.slice(offset);
+	}
+
+	process.nextTick(function() {
+		cb(null, arr.map(function(right) {
+			return {
+				name: right.name,
+				description: right.description
+			};
+		}));
+	});
+}
+
+intents.on("nestor:rest", function(rest) {
+	rest.mongoose("users", User)
+		.set("key", "identifier")
+		.set("toObject", {
+			virtuals: true,
+
+			transform: function(doc, ret, options) {
+				delete ret._id;
+				delete ret.__v;
+			}
+		});
+
+	rest.resource("rights")
+		.count(countRights)
+		.list(listRights);
+});
+
+
+intents.on("nestor:startup", function() {
+	intents.emit("nestor:right", {
+		name: "nestor:users",
+		route: "/users",
+		description: "Manage users and their rights"
+	});
+});
+
+
 module.exports = {
 	init: function(app, host) {
-		/* Setup users and rights resources */
-
-		yarm.mongooseResource("users", User, {
-			key: "identifier",
-
-			toObject: {
-				virtuals: true,
-
-				transform: function(doc, ret, options) {
-					delete ret._id;
-					delete ret.__v;
-				}
-			}
-		});
-
-		yarm.resource("rights", {
-			count: function(req, cb) {
-				process.nextTick(function() { cb(null, knownRights.length); });
-			},
-
-			list: function(req, offset, limit, cb) {
-				var arr;
-
-				if (limit > 0) {
-					arr = knownRights.slice(offset, offset + limit);
-				} else {
-					arr = knownRights.slice(offset);
-				}
-
-				process.nextTick(function() {
-					cb(null, arr.map(function(right) {
-						return {
-							name: right.name,
-							description: right.description
-						};
-					}));
-				});
-			}
-		});
-
-
 		/* Initialize passport */
 
 		app.use(passport.initialize());
@@ -341,66 +361,5 @@ module.exports = {
 				next();
 			}
 		});
-
-		/* Setup auth rights */
-
-		this.declareRights([{
-			name: "nestor:users",
-			route: "/users",
-			description: "Manage users and their rights"
-		}]);
-	},
-
-	declareRights: function(rights) {
-		rights.forEach(function(right) {
-			right.regexp = new RegExp(
-				"^" +
-				right.route.replace(/\*/g, ".*").replace(/:\w+/g, "[^\/]+") +
-				"$", "i"
-			);
-		});
-
-		knownRights = knownRights.concat(rights);
-	},
-
-	checkRights: function(req, names, any) {
-		var method = any ? "some" : "every";
-
-		if (!Array.isArray(names)) {
-			names = [names];
-		}
-
-		if (!req.isAuthenticated()) {
-			return false;
-		} else {
-			return names[method](function(name) {
-				return req.user.hasRight(name);
-			});
-		}
-	},
-
-	getRightsInterface: function(app) {
-		return {
-			declareRights: function(rights) {
-				module.exports.declareRights(rights.map(function(right) {
-					return {
-						name: app + ":" + right.name,
-						route: right.route,
-						methods: right.methods,
-						description: right.description
-					};
-				}));
-			},
-
-			checkRights: function(req, names, any) {
-				if (!Array.isArray(names)) {
-					names = [names];
-				}
-
-				return module.exports.checkRights(req, names.map(function(name) {
-					return app + ":" + name;
-				}), any);
-			}
-		};
 	}
 };

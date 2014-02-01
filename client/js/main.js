@@ -17,7 +17,7 @@
 
 			domReady: "bower/requirejs-domready/domReady",
 			signals: "bower/js-signals/dist/signals",
-			ist: "bower/ist/dist/ist",
+			ist: "bower/ist/ist",
 	        async: "bower/requirejs-plugins/src/async",
 	        goog: "bower/requirejs-plugins/src/goog",
 	        propertyParser : "bower/requirejs-plugins/src/propertyParser",

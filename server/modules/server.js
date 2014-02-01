@@ -11,6 +11,7 @@ var crypto = require("crypto"),
 	config = require("./config"),
 	serverConfig = config.server,
 
+	intents = require("./intents"),
 	share = require("./share"),
 	auth = require("./auth"),
 	
@@ -100,8 +101,13 @@ app.use(function errorHandler(err, req, res, next) {
 	logger.error("Unhandled exception: %s\n%s", err.message, err.stack);
 });
 
-/* Launch HTTP server */
-exports.init = function() {
+
+intents.on("nestor:startup", function() {
+	/* Dispatch yarm helper */
+	intents.emit("nestor:rest", yarm);
+
+	/* Launch HTTP server */
 	logger.info("Starting HTTP server on %s:%s", serverConfig.host, serverConfig.port);
 	app.listen(serverConfig.port, serverConfig.host);
-};
+});
+

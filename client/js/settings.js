@@ -27,6 +27,9 @@ define([
 				this.addPane(shares);
 
 			ui.loadCSS("settings", "");
+			ui.stopping.add(function() {
+				settings.panes = [];
+			});
 
 			router.on("/settings", function(err, req, next) {
 				var container = ui.container("settings");

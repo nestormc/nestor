@@ -11,12 +11,12 @@ var mongoose = require("mongoose"),
 	ncall = require("when/node/function").call,
 	logger = require("log4js").getLogger("nestor"),
 
-	apploader = require("./modules/apploader"),
 	config = require("./modules/config"),
 	intents = require("./modules/intents"),
-	server = require("./modules/server"),
-	share = require("./modules/share");
+	plugins = require("./modules/plugins");
 
+require("./modules/server");
+require("./modules/scheduler");
 
 module.exports = function startup() {
 	process.on("error", function(err) {
@@ -29,11 +29,9 @@ module.exports = function startup() {
 	ncall(function(cb) {
 		mongoose.connect(config.database, cb);
 	})
-	.then(apploader.init.bind(null, __dirname))
-	.then(share.init)
-	.then(server.init)
+	.then(plugins)
 	.then(function() {
-		intents.dispatch("nestor.startup");
+		intents.emit("nestor:startup");
 	})
 	.otherwise(function(err) {
 		logger.fatal(err.message + "\n" + err.stack);
