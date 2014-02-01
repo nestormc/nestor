@@ -52,8 +52,8 @@
 	}
 
 	mainRequire(
-	["dom", "login", "ui", "router", "settings", "storage", "apploader", "ajax", "rest"],
-	function(dom, login, ui, router, settings, storage, apploader, ajax, rest) {
+	["dom", "login", "ui", "router", "settings", "storage", "plugins", "ajax", "rest"],
+	function(dom, login, ui, router, settings, storage, plugins, ajax, rest) {
 		var $ = dom.$;
 
 		ajax.connectionStatusChanged.add(function(connected) {
@@ -103,7 +103,7 @@
 				});
 				
 				rest.start();
-				apploader(ui, router, storage)
+				plugins(ui, router, storage)
 				.then(function(apps) {
 					ui.start(user, apps, router, settings);
 					router.start();

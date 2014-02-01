@@ -7,6 +7,7 @@ var crypto = require("crypto"),
 	yarm = require("yarm"),
 	logger = require("log4js").getLogger("server"),
 	MongoStore = require("connect-mongo")(express),
+	registry = require("nestor-plugin-registry"),
 	
 	config = require("./config"),
 	serverConfig = config.server,
@@ -16,6 +17,15 @@ var crypto = require("crypto"),
 	auth = require("./auth"),
 	
 	app = express();
+
+
+function lessPreprocessor(src, req) {
+	if (req.param("namespace")) {
+		src = req.param("namespace") + " { " + src + " } ";
+	}
+	
+	return src;
+}
 
 
 /* Basic express serverConfiguration */
@@ -28,21 +38,34 @@ app.use(express.session({
 	store: new MongoStore({ url: config.database })
 }));
 
+
 /* Serve LESS-compiled CSS from client/ */
 app.use(lessMiddleware({
 	src: __dirname + "/../../client",
 	force: true,
-	pre: function(src, req) {
-		if (req.param("namespace")) {
-			src = req.param("namespace") + " { " + src + " } ";
-		}
-		
-		return src;
-	}
+	preprocessor: lessPreprocessor
 }));
 
 /* Serve static files from client/ */
-app.use(express["static"](__dirname + "/../../client"));
+app.use(express.static(__dirname + "/../../client"));
+
+/* Serve plugin static files */
+var plugins = [];
+yarm.native("plugins", plugins).readonly(true);
+
+registry.on("plugin", function(manifest) {
+	if (manifest.clientDir) {
+		plugins.push(manifest.name);
+
+		app.use("/plugins/" + manifest.name, lessMiddleware({
+			src: manifest.clientDir,
+			force: true,
+			preprocessor: lessPreprocessor
+		}));
+
+		app.use("/plugins/" + manifest.name, express.static(manifest.clientDir));
+	}
+});
 
 /* Auth handler */
 app.use("/auth", express.json());

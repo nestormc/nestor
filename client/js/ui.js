@@ -90,7 +90,9 @@ function(ist, template, signals, when, ajax, dom, debug) {
 
 			link.type = "text/css";
 			link.rel = "stylesheet";
-			link.href = "style/" + (this.app === "nestor" ? "" : this.app + "/") + filename + "-min.css?namespace=" + encodeURIComponent(namespace);
+
+			var styledir = this.app === "nestor" ? "style" : "plugins/" + this.app + "/style";
+			link.href = styledir + "/" + filename + "-min.css?namespace=" + encodeURIComponent(namespace);
 
 			stylesheets.push(link);
 			document.querySelector("head").appendChild(link);
