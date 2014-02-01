@@ -19,7 +19,11 @@ var crypto = require("crypto"),
 	app = express();
 
 
-function lessPreprocessor(src, req) {
+function lessPreprocessor(importDefs, src, req) {
+	if (importDefs) {
+		src = "@import \"defs.less\";\n" + src;
+	}
+
 	if (req.param("namespace")) {
 		src = req.param("namespace") + " { " + src + " } ";
 	}
@@ -43,7 +47,7 @@ app.use(express.session({
 app.use(lessMiddleware({
 	src: __dirname + "/../../client",
 	force: true,
-	preprocessor: lessPreprocessor
+	preprocessor: lessPreprocessor.bind(null, false)
 }));
 
 /* Serve static files from client/ */
@@ -60,7 +64,8 @@ registry.on("plugin", function(manifest) {
 		app.use("/plugins/" + manifest.name, lessMiddleware({
 			src: manifest.clientDir,
 			force: true,
-			preprocessor: lessPreprocessor
+			paths: [__dirname + "/../../client/style"],
+			preprocessor: lessPreprocessor.bind(null, true)
 		}));
 
 		app.use("/plugins/" + manifest.name, express.static(manifest.clientDir));
