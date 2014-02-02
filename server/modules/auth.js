@@ -177,22 +177,20 @@ function listRights(req, offset, limit, cb) {
 	});
 }
 
-intents.on("nestor:rest", function(rest) {
-	rest.mongoose("users", User)
-		.set("key", "identifier")
-		.set("toObject", {
-			virtuals: true,
+yarm.mongoose("users", User)
+	.set("key", "identifier")
+	.set("toObject", {
+		virtuals: true,
 
-			transform: function(doc, ret, options) {
-				delete ret._id;
-				delete ret.__v;
-			}
-		});
+		transform: function(doc, ret, options) {
+			delete ret._id;
+			delete ret.__v;
+		}
+	});
 
-	rest.resource("rights")
-		.count(countRights)
-		.list(listRights);
-});
+yarm.resource("rights")
+	.count(countRights)
+	.list(listRights);
 
 
 intents.on("nestor:startup", function() {

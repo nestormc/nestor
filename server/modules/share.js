@@ -8,6 +8,7 @@ var crypto = require("crypto"),
 	mongoose = require("mongoose"),
 	path = require("path"),
 	util = require("util"),
+	yarm = require("yarm"),
 	zipstream = require("zipstream"),
 
 	intents = require("./intents");
@@ -289,18 +290,16 @@ intents.on("nestor:share", function(args) {
 });
 
 
-intents.on("nestor:rest", function(rest) {
-	rest.mongoose("shares", Share)
-		.set("key", "shortId")
-		.set("toObject", {
-			virtuals: true,
+yarm.mongoose("shares", Share)
+	.set("key", "shortId")
+	.set("toObject", {
+		virtuals: true,
 
-			transform: function(doc, ret, options) {
-				delete ret._id;
-				delete ret.__v;
-			}
-		});
-});
+		transform: function(doc, ret, options) {
+			delete ret._id;
+			delete ret.__v;
+		}
+	});
 
 
 intents.on("nestor:startup", function() {
