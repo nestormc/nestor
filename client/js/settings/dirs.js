@@ -22,7 +22,7 @@ define([
 	return {
 		title: "Watched directories",
 		description: "Manage directories watched for media files",
-		icon: "share",
+		icon: "settings",
 
 		render: function() {
 			if (!rendered) {

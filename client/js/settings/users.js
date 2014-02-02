@@ -30,7 +30,7 @@ define([
 	return {
 		title: "Users",
 		description: "Manage nestor users",
-		icon: "share",
+		icon: "key",
 
 		render: function() {
 			if (!rendered) {
