@@ -12,27 +12,31 @@
 						a[href=#{{ value }}] "{{ key }}"
 					
 	/* Application list */
-	@each apps
-		[class=app app-{{ title }}]
+	@each plugins
+		.plugin
 			.title
 				"{{ title }}"
-			.applet
-				@dom appletNode
+			.applets
+				@each viewTypes.applet
+					@dom this
 			ul.pages
-				@eachkey pages
-					li[class={{ key }}]
-						a[href=#/{{ loop.outer.title }}/{{ key }}]
-							img[src=images/{{ value.icon || "list" }}.svg]
-							"{{ key }}"
+				@each links
+					li
+						a[href=#{{ route }}]
+							img[src=images/{{ icon || "list" }}.svg]
+							"{{ label }}" 
 					
 #viewport
-	#search
-		input[type=text]
-
+	@each plugins
+		@each viewTypes.main
+			@dom this
 
 #popup
 	#background
 	#content
+		@each plugins
+			@each viewTypes.popup
+				@dom this
 
 /* Components */
 

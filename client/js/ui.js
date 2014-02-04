@@ -1,263 +1,255 @@
-/*jshint browser:true */
-/*global define, console */
-
+/*jshint browser:true*/
+/*global define*/
 define(
-["ist-wrapper", "ist!tmpl/main", "signals", "when", "ajax", "dom", "debug"],
-function(ist, template, signals, when, ajax, dom, debug) {
+["ist-wrapper", "ist!tmpl/main", "signals", "dom", "when", "settings"],
+function(ist, mainTemplate, signals, dom, when, settings) {
 	"use strict";
-	
-	var ui,
-		containers = {},
-		stylesheets = [],
-		SCROLL_THRESHOLD = 64,
-		$ = dom.$,
-		$$ = dom.$$,
-		viewportBehaviour,
-		activeContainer;
-	
-	viewportBehaviour = {
-		"&": {
-			"scroll": function() {
-				if (activeContainer && this.scrollTop + this.offsetHeight > this.scrollHeight - SCROLL_THRESHOLD) {
-					activeContainer.scrolledToEnd.dispatch();
-				}
-			}
-		}
-	};
 
-	var madeSignals = [];
+	var $ = dom.$;
+	var $$ = dom.$$;
 
-	/**
-	 * Signal factory
-	 * Signals made with this factory are reset with the ui
+
+	/*!
+	 * View show/hide helpers
 	 */
-	function makeSignal() {
-		var s = new signals.Signal(),
-			dispose = s.dispose.bind(s);
 
-		madeSignals.push(s);
-
-		s.dispose = function() {
-			dispose();
-			madeSignals.splice(madeSignals.indexOf(s), 1);
-		};
-
-		return s;
+	function showView(view) {
+		view.displayed.dispatch();
+		view.style.display = "block";
 	}
 
 
-	ui = {
-		app: "nestor",
+	function hideView(view) {
+		view.undisplayed.dispatch();
+		view.style.display = "none";
+	}
 
-		searchQueryChanged: makeSignal(),
-		searchQueryCancelled: makeSignal(),
 
-		appletsReady: makeSignal(),
-		stopping: makeSignal(),
-		
-		subUI: function(appname) {
-			var sub = Object.create(ui);
-			sub.app = appname;
 
-			return sub;
-		},
-		
+	var showPopup = (function() {
+		var lastPopup = when.resolve();
+
+		return function(view) {
+			var popup = $("#popup");
+
+			var last = lastPopup;
+			var next = when.defer();
+			lastPopup = next.promise;
+
+			// Resolve next promise when view is hidden
+			var binding = view.undisplayed.add(function () {
+				binding.detach();
+				popup.style.display = "none";
+				next.resolve();
+			});
+
+			// Wait for last popup to disappear
+			last.then(function() {
+				// Show popup
+				popup.style.display = "block";
+				showView(view);
+			});
+		};
+	}());
+
+
+	var showMainView = (function() {
+		var current;
+
+		return function(view) {
+			if (current) {
+				hideView(current);
+			}
+
+			current = view;
+			showView(view);
+		};
+	}());
+
+
+	/*!
+	 * CSS lodaer
+	 */
+
+	function loadCSS(plugin, namespace, filename) {
+		var stylePath = plugin === "nestor" ? "style" : "plugins/" + plugin + "/style";
+		var href = stylePath + "/" + filename + "-min.css?namespace=" + encodeURIComponent(namespace);
+		var link = $("link[href='" + href + "']");
+
+		if (!link) {
+			link = ist.create("link[type=text/css][rel=stylesheet][href=" + href + "]");
+			$("head").appendChild(link);
+		}
+	}
+
+
+	/*!
+	 * View updater
+	 */
+
+	function autoUpdateView(view, updater, interval) {
+		var handle = null,
+			helpers = {
+				clear: function() {
+					clearTimeout(handle);
+					handle = null;
+				},
+
+				trigger: function() {
+					helpers.clear();
+					run();
+				}
+			};
+
+		function run() {
+			updater(done);
+		}
+
+		function done() {
+			handle = setTimeout(run, interval);
+		}
+
+		// Start updater when view is visible
+		view.displayed.add(function() {
+			run();
+		});
+
+		// Suspend updater when view is hidden
+		view.undisplayed.add(function() {
+			helpers.clear();
+		});
+
+		return helpers;
+	}
+
+
+	/*!
+	 * UI-specific signal factory
+	 */
+
+	var makeSignal = (function() {
+		var sigs = [];
+
+		function makeSignal() {
+			var signal = new signals.Signal(),
+				originalDispose = signal.dispose.bind(signal);
+
+			sigs.push(signal);
+
+			signal.dispose = function() {
+				sigs.splice(sigs.indexOf(sigs), 1);
+				originalDispose();
+			};
+
+			return signal;
+		}
+
+		makeSignal.removeAll = function() {
+			sigs.forEach(function(s) {
+				s.removeAll();
+			});
+		};
+
+		return makeSignal;
+	}());
+
+
+	/*!
+	 * ist context and main UI rendered fragment
+	 */
+	var istContext;
+	var istRendered;
+
+
+	/*!
+	 * Public interface
+	 */
+
+	var pluginUIs = {};
+	var activeMainView;
+
+	var ui = {
+		plugin: "nestor",
+
+
+		/* Signals */
+		started: new signals.Signal(),
+		stopping: new signals.Signal(),
+
+
+		/* Error handler, should make this nicer... */
 		error: function(title, details) {
-			console.log("=== " + this.app + " ERROR ===");
+			console.log("=== " + this.plugin + " ERROR ===");
 			console.error(title);
 			console.error(details);
 		},
 
-		signal: makeSignal,
 
-		/**
-		 * Load <filename>.css, namespacing it depending on the value of `container`.
-		 * If container is not specified, the stylesheet is namespaced for the applet node
-		 * If it is an empty string, it is namespaced for all containers
-		 * Else, it is namespaced for the container with name `container`.
-		 */
-		loadCSS: function(filename, container) {
-			var link = document.createElement("link"),
-				namespace;
-
-			if (typeof container === "undefined") {
-				namespace = "#bar .app-" + this.app + " .applet";
-			} else if (container === "") {
-				namespace = "#viewport .container-" + this.app;
-			} else {
-				namespace = "#viewport .container-" + this.app + "-" + container;
-			}
-
-			link.type = "text/css";
-			link.rel = "stylesheet";
-
-			var styledir = this.app === "nestor" ? "style" : "plugins/" + this.app + "/style";
-			link.href = styledir + "/" + filename + "-min.css?namespace=" + encodeURIComponent(namespace);
-
-			stylesheets.push(link);
-			document.querySelector("head").appendChild(link);
-		},
-		
-		container: (function() {
-			function showContainer(container) {
-				if (activeContainer) {
-					activeContainer.style.display = "none";
-					activeContainer.undisplayed.dispatch();
-				}
-
-				container.style.display = "block";
-				container.displayed.dispatch();
-				activeContainer = container;
-			}
-
-			function setContainerUpdater(container, updater, interval) {
-				var handle = null,
-					helpers = {
-						clear: function() {
-							clearTimeout(handle);
-							handle = null;
-						},
-
-						trigger: function() {
-							helpers.clear();
-							run();
-						}
-					};
-
-				function run() {
-					updater(done);
-				}
-
-				function done() {
-					handle = setTimeout(run, interval);
-				}
-
-				container.displayed.add(function() {
-					run();
-				});
-
-				container.undisplayed.add(function() {
-					helpers.clear();
-				});
-
-				return helpers;
-			}
-
-			
-			return function(name) {
-				var aname = this.app + "-" + name;
-				
-				if (!containers[aname]) {
-					var c = ist.create("div[class=container container-{{ app }} container-{{name}}]", { app: this.app, name: aname });
-						
-					$("#viewport").appendChild(c);
-					
-					// Would love to be able to Object.create(DOMNode) here :(
-					c.$ = $.bind(null, c);
-					c.$$ = $$.bind(null, c);
-					c.behave = dom.behave.bind(null, c);
-					c.show = showContainer.bind(null, c);
-					c.setUpdater = setContainerUpdater.bind(null, c);
-
-					c.displayed = new signals.Signal();
-					c.undisplayed = new signals.Signal();
-					c.scrolledToEnd = new signals.Signal();
-					
-					containers[aname] = c;
-				}
-				
-				return containers[aname];
+		/* Start the UI */
+		start: function(user, plugins, router, settings) {
+			// Initialize rendering context
+			istContext = {
+				user: user,
+				plugins: plugins
 			};
-		}()),
-		
-		start: function(user, apps, router, settings) {
-			var manifests;
-			
-			/* Extract app manifests and render applet nodes */
-			manifests = Object.keys(apps).map(function(name) {
-				var app = apps[name],
-					manifest = app.manifest;
-				
-				manifest.appletNode = app.renderApplet();
 
-				if (app.updateApplet) {
-					ui.appletsReady.add(function() {
-						function runUpdate() {
-							app.updateApplet()
-							.then(function() {
-								manifest.updateTimeout = setTimeout(runUpdate, 2000);
-							})
-							.otherwise(function(err) {
-								ui.error("Error updating " + name + " applet", err.stack);
-							});
-						}
+			// Create plugin views from manifests
+			plugins.forEach(function(manifest) {
+				var name = manifest.name;
+				var pluginUI = ui.pluginUI(name);
+				var pluginRouter = router.subRouter(name);
 
-						runUpdate();
-					});
+				manifest.links = [];
+				manifest.viewTypes = { "main": [], "applet": [], "popup": [], "settings": [] };
 
-					ui.stopping.add(function() {
-						if (manifest.updateTimeout) {
-							clearTimeout(manifest.updateTimeout);
-						}
-					});
+				if (manifest.css) {
+					pluginUI.loadCSS(manifest.css);
 				}
 
-				return manifest;
+				/* Create manifest views and routes */
+				Object.keys(manifest.views || {}).forEach(function(id) {
+					var options = manifest.views[id];
+					var view = pluginUI.view(id, options);
+
+					if (options.type === "main" || options.type === "popup") {
+						var route = options.type === "popup" ? "!" + id : "/" + id;
+						pluginRouter.on(route, function(err, req, next) {
+							if (err) {
+								next(err);
+							} else {
+								view.show();
+								next();
+							}
+						});
+					}
+				});
 			});
-			
-			
-			/* Render main template */
+
+			// Render main template
 			$("#login-container").style.display = "none";
 
 			var mainContainer = $("#main-container");
 			mainContainer.style.display = "block";
 			
+			istRendered = mainTemplate.render(istContext);
 			mainContainer.innerHTML = "";
-			mainContainer.appendChild(
-				template.render({
-					user: user,
-					apps: manifests
-				})
-			);
+			mainContainer.appendChild(istRendered);
 
-			/* Render debug pane */
-			mainContainer.appendChild(debug.render());
-
-			/* Initialize settings panes */
+			// Initialize settings panes
 			settings.init(this);
 
-			/* Applets are in the DOM, dispatch signal for apps */
-			this.appletsReady.dispatch();
-
-			dom.behave($("#viewport"), viewportBehaviour);
-			
-			/* Setup page selection routes */
-			manifests.forEach(function(app) {
-				if (!app.pages) {
-					return;
-				}
-				
-				Object.keys(app.pages).forEach(function(page) {
-					router.on("/" + app.title + "/" + page, function(err, req, next) {
-						if (!err) {
-							var prev = $("#bar .app li.selected"),
-								item = $("#bar .app." + app.title + " li." + page);
-							
-							if (prev) {
-								prev.classList.remove("selected");
-							}
-							
-							if (item) {
-								item.classList.add("selected");
-							}
+			// Setup viewport behaviour
+			dom.behave($("#viewport"), {
+				"&": {
+					"scroll": function() {
+						if (activeMainView && this.scrollTop + this.offsetHeight > this.scrollHeight - this.offsetHeight) {
+							activeMainView.scrolledToEnd.dispatch();
 						}
-						
-						next(err);
-					});
-				});
+					}
+				}
 			});
-			
-			/* Setup error handling route */
+
+			// Setup error handling route
 			router.on("*", function(err, req, next) {
 				if (err) {
 					ui.error("router/* - " + err.message, err.stack);
@@ -266,114 +258,179 @@ function(ist, template, signals, when, ajax, dom, debug) {
 				next(err);
 			});
 
-			/* Setup search keypress handlers */
-			var search = $("#search"),
-				input = $("#search input");
-
-			addEventListener("keydown", function(e) {
-				// Ignore input in contentEditable and <input> elements
-				if (e.target.contentEditable === "true" || e.target.tagName === "INPUT") {
-					return;
-				}
-
-				// Ignore non printable characters
-				if (e.which < 32) {
-					return;
-				}
-
-				// Redirect input to search box
-				search.style.display = "block";
-				input.value = "";
-				input.focus();
-			});
-
-			dom.behave(input, {
-				"&": {
-					"keydown": function(e) {
-						// Prevent toplevel event handling
-						e.stopPropagation();
-
-						if (e.which === 27) {
-							search.style.display = "none";
-							ui.searchQueryCancelled.dispatch();
-						}
-					},
-
-					"keyup": function(e) {
-						// Prevent toplevel event handling
-						e.stopPropagation();
-
-						if (e.which !== 27) {
-							ui.searchQueryChanged.dispatch(this.value);
-						}
-					}
-				}
-			});
-
-			ui.searchQueryChanged.add(function(v) {
-				console.log("Search query: " + (v ? v : "<empty>"));
-			});
-
-			ui.searchQueryCancelled.add(function() {
-				console.log("Search query cancelled");
-			});
+			// Dispatch started signal
+			ui.started.dispatch();
 		},
+
 
 		stop: function() {
 			var d = when.defer();
 
-			this.stopping.add(function() {
-				// Destroy containers
-				Object.keys(containers).forEach(function(name) {
-					var c = containers[name];
-					c.parentNode.removeChild(c);
-				});
-				containers = {};
-				activeContainer = undefined;
-
-				// Remove stylesheets
-				stylesheets.forEach(function(s) {
-					s.parentNode.removeChild(s);
-				});
-				stylesheets = [];
-
-				// Reset all signals
-				madeSignals.forEach(function(s) {
-					s.removeAll();
+			// Add "stopping" binding to ensure the signal has been dispatched
+			// to plugins first
+			var binding = ui.stopping.add(function() {
+				// Remove all views from plugin manifests
+				istContext.plugins.forEach(function(manifest) {
+					Object.keys(manifest.viewTypes).forEach(function(type) {
+						manifest.viewTypes[type].forEach(function(view) {
+							hideView(view);
+						});
+					});
+					
+					delete manifest.viewTypes;
+					delete manifest.links;
 				});
 
+				// Disconnect session signal handlers
+				makeSignal.removeAll();
+
+				// Remove all views from document
+				$("#main-container").innerHTML = "";
+				istRendered = null;
+				istContext = null;
+
+				// We keep loaded CSS, there's no real point in removing them
+
+				binding.detach();
 				d.resolve();
 			});
 
-			// Dispatch stopping signal
-			this.stopping.dispatch();
+			activeMainView = null;
 
+			ui.stopping.dispatch();
 			return d.promise;
 		},
 
-		popup: function(node, options) {
-			var popup = $("#popup"),
-				content = $(popup, "#content");
-			
-			content.appendChild(node);
-			popup.style.display = "block";
 
-			var controls = {
-				hide: function() {
-					content.innerHTML = "";
-					popup.style.display = "none";
-				},
+		/* Session-specific signal factory */
+		signal: makeSignal,
 
-				resize: function() {
-					var height = content.offsetHeight;
-					content.style.marginTop = (-height/2) + "px";
+
+		/* Get plugin-specific UI */
+		pluginUI: function(plugin) {
+			if (!(plugin in pluginUIs)) {
+				var sub = Object.create(ui);
+				sub.plugin = plugin;
+
+				pluginUIs[plugin] = sub;
+			}
+
+			return pluginUIs[plugin];
+		},
+
+
+		/* Load CSS file for all views in this plugin */
+		loadCSS: function(filename) {
+			loadCSS(this.plugin, "." + this.plugin + "-view", filename);
+		},
+
+
+		/*
+		 * Get a view element, creating it if necessary
+		 *
+		 * Options: 
+		 *   type:        "main", "popup", "applet" or "settings"
+		 *   updater:     optional; passed to view.autoUpdate()
+		 *   css:         optional; passed to view.loadCSS()
+		 *
+		 * When type is "main" or "popup", those can be specified to add a link to show 
+		 * the view in the action bar :
+		 *   link:        link label
+		 *   icon:        optional; link icon name
+		 *
+		 * When type is "settings", those are mandatory:
+		 *   title:       settings pane title
+		 *   description: settings pane subtitle
+		 *   icon:        settings pane icon name
+		 */
+		view: function(id, options) {
+			var plugin = this.plugin;
+
+			options = options || {};
+			options.type = options.type || "main";
+
+			var viewId = "view-" + plugin + "-" + id;
+			var view = $("#" + viewId);
+
+			if (!view) {
+				// Create view
+				var classNames = [options.type + "-view", plugin + "-view"];
+				view = ist.create("div#" + viewId + "." + classNames.join(".") + "[style=display: none;]");
+
+				// Save it in plugin manifest
+				var manifest = istContext.plugins.filter(function(m) {
+						return m.name === plugin;
+					})[0];
+
+				manifest.viewTypes[options.type].push(view);
+
+				// Add common methods and helpers
+				view.$ = $.bind(null, view);
+				view.$$ = $$.bind(null, view);
+				view.behave = dom.behave.bind(null, view);
+				view.autoUpdate = autoUpdateView.bind(null, view);
+				view.loadCSS = loadCSS.bind(null, plugin, "#" + viewId);
+
+				// Add signals
+				view.displayed = ui.signal();
+				view.undisplayed = ui.signal();
+				view.scrolledToEnd = ui.signal();
+
+				// Type-specific shenanigans
+				if (options.type === "settings") {
+					settings.addPane({
+						title: options.title,
+						description: options.description,
+						icon: options.icon,
+						view: view
+					});
+				} else if (options.type === "applet") {
+					view.show = showView.bind(null, view);
+					view.hide = hideView.bind(null, view);
+				} else {
+					if (options.type === "popup") {
+						view.show = showPopup.bind(null, view);
+						view.hide = hideView.bind(null, view);
+					} else {
+						view.show = showMainView.bind(null, view);
+						view.undisplayed.add(function() {
+							if (activeMainView === view) {
+								activeMainView = null;
+							}
+						});
+						view.displayed.add(function() {
+							activeMainView = view;
+						});
+					}
+
+					if (options.link) {
+						manifest.links.push({
+							route: (options.type === "popup" ? "!" : "/") + plugin + "/" + id,
+							label: options.link,
+							icon: options.icon || "list"
+						});
+					}
 				}
-			};
 
-			controls.resize();
-			return controls;
+				// Enable autoupdate if specified
+				if (options.updater) {
+					view.autoUpdate(options.updater);
+				}
+
+				// Load view-specific CSS if specified
+				if (options.css) {
+					view.loadCSS(options.css);
+				}
+
+				// Update render if already done (useful for non-manifest views)
+				if (istRendered) {
+					istRendered.update();
+				}
+			}
+
+			return view;
 		}
 	};
-	
+
 	return ui;
 });

@@ -4,6 +4,7 @@
 define([], function() {
 	"use strict";
 
+	var subStorages = {};
 	var storage = {
 		user: undefined,
 		_prefix: "",
@@ -28,11 +29,17 @@ define([], function() {
 			localStorage.removeItem(this._getKey(key));
 		},
 
-		subStorage: function(app) {
-			var sub = Object.create(this);
-			sub._prefix = this._prefix + app + "/";
+		subStorage: function(plugin) {
+			var newPrefix = this._prefix + plugin + "/";
 
-			return sub;
+			if (!(newPrefix in subStorages)) {
+				var sub = Object.create(this);
+				sub._prefix = this._prefix + plugin + "/";
+
+				subStorages[newPrefix] = sub;
+			}
+
+			return subStorages[newPrefix];
 		}
 	};
 

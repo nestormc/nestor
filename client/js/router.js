@@ -65,6 +65,8 @@ define(["dom"], function(dom) {
 	
 	
 	/* Public interface */
+	var subRouters = {};
+
 	router = {
 		/**
 		 * Start listening to hashchange events
@@ -248,24 +250,28 @@ define(["dom"], function(dom) {
 		 * @return router
 		 */
 		subRouter: function(prefix) {
-			var sub = Object.create(router);
-			
-			// Remove leading/trailing slashes
-			prefix = prefix.replace(rxInitialSlash, "").replace(rxFinalSlash, "");
-			
-			sub.on = function(route, handler) {
-				var prefixedRoute;
+			if (!(prefix in subRouters)) {
+				var sub = Object.create(router);
+				
+				// Remove leading/trailing slashes
+				prefix = prefix.replace(rxInitialSlash, "").replace(rxFinalSlash, "");
+				
+				sub.on = function(route, handler) {
+					var prefixedRoute;
 
-				if (route[0] === "!") {
-					prefixedRoute = "!" + prefix + "/" + route.replace(rxInitialBang, "");
-				} else {
-					prefixedRoute = "/" + prefix + "/" + route.replace(rxInitialSlash, "");
-				}
+					if (route[0] === "!") {
+						prefixedRoute = "!" + prefix + "/" + route.replace(rxInitialBang, "");
+					} else {
+						prefixedRoute = "/" + prefix + "/" + route.replace(rxInitialSlash, "");
+					}
 
-				router.on(prefixedRoute, handler);
-			};
-			
-			return sub;
+					router.on(prefixedRoute, handler);
+				};
+
+				subRouters[prefix] = sub;
+			}
+
+			return subRouters[prefix];
 		}
 	};
 	

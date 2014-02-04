@@ -5,13 +5,14 @@ define(["require", "when", "rest", "settings/shares"], function(mainRequire, whe
 	"use strict";
 	
 	return function(ui, router, storage) {
-		var deferred = when.defer(),
-			globalModules = ["ist", "when", "rest", "dom"];
+		var globalModules = ["ist", "when", "rest", "dom"];
 		
 		
 		/* List available plugins */
-		rest.list("plugins", { limit: 0 })
+		return rest.list("plugins", { limit: 0 })
 		.then(function(plugins) {
+			var deferred = when.defer();
+
 			mainRequire(globalModules, function() {
 				var args = [].slice.call(arguments);
 
@@ -25,7 +26,7 @@ define(["require", "when", "rest", "settings/shares"], function(mainRequire, whe
 					},
 
 					ui: function(plugin) {
-						return ui.subUI(plugin);
+						return ui.pluginUI(plugin);
 					},
 
 					share: function(plugin) {
@@ -34,9 +35,7 @@ define(["require", "when", "rest", "settings/shares"], function(mainRequire, whe
 				};
 
 
-				var pluginModules = {};
-
-				var loadPromises = plugins.map(function(plugin) {
+				when.map(plugins, function(plugin) {
 					var pluginDeferred = when.defer();
 					
 					/* Prepare plugin-specific require */
@@ -62,35 +61,22 @@ define(["require", "when", "rest", "settings/shares"], function(mainRequire, whe
 					var pluginRequire = require.config(pluginConfig);
 
 					/* Load plugin */
-					pluginRequire(["index"], function(pluginModule) {
-						pluginModules[plugin] = pluginModule;
-
-						when(pluginModule.init())
-						.then(function() {
-							pluginDeferred.resolve();
-						})
-						.otherwise(function(err) {
-							pluginDeferred.reject(err);
-						});
+					pluginRequire(["index"], function(pluginManifest) {
+						pluginManifest.name = plugin;
+						pluginDeferred.resolve(pluginManifest);
+					}, function(err) {
+						pluginDeferred.reject(err);
 					});
 
 					return pluginDeferred.promise;
-				});
-
-				// There must be a way to make this prettier
-				when.all(loadPromises)
-				.then(function() {
-					deferred.resolve(pluginModules);
-				})
-				.otherwise(function(err) {
+				}).then(function(pluginManifests) {
+					deferred.resolve(pluginManifests);
+				}).otherwise(function(err) {
 					deferred.reject(err);
 				});
 			});
-		})
-		.otherwise(function(err) {
-			deferred.reject(err);
+
+			return deferred.promise;
 		});
-		
-		return deferred.promise;
 	};
 });

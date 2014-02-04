@@ -103,9 +103,10 @@
 				});
 				
 				rest.start();
+
 				plugins(ui, router, storage)
-				.then(function(apps) {
-					ui.start(user, apps, router, settings);
+				.then(function(plugins) {
+					ui.start(user, plugins, router, settings);
 					router.start();
 				})
 				.otherwise(error);
