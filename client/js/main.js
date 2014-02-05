@@ -55,6 +55,7 @@
 	["dom", "login", "ui", "router", "settings", "storage", "plugins", "ajax", "rest"],
 	function(dom, login, ui, router, settings, storage, plugins, ajax, rest) {
 		var $ = dom.$;
+		var apps = [settings];
 
 		ajax.connectionStatusChanged.add(function(connected) {
 			var lost = $("#heartbeat-lost");
@@ -106,7 +107,7 @@
 
 				plugins(ui, router, storage)
 				.then(function(plugins) {
-					ui.start(user, plugins, router, settings);
+					ui.start(user, plugins, apps, router);
 					router.start();
 				})
 				.otherwise(error);

@@ -31,12 +31,18 @@
 		@each viewTypes.main
 			@dom this
 
+	@each nestor.viewTypes.main
+		@dom this
+
 #popup
 	#background
 	#content
 		@each plugins
 			@each viewTypes.popup
 				@dom this
+
+		@each nestor.viewTypes.popup
+			@dom this
 
 /* Components */
 

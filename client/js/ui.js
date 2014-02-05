@@ -1,8 +1,8 @@
 /*jshint browser:true*/
 /*global define*/
 define(
-["ist-wrapper", "ist!tmpl/main", "signals", "dom", "when", "settings"],
-function(ist, mainTemplate, signals, dom, when, settings) {
+["ist-wrapper", "ist!tmpl/main", "signals", "dom", "when"],
+function(ist, mainTemplate, signals, dom, when) {
 	"use strict";
 
 	var $ = dom.$;
@@ -167,6 +167,7 @@ function(ist, mainTemplate, signals, dom, when, settings) {
 
 	var pluginUIs = {};
 	var activeMainView;
+	var settingsApp;
 
 	var ui = {
 		plugin: "nestor",
@@ -186,21 +187,31 @@ function(ist, mainTemplate, signals, dom, when, settings) {
 
 
 		/* Start the UI */
-		start: function(user, plugins, router, settings) {
+		start: function(user, plugins, apps, router, settings) {
 			// Initialize rendering context
 			istContext = {
 				user: user,
-				plugins: plugins
+				plugins: plugins,
+				nestor: {
+					viewTypes: {
+						"main": [],
+						"popup": [],
+						"settings": []
+					}
+				}
 			};
 
-			// Create plugin views from manifests
-			plugins.forEach(function(manifest) {
-				var name = manifest.name;
-				var pluginUI = ui.pluginUI(name);
-				var pluginRouter = router.subRouter(name);
+			settingsApp = apps.filter(function(a) { return a.name === "settings"; })[0];
 
-				manifest.links = [];
-				manifest.viewTypes = { "main": [], "applet": [], "popup": [], "settings": [] };
+			function createViews(isPlugin, manifest) {
+				var name = manifest.name;
+				var pluginUI = isPlugin ? ui.pluginUI(name) : ui;
+				var pluginRouter = isPlugin ? router.subRouter(name) : router;
+
+				if (isPlugin) {
+					manifest.links = [];
+					manifest.viewTypes = { "main": [], "applet": [], "popup": [], "settings": [] };
+				}
 
 				if (manifest.css) {
 					pluginUI.loadCSS(manifest.css);
@@ -223,7 +234,13 @@ function(ist, mainTemplate, signals, dom, when, settings) {
 						});
 					}
 				});
-			});
+			}
+
+			// Create app views
+			apps.forEach(createViews.bind(null, false));
+
+			// Create plugin views
+			plugins.forEach(createViews.bind(null, true));
 
 			// Render main template
 			$("#login-container").style.display = "none";
@@ -234,9 +251,6 @@ function(ist, mainTemplate, signals, dom, when, settings) {
 			istRendered = mainTemplate.render(istContext);
 			mainContainer.innerHTML = "";
 			mainContainer.appendChild(istRendered);
-
-			// Initialize settings panes
-			settings.init(this);
 
 			// Setup viewport behaviour
 			dom.behave($("#viewport"), {
@@ -353,14 +367,20 @@ function(ist, mainTemplate, signals, dom, when, settings) {
 			var view = $("#" + viewId);
 
 			if (!view) {
+				var manifest;
+
 				// Create view
 				var classNames = [options.type + "-view", plugin + "-view"];
 				view = ist.create("div#" + viewId + "." + classNames.join(".") + "[style=display: none;]");
 
 				// Save it in plugin manifest
-				var manifest = istContext.plugins.filter(function(m) {
-						return m.name === plugin;
-					})[0];
+				if (plugin === "nestor") {
+					manifest = istContext.nestor;
+				} else {
+					manifest = istContext.plugins.filter(function(m) {
+							return m.name === plugin;
+						})[0];
+				}
 
 				manifest.viewTypes[options.type].push(view);
 
@@ -378,7 +398,7 @@ function(ist, mainTemplate, signals, dom, when, settings) {
 
 				// Type-specific shenanigans
 				if (options.type === "settings") {
-					settings.addPane({
+					settingsApp.addPane({
 						title: options.title,
 						description: options.description,
 						icon: options.icon,

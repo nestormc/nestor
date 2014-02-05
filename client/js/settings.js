@@ -1,55 +1,75 @@
 /*jshint browser:true */
 /*global define */
 define([
-	"router", "login",
+	"router", "login", "ui",
 
 	"settings/users",
 	"settings/dirs",
 	"settings/shares",
 
 	"ist!tmpl/settings/main"
-], function(router, login, users, dirs, shares, template) {
+], function(router, login, ui, users, dirs, shares, template) {
 	"use strict";
 
 	var rendered;
+	var panes = [];
 
-	var settings = {
-		panes: [],
 
-		init: function(ui) {
-			if (login.hasRight("nestor:users"))
-				this.addPane(users);
+	ui.started.add(function() {
+		if (login.hasRight("nestor:users"))
+			manifest.addPane(users);
 
-			if (login.hasRight("media:watched-dirs"))
-				this.addPane(dirs);
+		if (login.hasRight("media:watched-dirs"))
+			manifest.addPane(dirs);
 
-			if (login.hasRight("nestor:shares"))
-				this.addPane(shares);
+		if (login.hasRight("nestor:shares"))
+			manifest.addPane(shares);
 
-			ui.loadCSS("settings", "");
-			ui.stopping.add(function() {
-				settings.panes = [];
-			});
+		var view = ui.view("settings");
+		view.displayed.add(function() {
+			if (rendered) {
+				rendered.update({ panes: panes });
+			} else {
+				rendered = template.render({ panes: panes });
+				view.appendChild(rendered);
+			}
 
-			router.on("/settings", function(err, req, next) {
-				var container = ui.container("settings");
-
-				if (rendered) {
-					rendered.update(settings);
-				} else {
-					rendered = template.render(settings);
-					container.appendChild(rendered);
+			panes.forEach(function(pane) {
+				if (pane.view) {
+					pane.view.show();
 				}
-
-				container.show();
-				next();
 			});
+		});
+
+		view.undisplayed.add(function() {
+			panes.forEach(function(pane) {
+				if (pane.view) {
+					pane.view.hide();
+				}
+			});
+		});
+	});
+
+
+	ui.stopping.add(function() {
+		rendered = null;
+		panes = [];
+	});
+
+
+	var manifest = {
+		name: "settings",
+		views: {
+			settings: {
+				type: "main",
+				css: "settings"
+			}
 		},
 
 		addPane: function(pane) {
-			this.panes.push(pane);
+			panes.push(pane);
 		}
 	};
 
-	return settings;
+	return manifest;
 });
