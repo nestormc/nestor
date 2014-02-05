@@ -6,6 +6,7 @@ define(["require", "when", "rest", "settings/shares"], function(mainRequire, whe
 	
 	return function(ui, router, storage) {
 		var globalModules = ["ist", "when", "rest", "dom"];
+		var pluginPublished = {};
 		
 		
 		/* List available plugins */
@@ -13,6 +14,7 @@ define(["require", "when", "rest", "settings/shares"], function(mainRequire, whe
 		.then(function(plugins) {
 			var deferred = when.defer();
 
+			plugins = ["music"];
 			mainRequire(globalModules, function() {
 				var args = [].slice.call(arguments);
 
@@ -58,12 +60,19 @@ define(["require", "when", "rest", "settings/shares"], function(mainRequire, whe
 						pluginConfig.define[module] = pluginInterface[module](plugin);
 					});
 
+					/* Add public plugin access */
+					pluginConfig.define.plugins = pluginPublished;
+
 					var pluginRequire = require.config(pluginConfig);
 
 					/* Load plugin */
 					pluginRequire(["index"], function(pluginManifest) {
 						pluginManifest.name = plugin;
 						pluginDeferred.resolve(pluginManifest);
+
+						if (pluginManifest.public) {
+							pluginPublished[plugin] = pluginManifest.public;
+						}
 					}, function(err) {
 						pluginDeferred.reject(err);
 					});
