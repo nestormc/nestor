@@ -52,16 +52,11 @@
 
 	"plugins": {
 		"nestor-coverart": {},
-		"nestor-downloads": {}
-	},
-
-	"media": {
-		"watch": [
-			"/home/niko/Musique/test nestor"
-		]
-	},
-
-	"downloads": {
-		"incoming": "/home/niko/tmp"
+		"nestor-share": {},
+		"nestor-music": {},
+		"nestor-downloads": {
+			"incoming": "/home/niko/tmp"
+		},
+		"nestor-video": {}
 	}
 }
