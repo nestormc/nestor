@@ -159,6 +159,7 @@ function(ist, mainTemplate, signals, dom, when) {
 	 */
 	var istContext;
 	var istRendered;
+	var views = {};
 
 
 	/*!
@@ -302,6 +303,7 @@ function(ist, mainTemplate, signals, dom, when) {
 				$("#main-container").innerHTML = "";
 				istRendered = null;
 				istContext = null;
+				views = {};
 
 				// We keep loaded CSS, there's no real point in removing them
 
@@ -364,7 +366,7 @@ function(ist, mainTemplate, signals, dom, when) {
 			options.type = options.type || "main";
 
 			var viewId = "view-" + plugin + "-" + id;
-			var view = $("#" + viewId);
+			var view = views[viewId];
 
 			if (!view) {
 				var manifest;
@@ -404,6 +406,8 @@ function(ist, mainTemplate, signals, dom, when) {
 						icon: options.icon,
 						view: view
 					});
+
+					view.style.display = "block";
 				} else if (options.type === "applet") {
 					view.show = showView.bind(null, view);
 					view.hide = hideView.bind(null, view);
@@ -446,6 +450,8 @@ function(ist, mainTemplate, signals, dom, when) {
 				if (istRendered) {
 					istRendered.update();
 				}
+
+				views[viewId] = view;
 			}
 
 			return view;
