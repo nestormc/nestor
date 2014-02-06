@@ -22,8 +22,7 @@
     "passport-google": "*",
     "passport-twitter": "*",
     "when": "*",
-    "yarm": "*",
-    "zipstream": "red56/node-zipstream"
+    "yarm": "*"
   },
   "scripts": {
     "postinstall": "node_modules/.bin/bower install"

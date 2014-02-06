@@ -11,7 +11,6 @@ var express = require("express"),
 	serverConfig = config.server,
 
 	intents = require("./intents"),
-	share = require("./share"),
 	auth = require("./auth"),
 	
 	app = express();
@@ -85,32 +84,16 @@ Buffer.prototype.toJSON = function() {
 	return "[Buffer]";
 };
 
-/* Downloads */
-app.get("/download/:shortId", function(req, res, next) {
-	share.pipeShortIdStream(req, req.params.shortId, function(name) {
-		res.setHeader("Content-Type", "application/octet-stream");
-		res.setHeader("Content-Disposition", "attachment; filename=\"" + name.replace(/"/g, "\\\"") + "\"");
-	}, res, function(err) {
-		if (err) {
-			res.send(404, "Not found");
-		}
-	});
-});
-
-app.get("/download/:provider/:resource", function(req, res, next) {
-	share.pipeDownloadStream(req.params.provider, req.params.resource, function(name) {
-		res.setHeader("Content-Type", "application/octet-stream");
-		res.setHeader("Content-Disposition", "attachment; filename=\"" + name.replace(/"/g, "\\\"") + "\"");
-	}, res, function(err) {
-		if (err) {
-			res.send(404, "Not found");
-		}
-	});
-});
-
 /* Catchall error handler */
 app.use(function errorHandler(err, req, res, next) {
 	logger.error("Unhandled exception: %s\n%s", err.message, err.stack);
+});
+
+/* Allow plugins to add GET routes with nestor:http:get intent.
+   Plugins SHOULD prefer REST resources with yarm. But this can be used
+   to achieve shorter URLs (I'm looking at you, nestor-share plugin) */
+intents.on("nestor:http:get", function(route, handler) {
+	app.get(route, handler);
 });
 
 

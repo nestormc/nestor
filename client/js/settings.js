@@ -5,10 +5,9 @@ define([
 
 	"settings/users",
 	"settings/dirs",
-	"settings/shares",
 
 	"ist!tmpl/settings/main"
-], function(router, login, ui, users, dirs, shares, template) {
+], function(router, login, ui, users, dirs, template) {
 	"use strict";
 
 	var rendered;
@@ -22,9 +21,6 @@ define([
 		if (login.hasRight("media:watched-dirs"))
 			manifest.addPane(dirs);
 
-		if (login.hasRight("nestor:shares"))
-			manifest.addPane(shares);
-
 		var view = ui.view("settings");
 		view.displayed.add(function() {
 			if (rendered) {
@@ -36,7 +32,7 @@ define([
 
 			panes.forEach(function(pane) {
 				if (pane.view) {
-					pane.view.show();
+					pane.view.displayed.dispatch();
 				}
 			});
 		});
@@ -44,7 +40,7 @@ define([
 		view.undisplayed.add(function() {
 			panes.forEach(function(pane) {
 				if (pane.view) {
-					pane.view.hide();
+					pane.view.undisplayed.dispatch();
 				}
 			});
 		});

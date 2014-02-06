@@ -1,7 +1,7 @@
 /*jshint browser:true */
 /*global require, define */
 
-define(["require", "when", "rest", "settings/shares"], function(mainRequire, when, rest, shares) {
+define(["require", "when", "rest"], function(mainRequire, when, rest) {
 	"use strict";
 	
 	return function(ui, router, storage) {
@@ -14,7 +14,6 @@ define(["require", "when", "rest", "settings/shares"], function(mainRequire, whe
 		.then(function(plugins) {
 			var deferred = when.defer();
 
-			plugins = ["music"];
 			mainRequire(globalModules, function() {
 				var args = [].slice.call(arguments);
 
@@ -29,10 +28,6 @@ define(["require", "when", "rest", "settings/shares"], function(mainRequire, whe
 
 					ui: function(plugin) {
 						return ui.pluginUI(plugin);
-					},
-
-					share: function(plugin) {
-						return shares.getShareInterface(plugin);
 					}
 				};
 
