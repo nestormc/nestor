@@ -11,20 +11,21 @@
 					li
 						a[href=#{{ value }}] "{{ key }}"
 					
-	/* Application list */
+	/* Plugin list */
 	@each plugins
-		.plugin
-			.title
-				"{{ title }}"
-			.applets
-				@each viewTypes.applet
-					@dom this
-			ul.pages
-				@each links
-					li
-						a[href=#{{ route }}]
-							img[src=images/{{ icon || "list" }}.svg]
-							"{{ label }}" 
+		@if typeof title !== "undefined"
+			.plugin
+				.title
+					"{{ title }}"
+				.applets
+					@each viewTypes.applet
+						@dom this
+				ul.pages
+					@each links
+						li
+							a[href=#{{ route }}]
+								img[src=images/{{ icon || "list" }}.svg]
+								"{{ label }}" 
 					
 #viewport
 	@each plugins
