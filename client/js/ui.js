@@ -87,6 +87,7 @@ function(ist, mainTemplate, signals, dom, when) {
 	 * View updater
 	 */
 
+	var DEFAULT_INTERVAL = 2000;
 	function autoUpdateView(view, updater, interval) {
 		var handle = null,
 			helpers = {
@@ -106,7 +107,7 @@ function(ist, mainTemplate, signals, dom, when) {
 		}
 
 		function done() {
-			handle = setTimeout(run, interval);
+			handle = setTimeout(run, interval || DEFAULT_INTERVAL);
 		}
 
 		// Start updater when view is visible
@@ -188,7 +189,7 @@ function(ist, mainTemplate, signals, dom, when) {
 
 
 		/* Start the UI */
-		start: function(user, plugins, apps, router, settings) {
+		start: function(user, plugins, apps, router) {
 			// Initialize rendering context
 			istContext = {
 				user: user,
@@ -438,7 +439,7 @@ function(ist, mainTemplate, signals, dom, when) {
 
 				// Enable autoupdate if specified
 				if (options.updater) {
-					view.autoUpdate(options.updater);
+					view.autoUpdate(options.updater, options.updaterInterval);
 				}
 
 				// Load view-specific CSS if specified
