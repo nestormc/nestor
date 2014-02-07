@@ -4,10 +4,9 @@ define([
 	"router", "login", "ui",
 
 	"settings/users",
-	"settings/dirs",
 
 	"ist!tmpl/settings/main"
-], function(router, login, ui, users, dirs, template) {
+], function(router, login, ui, users, template) {
 	"use strict";
 
 	var rendered;
@@ -17,10 +16,7 @@ define([
 	ui.started.add(function() {
 		if (login.hasRight("nestor:users"))
 			manifest.addPane(users);
-
-		if (login.hasRight("media:watched-dirs"))
-			manifest.addPane(dirs);
-
+		
 		var view = ui.view("settings");
 		view.displayed.add(function() {
 			if (rendered) {

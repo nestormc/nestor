@@ -23,12 +23,6 @@ define(["rest"], function(rest) {
 			get: function() {
 				return rest.get("rights", { limit: 0 });
 			}
-		},
-
-		dirs: {
-			get: function() {
-				return rest.get("watchedDirs", { limit: 0 });
-			}
 		}
 	};
 });
