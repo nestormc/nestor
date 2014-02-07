@@ -1,0 +1,5 @@
+@behave behaviour
+	.slider
+		.available
+		.fill
+		.handle

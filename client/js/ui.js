@@ -1,8 +1,8 @@
 /*jshint browser:true*/
 /*global define*/
 define(
-["ist-wrapper", "ist!tmpl/main", "signals", "dom", "when"],
-function(ist, mainTemplate, signals, dom, when) {
+["ist-wrapper", "ist!tmpl/main", "components/index", "signals", "dom", "when"],
+function(ist, mainTemplate, components, signals, dom, when) {
 	"use strict";
 
 	var $ = dom.$;
@@ -173,6 +173,7 @@ function(ist, mainTemplate, signals, dom, when) {
 
 	var ui = {
 		plugin: "nestor",
+		components: components,
 
 
 		/* Signals */
