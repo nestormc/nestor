@@ -1,0 +1,50 @@
+@popupWidth: 30em;
+#popup {
+	.fill-container;
+	display: none;
+
+	#background {
+		.fill-container;
+
+		opacity: 0.5;
+		background-color: @darkGray;
+	}
+
+	#content {
+		.white-box;
+		box-shadow: 0 0 .25em @midGray;
+
+		position: absolute;
+
+		width: @popupWidth;
+
+		left: 50%;
+		margin-left: -@popupWidth/2;
+		top: 50%;
+
+		font-size: .75em;
+
+		.title {
+			font-size: 1.2em;
+			font-weight: bold;
+			color: @darkGray;
+		}
+
+		.content {
+			margin: @contentBoxMargin 0;
+
+			&.centered {
+				text-align: center;
+			}
+		}
+
+		.buttons {
+			text-align: center;
+
+			input {
+				margin: 0 5em;
+			}
+		}
+	}
+}
+

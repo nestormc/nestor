@@ -1,0 +1,41 @@
+@sliderBarHeight: .2em;
+@sliderHandleSize: .8em; 
+
+.slider {
+	height: @sliderHandleSize;
+	position: relative;
+
+	.available, .fill {
+		position: absolute;
+		top: (@sliderHandleSize - @sliderBarHeight) / 2;
+		left: 0;
+		width: 0;
+		height: @sliderBarHeight;
+	}
+
+	.available {
+		background-color: @midGray;
+	}
+
+	.fill {
+		background-color: @yellow;
+	}
+
+	.handle {
+		background-color: @yellow;
+		border-radius: @sliderHandleSize/2;
+
+		position: absolute;
+		top: 0;
+		left: 0;
+		width: @sliderHandleSize;
+		height: @sliderHandleSize;
+		margin-left: -@sliderHandleSize/2;
+
+		display: none;
+	}
+
+	&:hover .handle, &.moving .handle {
+		display: block;
+	}
+}

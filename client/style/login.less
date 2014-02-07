@@ -1,0 +1,95 @@
+
+/**
+ ** Loading screen and login
+ **/
+
+#login-container {
+	width: 12em;
+	position: absolute;
+	
+	top: 50%;
+	margin-top: -10em;
+	
+	left: 50%;
+	margin-left: -6em;
+
+
+	text-align: center;
+
+	#logo-container {
+		position: relative;
+		width: 12em;
+		height: 12em;
+		
+		margin-left: auto;
+		margin-right: auto;
+	}
+
+	#logo-container img {
+		position: absolute;
+		top: 1.75em;
+		left: 1.25em;
+		width: 9.5em;
+		height: 9.5em;
+	}
+
+	#login,
+	#password,
+	#loading {
+		padding-top: 2em;
+		color: @white;
+	}
+
+	#auth-providers {
+		margin-top: 2em;
+
+		img {
+			width: 28px;
+			height: 28px;
+		}
+
+		a:link {
+			.base { display: inline; }
+			.hover { display: none; }
+		}
+
+		a:hover {
+			.hover { display: inline; }
+			.base { display: none; }
+		}
+	}
+
+	.label-container {
+		border-top: 1px solid @mlGray;
+		height: .5em;
+	}
+
+	.label-container label {
+		font-family: NestorTitleFont;
+		
+		background: @darkGray;
+		padding: 0 1em;
+		
+		position: relative;
+		top: -.75em;
+		
+		color: @mlGray;
+	}
+
+	.error {
+		color: @yellow;
+		font-size: .75em;
+	}
+
+	input {
+		border: 0;
+		background: transparent;
+		color: @white;
+		text-align: center;
+		width: 100%;
+	}
+
+	#password {
+		display: none;
+	}
+}

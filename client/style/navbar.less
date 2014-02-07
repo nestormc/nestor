@@ -1,0 +1,124 @@
+
+/**
+ ** Navigation bar
+ **/
+
+
+@barWidth: 12em;
+@margins: .75em;
+
+#bar {
+	width: @barWidth;
+	
+	position: absolute;
+	top: @margins;
+	bottom: @margins;
+	left: @margins;
+	
+	color: @mlGray;
+	
+	#nestor,
+	.plugin {
+		font-size: .75em;
+	}
+		
+	a {
+		color: @mlGray;
+	}
+	
+	#nestor {
+		display: table;
+		margin-bottom: 2em;
+	
+		#logo-container,
+		#user-container {
+			display: table-cell;
+			vertical-align: middle;
+		}
+		
+
+		img {
+			margin: .375em 1em 0 0;
+			
+			width: 2.5em;
+			height: 2.5em;
+		}
+		
+		.user {
+			color: @white;
+			text-transform: capitalize;
+			font-family: NestorTitleFont;
+		}
+		
+		ul.userlinks {
+			list-style: none;
+			
+			li {
+				display: inline;
+			}
+			
+			li + li:before {
+				content: ' / ';
+			}
+		}
+	}
+
+	.plugin {
+		margin-bottom: 2 * @margins;
+		
+		.title {
+			color: @white;
+			text-align: center;
+			text-transform: capitalize;
+			font-family: NestorTitleFont;
+		}
+		
+		.applets {
+			margin-bottom: @margins;
+
+			img.icon, .icon svg {
+				width: 1em;
+				height: 1em;
+				margin: .2em;
+			}
+
+			.icon.active svg * {
+				fill: @yellow !important;
+			}
+
+			a svg * {
+				fill: @midGray !important;
+			}
+
+			a:hover svg * {
+				fill: @yellow !important;
+			}
+		}
+
+		ul.pages {
+			list-style: none;
+			
+			li {
+				&.selected {
+					font-weight: bold;
+				}
+				
+				a {
+					display: block;
+					text-decoration: none;
+				}
+				
+				a:hover {
+					background-color: @darkerGray;
+				}
+				
+				img {
+					vertical-align: middle;
+					width: 1em;
+					height: 1em;
+					margin-right: .2em;
+				}
+			}
+		}
+	}
+}

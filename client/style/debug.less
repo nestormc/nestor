@@ -1,0 +1,71 @@
+
+#debug {
+	.fill-container;
+
+	background-color: @darkGray;
+	display: none;
+
+	a {
+		color: @mlGray;
+	}
+
+	#loading {
+		color: white;
+		font-size: .75em;
+		font-style: italic;
+
+		display: none;
+	}
+
+	#display {
+		color: white;
+		font-size: .75em;
+		overflow: auto;
+		
+		&, td {
+			font-family: monospace;
+			vertical-align: top;
+		}
+
+		th {
+			text-align: left;
+		}
+
+		td.key:after {
+			content: ':';
+		}
+
+		th, td.key {
+			color: @mlGray;
+		}
+
+		.string:before, .string:after {
+			content: '"';
+		}
+
+		.string {
+			white-space: pre;
+		}
+
+		.undefined, .null {
+			font-style: italic;
+		}
+
+		th.expand:after {
+			content: '(+)';
+		}
+
+		table.expanded > tr > th.expand:after {
+			content: '(-)';
+		}
+
+		tr.data {
+			display: none;
+		}
+
+		table.expanded > tr.data {
+			display: table-row;
+		}
+
+	}
+}
