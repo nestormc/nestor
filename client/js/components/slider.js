@@ -23,7 +23,14 @@ define(["ist!tmpl/components/slider", "signals", "dom"], function(sliderTemplate
 
 
 	function setPositionFromEvent(e) {
-		var relX = (e.pageX || e.originalEvent.changedTouches[0].pageX || 0) - dom.absoluteLeft(activeSlider);
+		var absX;
+		if (typeof e.pageX !== undefined) {
+			absX = e.pageX;
+		} else if (e.originalEvent && e.originalEvent.changedTouches && e.originalEvent.changedTouches[0]) {
+			absX = e.originalEvent.changedTouches[0].pageX || 0;
+		}
+
+		var relX = absX - dom.absoluteLeft(activeSlider);
 		var rangeX = activeSlider.offsetWidth;
 
 		var value = 0;
@@ -65,6 +72,7 @@ define(["ist!tmpl/components/slider", "signals", "dom"], function(sliderTemplate
 
 		activeSlider.classList.remove("moving");
 		activeSlider = null;
+		
 		document.removeEventListener(moveEvent, handleMove, false);
 		document.removeEventListener(endEvent, handleEnd, false);
 	}
