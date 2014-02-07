@@ -113,6 +113,30 @@ define([], function() {
 					});
 				});
 			});
+		},
+
+
+		absoluteLeft: function(node) {
+			var left = 0;
+			
+			while (node) {
+				left += node.offsetLeft;
+				node = node.offsetParent;
+			}
+
+			return left;
+		},
+
+
+		absoluteTop: function(node) {
+			var top = 0;
+			
+			while (node) {
+				top += node.offsetTop;
+				node = node.offsetParent;
+			}
+
+			return top;
 		}
 	};
 
