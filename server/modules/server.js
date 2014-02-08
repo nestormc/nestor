@@ -1,7 +1,10 @@
 /*jshint node:true */
 "use strict";
 
-var express = require("express"),
+var http = require("http"),
+	https = require("https"),
+	fs = require("fs"),
+	express = require("express"),
 	lessMiddleware = require("less-middleware"),
 	yarm = require("yarm"),
 	logger = require("log4js").getLogger("server"),
@@ -99,8 +102,28 @@ intents.on("nestor:http:get", function(route, handler) {
 
 intents.on("nestor:startup", function() {
 	/* Launch HTTP server */
-	logger.info("Starting HTTP server on %s:%s", serverConfig.host, serverConfig.port);
-	app.listen(serverConfig.port, serverConfig.host);
+
+	if (serverConfig.ssl) {
+		var sslOptions;
+
+		try {
+			sslOptions = {
+				key: fs.readFileSync(serverConfig.ssl.keyFile),
+				cert: fs.readFileSync(serverConfig.ssl.certFile)
+			};
+		} catch(e) {
+			logger.error("Cannot start HTTPS server: %s", e.message);
+			throw e;
+		}
+
+		logger.info("Starting HTTPS server on %s:%s", serverConfig.host, serverConfig.ssl.port);
+		https.createServer(sslOptions, app).listen(serverConfig.ssl.port, serverConfig.host);
+	}
+
+	if (!serverConfig.ssl || !serverConfig.ssl.mandatory) {
+		logger.info("Starting HTTP server on %s:%s", serverConfig.host, serverConfig.port);
+		http.createServer(app).listen(serverConfig.port, serverConfig.host);		
+	}
 });
 
 
