@@ -35,6 +35,8 @@
 	@each nestor.viewTypes.main
 		@dom this
 
+@dom player
+	
 #popup
 	#background
 	#content

@@ -1,5 +1,5 @@
-@sliderBarHeight: .2em;
-@sliderHandleSize: .8em; 
+@sliderBarHeight: .15em;
+@sliderHandleSize: .6em; 
 
 .slider {
 	height: @sliderHandleSize;
@@ -37,5 +37,18 @@
 
 	&:hover .handle, &.moving .handle {
 		display: block;
+	}
+
+	&.one-pixel {
+		height: 1px;
+
+		.available, .fill {
+			top: 0;
+			height: 1px;
+		}
+
+		.handle {
+			display: none;
+		}
 	}
 }

@@ -1,8 +1,8 @@
 /*jshint browser:true*/
 /*global define*/
 define(
-["ist-wrapper", "ist!tmpl/main", "components/index", "signals", "dom", "when"],
-function(ist, mainTemplate, components, signals, dom, when) {
+["ist-wrapper", "ist!tmpl/main", "components/index", "player/player", "signals", "dom", "when"],
+function(ist, mainTemplate, components, player, signals, dom, when) {
 	"use strict";
 
 	var $ = dom.$;
@@ -175,6 +175,9 @@ function(ist, mainTemplate, components, signals, dom, when) {
 		plugin: "nestor",
 		components: components,
 
+		/* Player interface */
+		player: player.public,
+
 
 		/* Signals */
 		started: new signals.Signal(),
@@ -201,7 +204,8 @@ function(ist, mainTemplate, components, signals, dom, when) {
 						"popup": [],
 						"settings": []
 					}
-				}
+				},
+				player: player.render()
 			};
 
 			settingsApp = apps.filter(function(a) { return a.name === "settings"; })[0];

@@ -1,0 +1,132 @@
+@displayWidth: 16 * @playerHeight / 10;
+@controlHeight: 1em;
+
+#player {
+	height: @playerHeight;
+	position: absolute;
+	bottom: @margins;
+	left: @margins;
+	right: @margins;
+	
+	background-color: @darkGray;
+	color: @mlGray;
+
+	.display {
+		height: 100%;
+		width: @displayWidth;
+		float: left;
+		margin-right: @margins;
+
+		position: relative;
+
+		.toggle-fullscreen {
+			position: absolute;
+			top: @margins;
+			right: @margins;
+		}
+
+		.track-display {
+			width: 100%;
+			height: 100%;
+		}
+	}
+
+	.slider {
+		margin-left: @displayWidth + @margins;
+	}
+
+	.metadata {
+		position: absolute;
+		left: 0;
+		right: 0;
+
+		font-size: .75em;
+		text-align: center;
+
+		.title {
+			font-weight: bold;
+		}
+
+		.title:after {
+			content: " ";
+		}
+
+		.title, .subtitle {
+			display: inline;
+		}
+	}
+
+	.controls {
+		position: absolute;
+		left: 0;
+		right: 0;
+		top: 1.75em;
+
+		text-align: center;
+
+		svg {
+			margin: 0 @margins;
+		}
+	}
+
+	.controls svg, .toggle-fullscreen svg {
+		height: @controlHeight;
+		width: @controlHeight;
+
+		* {
+			transition: 150ms;
+			fill: @midGray !important;
+		}
+	}
+
+	.controls a:hover svg *, .toggle-fullscreen a:hover svg * {
+		transition: 150ms;
+		fill: @yellow !important;
+	}
+}
+
+#player.fullscreen {
+	top: 0;
+	left: 0;
+	height: 100%;
+	width: 100%;
+
+	.display {
+		height: 100%;
+		width: 100%;
+	}
+
+	.slider {
+		position: absolute;
+		bottom: 0;
+		left: 0;
+		right: 0;
+		margin: 0;
+	}
+
+	.metadata {
+		position: absolute;
+		top: @margins;
+		left: @margins;
+		text-align: left;
+	}
+
+	&.fade {
+		.display .toggle-fullscreen,
+		.metadata,
+		.controls {
+			transition: .5s;
+			opacity: 0;
+		}
+
+		.slider {
+			.fill {
+				background-color: @midGray;
+			}
+
+			.available {
+				background-color: transparent;	
+			}
+		}
+	}
+}

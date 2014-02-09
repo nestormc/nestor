@@ -3,7 +3,7 @@
 define([
 	"router", "login", "ui",
 
-	"settings/users",
+	"./users",
 
 	"ist!tmpl/settings/main"
 ], function(router, login, ui, users, template) {

@@ -39,7 +39,7 @@
 			{ name: "when", location: "bower/when/", main: "when" }
 		],
 
-		deps: [ "when/monitor/console" ]
+		// deps: [ "when/monitor/console" ]
 	};
 
 	var mainRequire = require.config(mainConfig);
@@ -52,7 +52,7 @@
 	}
 
 	mainRequire(
-	["dom", "login", "ui", "router", "settings", "storage", "plugins", "ajax", "rest"],
+	["dom", "login", "ui", "router", "settings/settings", "storage", "plugins", "ajax", "rest"],
 	function(dom, login, ui, router, settings, storage, plugins, ajax, rest) {
 		var $ = dom.$;
 		var apps = [settings];

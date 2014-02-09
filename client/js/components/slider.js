@@ -22,7 +22,7 @@ define(["ist!tmpl/components/slider", "signals", "dom"], function(sliderTemplate
 	var activeSlider;
 
 
-	function setPositionFromEvent(e) {
+	function setPositionFromEvent(e, isEnd) {
 		var absX;
 		if (typeof e.pageX !== undefined) {
 			absX = e.pageX;
@@ -33,14 +33,19 @@ define(["ist!tmpl/components/slider", "signals", "dom"], function(sliderTemplate
 		var relX = absX - dom.absoluteLeft(activeSlider);
 		var rangeX = activeSlider.offsetWidth;
 
+
 		var value = 0;
 
 		if (rangeX > 0) {
 			value = Math.max(0, Math.min(activeSlider._range, activeSlider._range * relX / rangeX));
 		}
 
-		activeSlider.setValue(value);
-		activeSlider.changed.dispatch(value);
+		activeSlider._value = value;
+		update(activeSlider);
+
+		if (activeSlider.live || isEnd) {
+			activeSlider.changed.dispatch(value);
+		}
 	}
 
 
@@ -68,7 +73,7 @@ define(["ist!tmpl/components/slider", "signals", "dom"], function(sliderTemplate
 	function handleEnd(e) {
 		e.preventDefault();
 
-		setPositionFromEvent(e);
+		setPositionFromEvent(e, true);
 
 		activeSlider.classList.remove("moving");
 		activeSlider = null;
@@ -108,6 +113,11 @@ define(["ist!tmpl/components/slider", "signals", "dom"], function(sliderTemplate
 
 
 	function setValue(slider, value) {
+		if (activeSlider === slider) {
+			// Do not update if sliding
+			return;
+		}
+
 		slider._value = value;
 		update(slider);
 	}
@@ -118,6 +128,7 @@ define(["ist!tmpl/components/slider", "signals", "dom"], function(sliderTemplate
 
 		slider._range = range || 1;
 		slider._value = value || 0;
+		slider.live = true;
 
 		slider.setAvailable = setAvailable.bind(null, slider);
 		slider.setRange = setRange.bind(null, slider);

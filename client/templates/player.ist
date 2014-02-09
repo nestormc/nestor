@@ -1,0 +1,21 @@
+@behave behaviour
+	#player
+		.display
+			a.toggle-fullscreen[href=#!player/fullscreen]
+				@svg "images/fullscreen.svg"
+
+		@dom slider
+
+		.metadata
+			.title "In the Court of the Crimson King"
+			.subtitle "King Crimson"
+
+		.controls
+			a.prev[href=#!player/prev]
+				@svg "images/prev.svg"
+			a.pause[href=#!player/play]
+				@svg "images/play.svg"
+			a.pause[href=#!player/pause]
+				@svg "images/pause.svg"
+			a.next[href=#!player/next]
+				@svg "images/next.svg"
