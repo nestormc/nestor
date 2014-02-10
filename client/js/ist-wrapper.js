@@ -26,6 +26,7 @@ define(["ist", "ajax", "dom", "login"], function(ist, ajax, dom, login) {
 
 		if (!container) {
 			container = context.createElement("span");
+			container.classList.add("svg-container");
 			fragment.appendChild(container);
 		}
 

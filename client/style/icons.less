@@ -1,0 +1,106 @@
+.nestor-icon(@color) {
+	display: inline-block;
+	vertical-align: bottom;
+
+	width: 1em;
+	height: 1em;
+
+	& > .svg-container {
+		display: block;
+		width: 100%;
+		height: 100%;
+	}
+
+	img {
+		width: 100%;
+		height: 100%;
+	}
+
+	svg {
+		width: 100%;
+		height: 100%;
+
+		* {
+			fill: @color !important;
+		}
+	}
+}
+
+.nestor-active-icon(@color, @activeColor) {
+	.nestor-icon(@color);
+
+	svg * {
+		transition: 150ms;
+	}
+
+	&:hover svg * {
+		transition: 150ms;
+		fill: @activeColor !important;
+	}
+}
+
+#bar, #player {
+	.icon {
+		.nestor-icon(@midGray);
+		
+		& + .icon {
+			margin-left: @margins;
+		}
+	}
+
+	.icon.active {
+		.nestor-icon(@yellow);
+	}
+	
+	a.active-icon {
+		.nestor-active-icon(@midGray, @yellow);
+		
+		& + a.active-icon {
+			margin-left: @margins;
+		}
+	}
+}
+
+#viewport {
+	.icon {
+		.nestor-icon(@mlGray);
+
+		& + .icon {
+			margin-left: @margins;
+		}
+	}
+
+	.icon.active {
+		.nestor-icon(@midGray);
+	}
+
+	a.active-icon {
+		.nestor-active-icon(@mlGray, @midGray);
+
+		& + a.active-icon {
+			margin-left: @margins;
+		}
+	}
+
+	a.action-with-icon {
+		color: @mlGray;
+		text-decoration: none;
+
+		.svg-container {
+			.nestor-icon(@mlGray);
+		}
+
+		&:hover {
+			color: @midGray;
+			text-decoration: underline;
+
+			.svg-container {
+				.nestor-icon(@midGray);
+			}
+		}
+
+		& + a.action-with-icon {
+			margin-left: @margins;
+		}
+	}
+}

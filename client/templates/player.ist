@@ -1,7 +1,7 @@
 @behave behaviour
 	#player
 		.display
-			a.toggle-fullscreen[href=#!player/fullscreen]
+			a.active-icon.toggle-fullscreen[href=#!player/fullscreen]
 				@svg "images/fullscreen.svg"
 
 		@dom slider
@@ -11,11 +11,11 @@
 			.subtitle "King Crimson"
 
 		.controls
-			a.prev[href=#!player/prev]
+			a.active-icon.prev[href=#!player/prev]
 				@svg "images/prev.svg"
-			a.pause[href=#!player/play]
+			a.active-icon.play[href=#!player/play]
 				@svg "images/play.svg"
-			a.pause[href=#!player/pause]
+			a.active-icon.pause[href=#!player/pause]
 				@svg "images/pause.svg"
-			a.next[href=#!player/next]
+			a.active-icon.next[href=#!player/next]
 				@svg "images/next.svg"

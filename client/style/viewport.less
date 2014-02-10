@@ -22,43 +22,7 @@
 
 	.main-view {
 		font-size: .75em;
-
-		.icon, .active-icon, .action-with-icon {
-			vertical-align: baseline;
-
-			svg, img {
-
-				height: 1em;
-				width: 1em;
-			}
-		}
-
-		.active-icon, .action-with-icon {
-
-			svg * {
-				fill: @mlGray !important;
-			}
-
-			&:hover svg * {
-				fill: @midGray !important;
-			}
-		}
-
-		a.action-with-icon:link {
-			font-size: .9em;
-			text-decoration: none;
-			color: @mlGray;
-		}
-
-		a.action-with-icon:hover {
-			color: @midGray;
-			text-decoration: underline;
-		}
-
-		a.action-with-icon + a.action-with-icon {
-			margin-left: 1em;
-		}
-
+		
 		.content-box {
 			.white-box;
 
