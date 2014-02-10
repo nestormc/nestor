@@ -7,15 +7,15 @@
 		@dom slider
 
 		.metadata
-			.title "In the Court of the Crimson King"
-			.subtitle "King Crimson"
+			.title
+			.subtitle
 
 		.controls
 			a.active-icon.prev[href=#!player/prev]
 				@svg "images/prev.svg"
 			a.active-icon.play[href=#!player/play]
 				@svg "images/play.svg"
-			a.active-icon.pause[href=#!player/pause]
+			a.active-icon.pause[href=#!player/pause][style=display: none;]
 				@svg "images/pause.svg"
 			a.active-icon.next[href=#!player/next]
 				@svg "images/next.svg"

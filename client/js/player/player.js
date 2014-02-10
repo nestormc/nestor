@@ -18,6 +18,13 @@ function(template, components, dom, router) {
 	}
 
 
+	function setPlayingStatus(status) {
+		playing = status;
+		dom.$("#player .play").style.display = status ? "none" : "inline-block";
+		dom.$("#player .pause").style.display = status ? "inline-block" : "none";
+	}
+
+
 	function stopCurrentTrack() {
 		if (playlistIndex !== -1) {
 			var current = playlist[playlistIndex];
@@ -37,6 +44,21 @@ function(template, components, dom, router) {
 	}
 
 
+	function updateCurrentMetadata() {
+		var title = "";
+		var subtitle = "";
+
+		if (playlistIndex !== -1) {
+			var meta = playlist[playlistIndex].getMetadata();
+			title = meta.title || "";
+			subtitle = meta.subtitle || "";
+		}
+
+		dom.$("#player .metadata .title").innerHTML = title;
+		dom.$("#player .metadata .subtitle").innerHTML = subtitle;
+	}
+
+
 	function playTrack(index, fromStart) {
 		stopCurrentTrack();
 
@@ -44,7 +66,7 @@ function(template, components, dom, router) {
 		var track = playlist[index];
 
 		playlistIndex = index;
-		playing = true;
+		setPlayingStatus(true);
 
 		// Add length handler
 		if (track.lengthChanged.getNumListeners() === 0) {
@@ -78,10 +100,7 @@ function(template, components, dom, router) {
 
 		// Start playback as soon as possible
 		track.playable.addOnce(function() {
-			var meta = track.getMetadata();
-
-			dom.$("#player .metadata .title").innerHTML = meta.title;
-			dom.$("#player .metadata .subtitle").innerHTML = meta.subtitle || "";
+			updateCurrentMetadata();
 
 			var display = track.getDisplay();
 			display.classList.add("track-display");
@@ -96,7 +115,7 @@ function(template, components, dom, router) {
 			if (playlistIndex + 1 < playlist.length) {
 				playTrack(playlistIndex + 1, true);
 			} else {
-				playing = false;
+				setPlayingStatus(false);
 			}
 		});
 	}
@@ -125,6 +144,9 @@ function(template, components, dom, router) {
 				} else {
 					playlistIndex = clamp(playlistIndex + 1);
 				}
+				
+				updateCurrentMetadata();
+				dom.$("#player .slider").setValue(0);
 			}
 		},
 
@@ -140,6 +162,9 @@ function(template, components, dom, router) {
 					playlistIndex = clamp(playlistIndex - 1);
 					playlist[playlistIndex].seek(0);
 				}
+				
+				updateCurrentMetadata();
+				dom.$("#player .slider").setValue(0);
 			}
 		},
 
@@ -152,7 +177,7 @@ function(template, components, dom, router) {
 		pause: function() {
 			if (playlist.length) {
 				playlist[playlistIndex].pause();
-				playing = false;
+				setPlayingStatus(false);
 			}
 		},
 
@@ -243,6 +268,7 @@ function(template, components, dom, router) {
 			/* Clear current playlist */
 			clear: function() {
 				stopCurrentTrack();
+				setPlayingStatus(false);
 				playlist.forEach(function(track) { track.dispose(); });
 				playlist = [];
 				playlistIndex = -1;
