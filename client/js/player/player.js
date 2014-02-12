@@ -2,8 +2,8 @@
 /*global define*/
 
 define(
-["ist!tmpl/player", "components/index", "dom", "router"],
-function(template, components, dom, router) {
+["ist!tmpl/player", "components/index", "dom", "router", "storage"],
+function(template, components, dom, router, storage) {
 	"use strict";
 
 	var playlist = [];
@@ -20,6 +20,8 @@ function(template, components, dom, router) {
 
 	function setPlayingStatus(status) {
 		playing = status;
+		storage.set("player/playing", status);
+
 		dom.$("#player .play").style.display = status ? "none" : "inline-block";
 		dom.$("#player .pause").style.display = status ? "inline-block" : "none";
 	}
@@ -69,6 +71,8 @@ function(template, components, dom, router) {
 		playlistIndex = index;
 		setPlayingStatus(true);
 
+		storage.set("player/index", playlistIndex);
+
 		// Add length handler
 		if (track.lengthChanged.getNumListeners() === 0) {
 			track.lengthChanged.add(function(length) {
@@ -95,6 +99,7 @@ function(template, components, dom, router) {
 		if (track.timeChanged.getNumListeners() === 0) {
 			track.timeChanged.add(function(time) {
 				track._time = time;
+				storage.set("player/time", time);
 				dom.$("#player .slider").setValue(time);
 			});
 		}
@@ -219,8 +224,8 @@ function(template, components, dom, router) {
 	};
 
 
-	return {
-		render: function() {
+	var player = {
+		render: function(ui) {
 			var slider = components.slider();
 			slider.setAvailable(1);
 			slider.live = false;
@@ -257,6 +262,33 @@ function(template, components, dom, router) {
 				next();
 			});
 
+			ui.started.add(function() {
+				// Restore saved status
+				playlist = JSON.parse(storage.get("player/playlist", "[]")).map(getTrack);
+				playlistIndex = JSON.parse(storage.get("player/index", "-1"));
+
+				updateCurrentMetadata();
+
+				var time = JSON.parse(storage.get("player/time", "0"));
+				playbackControls.seek(time);
+
+				if (playlist.length) {
+					var track = playlist[playlistIndex];
+
+					track.lengthChanged.add(function(length) {
+						dom.$("#player .slider").setRange(length);
+						dom.$("#player .slider").setAvailable(length);
+						dom.$("#player .slider").setValue(time);
+					});
+
+					track.load();
+				}
+
+				if (JSON.parse(storage.get("player/playing", "false"))) {
+					playbackControls.play();
+				}
+			});
+
 			return rendered;
 		},
 
@@ -274,6 +306,9 @@ function(template, components, dom, router) {
 				playlist.forEach(function(track) { track.dispose(); });
 				playlist = [];
 				playlistIndex = -1;
+
+				storage.set("player/index", playlistIndex);
+				storage.set("player/playlist", "[]");
 			},
 
 
@@ -300,6 +335,11 @@ function(template, components, dom, router) {
 				if (playlistIndex === -1) {
 					playlistIndex = 0;
 				}
+
+				storage.set("player/index", playlistIndex);
+				storage.set("player/playlist", JSON.stringify(playlist.map(function(track) {
+					return { provider: track._provider, id: track._id };
+				})));
 			},
 
 
@@ -319,4 +359,6 @@ function(template, components, dom, router) {
 			}
 		}
 	};
+
+	return player;
 });

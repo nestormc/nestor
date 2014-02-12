@@ -205,7 +205,7 @@ function(ist, mainTemplate, components, player, signals, dom, when) {
 						"settings": []
 					}
 				},
-				player: player.render()
+				player: player.render(ui)
 			};
 
 			settingsApp = apps.filter(function(a) { return a.name === "settings"; })[0];
