@@ -47,15 +47,16 @@ function(template, components, dom, router) {
 	function updateCurrentMetadata() {
 		var title = "";
 		var subtitle = "";
+		
+		dom.$("#player .metadata .title").innerHTML = "...";
+		dom.$("#player .metadata .subtitle").innerHTML = "";
 
 		if (playlistIndex !== -1) {
-			var meta = playlist[playlistIndex].getMetadata();
-			title = meta.title || "";
-			subtitle = meta.subtitle || "";
+			playlist[playlistIndex].metadata.then(function(meta) {
+				dom.$("#player .metadata .title").innerHTML = meta.title || "";
+				dom.$("#player .metadata .subtitle").innerHTML = meta.subtitle || "";
+			});
 		}
-
-		dom.$("#player .metadata .title").innerHTML = title;
-		dom.$("#player .metadata .subtitle").innerHTML = subtitle;
 	}
 
 
@@ -102,11 +103,12 @@ function(template, components, dom, router) {
 		track.playable.addOnce(function() {
 			updateCurrentMetadata();
 
-			var display = track.getDisplay();
-			display.classList.add("track-display");
-			dom.$("#player .display").appendChild(display);
+			track.display.then(function(display) {
+				display.classList.add("track-display");
+				dom.$("#player .display").appendChild(display);
+				track._display = display;
+			});
 
-			track._display = display;
 			track.play();
 		});
 

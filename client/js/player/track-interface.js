@@ -45,16 +45,12 @@
 	// Dispatched when total length changed, with total length in seconds
 	lengthChanged: instanceof Signal,
 
-	// Called to get track metadata
-	getMetadata: function() {
-		return { title: "Mandatory", subtitle: "Optional" };
-	},
+	// Should resolve to { title, subtitle } (subtitle is optional)
+	metadata: instanceof Promise,
 
-	// Called to get track displayed element
-	getDisplay: function() {
-		return DOMNode;
-	},
-
+	// Should resolve to DOM element
+	display: instanceof Promise,
+	
 
 
 	/* Playback */
