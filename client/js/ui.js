@@ -25,6 +25,17 @@ function(ist, mainTemplate, components, player, signals, dom, when) {
 	}
 
 
+	function resizePopup() {
+		var container = $("#popup #content");
+
+		var w = container.offsetWidth;
+		var h = container.offsetHeight;
+
+		container.style.marginLeft = (-w/2) + "px";
+		container.style.marginTop = (-h/2) + "px";
+	}
+
+
 
 	var showPopup = (function() {
 		var lastPopup = when.resolve();
@@ -421,6 +432,7 @@ function(ist, mainTemplate, components, player, signals, dom, when) {
 					if (options.type === "popup") {
 						view.show = showPopup.bind(null, view);
 						view.hide = hideView.bind(null, view);
+						view.resize = resizePopup.bind(null, view);
 					} else {
 						view.show = showMainView.bind(null, view);
 						view.undisplayed.add(function() {
