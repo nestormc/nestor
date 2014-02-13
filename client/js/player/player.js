@@ -87,8 +87,13 @@ function(template, components, dom, router, state, providers) {
 	};
 
 
-	var player = {
-		render: function(ui) {
+	var manifest = {
+		name: "player",
+		views: {
+
+		},
+
+		render: function() {
 			/* Render player */
 			var slider = components.slider();
 			slider.setAvailable(1);
@@ -100,42 +105,48 @@ function(template, components, dom, router, state, providers) {
 				behaviour: playerBehaviour
 			});
 
-			ui.started.add(function() {
-				// Initialize player state
-				initPlayerState(ui);
+			return rendered;
+		},
 
-				router.on("!player/play", function(err, req, next) {
-					state.play();
-					next();
-				});
+		startup: function(ui) {
+			// Initialize player state
+			initPlayerState(ui);
 
-				router.on("!player/pause", function(err, req, next) {
-					state.pause();
-					next();
-				});
-
-				router.on("!player/next", function(err, req, next) {
-					state.next();
-					next();
-				});
-
-				router.on("!player/prev", function(err, req, next) {
-					state.prev();
-					next();
-				});
-
-				router.on("!player/random", function(err, req, next) {
-					state.toggleRandom();
-					next();
-				});
-
-				router.on("!player/repeat", function(err, req, next) {
-					state.toggleRepeat();
-					next();
-				});
+			// Setup action routes
+			router.on("!player/play", function(err, req, next) {
+				state.play();
+				next();
 			});
 
-			return rendered;
+			router.on("!player/pause", function(err, req, next) {
+				state.pause();
+				next();
+			});
+
+			router.on("!player/next", function(err, req, next) {
+				state.next();
+				next();
+			});
+
+			router.on("!player/prev", function(err, req, next) {
+				state.prev();
+				next();
+			});
+
+			router.on("!player/random", function(err, req, next) {
+				state.toggleRandom();
+				next();
+			});
+
+			router.on("!player/repeat", function(err, req, next) {
+				state.toggleRepeat();
+				next();
+			});
+
+			router.on("!player/fullscreen", function(err, req, next) {
+				dom.$("#player").classList.toggle("fullscreen");
+				next();
+			});
 		},
 
 		public: {
@@ -167,5 +178,5 @@ function(template, components, dom, router, state, providers) {
 		}
 	};
 
-	return player;
+	return manifest;
 });

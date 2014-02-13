@@ -1,8 +1,8 @@
 /*jshint browser:true*/
 /*global define*/
 define(
-["ist-wrapper", "ist!tmpl/main", "components/index", "player/player", "signals", "dom", "when"],
-function(ist, mainTemplate, components, player, signals, dom, when) {
+["ist-wrapper", "ist!tmpl/main", "components/index", "signals", "dom", "when"],
+function(ist, mainTemplate, components, signals, dom, when) {
 	"use strict";
 
 	var $ = dom.$;
@@ -181,19 +181,19 @@ function(ist, mainTemplate, components, player, signals, dom, when) {
 	var pluginUIs = {};
 	var activeMainView;
 	var settingsApp;
+	var playerApp;
 
 	var ui = {
 		plugin: "nestor",
 		components: components,
 
 		/* Player interface */
-		player: player.public,
+		player: null,
 
 
 		/* Signals */
 		started: new signals.Signal(),
 		stopping: new signals.Signal(),
-
 
 		/* Error handler, should make this nicer... */
 		error: function(title, details) {
@@ -205,6 +205,10 @@ function(ist, mainTemplate, components, player, signals, dom, when) {
 
 		/* Start the UI */
 		start: function(user, plugins, apps, router) {
+			settingsApp = apps.filter(function(a) { return a.name === "settings"; })[0];
+			playerApp = apps.filter(function(a) { return a.name === "player"; })[0];
+			ui.player = playerApp.public;
+
 			// Initialize rendering context
 			istContext = {
 				user: user,
@@ -216,10 +220,9 @@ function(ist, mainTemplate, components, player, signals, dom, when) {
 						"settings": []
 					}
 				},
-				player: player.render(ui)
-			};
 
-			settingsApp = apps.filter(function(a) { return a.name === "settings"; })[0];
+				player: playerApp.render()
+			};
 
 			function createViews(isPlugin, manifest) {
 				var name = manifest.name;
@@ -292,6 +295,9 @@ function(ist, mainTemplate, components, player, signals, dom, when) {
 
 			// Dispatch started signal
 			ui.started.dispatch();
+
+			// Start player
+			playerApp.startup(ui);
 		},
 
 

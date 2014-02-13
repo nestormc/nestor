@@ -52,10 +52,10 @@
 	}
 
 	mainRequire(
-	["dom", "login", "ui", "router", "settings/settings", "storage", "plugins", "ajax", "rest"],
-	function(dom, login, ui, router, settings, storage, plugins, ajax, rest) {
+	["dom", "login", "ui", "router", "settings/settings", "player/player", "storage", "plugins", "ajax", "rest"],
+	function(dom, login, ui, router, settings, player, storage, plugins, ajax, rest) {
 		var $ = dom.$;
-		var apps = [settings];
+		var apps = [settings, player];
 
 		ajax.connectionStatusChanged.add(function(connected) {
 			var lost = $("#heartbeat-lost");
