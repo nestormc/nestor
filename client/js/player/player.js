@@ -2,198 +2,61 @@
 /*global define*/
 
 define(
-["ist!tmpl/player", "components/index", "dom", "router", "storage"],
-function(template, components, dom, router, storage) {
+["ist!tmpl/player", "components/index", "dom", "router", "player/state", "player/providers"],
+function(template, components, dom, router, state, providers) {
 	"use strict";
+	/* Connect to player state */
+	function initPlayerState(ui) {
+		state.init(ui);
 
-	var playlist = [];
-	var playing = false;
-	var playlistIndex = -1;
-
-	var trackProviders = {};
-
-
-	function clamp(index) {
-		return (index + playlist.length) % playlist.length;
-	}
-
-
-	function setPlayingStatus(status) {
-		playing = status;
-		storage.set("player/playing", status);
-
-		dom.$("#player .play").style.display = status ? "none" : "inline-block";
-		dom.$("#player .pause").style.display = status ? "inline-block" : "none";
-	}
-
-
-	function stopCurrentTrack() {
-		if (playlistIndex !== -1) {
-			var current = playlist[playlistIndex];
-
-			current.pause();
-
-			if (current._display && current._display.parentNode) {
-				current._display.parentNode.removeChild(current._display);
-			}
-
-			current.loaded.removeAll();
-			current.playable.removeAll();
-			current.ended.removeAll();
-			current.timeChanged.removeAll();
-			current.lengthChanged.removeAll();
-		}
-	}
-
-
-	function updateCurrentMetadata() {
-		var title = "";
-		var subtitle = "";
-		
-		dom.$("#player .metadata .title").innerHTML = "...";
-		dom.$("#player .metadata .subtitle").innerHTML = "";
-
-		if (playlistIndex !== -1) {
-			playlist[playlistIndex].metadata.then(function(meta) {
-				dom.$("#player .metadata .title").innerHTML = meta.title || "";
-				dom.$("#player .metadata .subtitle").innerHTML = meta.subtitle || "";
-			});
-		}
-	}
-
-
-	function playTrack(index, fromStart) {
-		stopCurrentTrack();
-
-		index = clamp(index);
-		var track = playlist[index];
-
-		playlistIndex = index;
-		setPlayingStatus(true);
-
-		storage.set("player/index", playlistIndex);
-
-		// Add length handler
-		if (track.lengthChanged.getNumListeners() === 0) {
-			track.lengthChanged.add(function(length) {
-				dom.$("#player .slider").setRange(length);
-				dom.$("#player .slider").setAvailable(length);
-			});
-		}
-
-		// Ensure track started loading
-		track.load();
-
-		// Start loading next track when this one is done
-		track.loaded.addOnce(function() {
-			if (playlistIndex + 1 < playlist.length) {
-				playlist[playlistIndex + 1].load();
-			}
+		state.repeatChanged.add(function(repeat) {
+			dom.$("#player .repeat").classList[repeat ? "add" : "remove"]("active");
 		});
 
-		if (fromStart) {
-			track.seek(0);
-		}
-
-		// Add time handler
-		if (track.timeChanged.getNumListeners() === 0) {
-			track.timeChanged.add(function(time) {
-				track._time = time;
-				storage.set("player/time", time);
-				dom.$("#player .slider").setValue(time);
-			});
-		}
-
-		// Start playback as soon as possible
-		track.playable.addOnce(function() {
-			updateCurrentMetadata();
-
-			track.display.then(function(display) {
-				display.classList.add("track-display");
-				dom.$("#player .display").appendChild(display);
-				track._display = display;
-			});
-
-			track.play();
+		state.randomChanged.add(function(random) {
+			dom.$("#player .random").classList[random ? "add" : "remove"]("active");
 		});
 
-		// Play next track when this one is done playing
-		track.ended.addOnce(function() {
-			if (playlistIndex + 1 < playlist.length) {
-				playTrack(playlistIndex + 1, true);
-			} else {
-				setPlayingStatus(false);
-			}
+		state.playingChanged.add(function(playing) {
+			dom.$("#player .play").style.display = playing ? "none" : "inline-block";
+			dom.$("#player .pause").style.display = playing ? "inline-block" : "none";
 		});
-	}
 
+		state.lengthChanged.add(function(length) {
+			dom.$("#player .slider").setRange(length);
+			dom.$("#player .slider").setAvailable(length);
+		});
 
-	function getTrack(trackdef) {
-		var track = trackdef.track || trackProviders[trackdef.provider](trackdef.id);
+		state.timeChanged.add(function(time) {
+			dom.$("#player .slider").setValue(time);
+		});
 
-		track._provider = trackdef.provider;
-		track._id = trackdef.id;
+		state.trackChanged.add(function(track) {
+			dom.$("#player .metadata .title").innerHTML = "...";
+			dom.$("#player .metadata .subtitle").innerHTML = "";
 
-		track.playable.memorize = true;
-		track.loaded.memorize = true;
-		track.lengthChanged.memorize = true;
+			if (track) {
+				track.metadata.then(function(meta) {
+					dom.$("#player .metadata .title").innerHTML = meta.title || "";
+					dom.$("#player .metadata .subtitle").innerHTML = meta.subtitle || "";
+				});
 
-		return track;
-	}
+				track.display.then(function(display) {
+					var currentDisplay = dom.$("#player .display .track-display");
+					if (display !== currentDisplay) {
+						if (currentDisplay) {
+							currentDisplay.parentNode.removeChild(currentDisplay);
+						}
 
-
-	var REWIND_THRESHOLD = 5;
-	var playbackControls = {
-		next: function() {
-			if (playlist.length) {
-				if (playing) {
-					playTrack(playlistIndex + 1, true);
-				} else {
-					playlistIndex = clamp(playlistIndex + 1);
-				}
-				
-				updateCurrentMetadata();
-				dom.$("#player .slider").setValue(0);
-			}
-		},
-
-		prev: function() {
-			if (playlist.length) {
-				if (playing) {
-					if (playlist[playlistIndex]._time < REWIND_THRESHOLD) {
-						playTrack(playlistIndex - 1, true);
-					} else {
-						playTrack(playlistIndex, true);
+						display.classList.add("track-display");
+						dom.$("#player .display").appendChild(display);
 					}
-				} else {
-					playlistIndex = clamp(playlistIndex - 1);
-					playlist[playlistIndex].seek(0);
-				}
-				
-				updateCurrentMetadata();
-				dom.$("#player .slider").setValue(0);
+				});
 			}
-		},
+		});
 
-		play: function() {
-			if (playlist.length) {
-				playTrack(playlistIndex);
-			}
-		},
-
-		pause: function() {
-			if (playlist.length) {
-				playlist[playlistIndex].pause();
-				setPlayingStatus(false);
-			}
-		},
-
-		seek: function(time) {
-			if (playlist.length) {
-				playlist[playlistIndex].seek(time);
-			}
-		}
-	};
+		state.load();
+	}
 
 
 	var fadeTime = 2000;
@@ -226,67 +89,50 @@ function(template, components, dom, router, storage) {
 
 	var player = {
 		render: function(ui) {
+			/* Render player */
 			var slider = components.slider();
 			slider.setAvailable(1);
 			slider.live = false;
-			slider.changed.add(playbackControls.seek);
+			slider.changed.add(state.seek);
 
 			var rendered = template.render({
 				slider: slider,
 				behaviour: playerBehaviour
 			});
 
-			router.on("!player/play", function(err, req, next) {
-				playbackControls.play();
-				next();
-			});
-
-			router.on("!player/pause", function(err, req, next) {
-				playbackControls.pause();
-				next();
-			});
-
-			router.on("!player/prev", function(err, req, next) {
-				playbackControls.prev();
-				next();
-			});
-
-			router.on("!player/next", function(err, req, next) {
-				playbackControls.next();
-				next();
-			});
-
-			router.on("!player/fullscreen", function(err, req, next) {
-				dom.$("#player").classList.toggle("fullscreen");
-				prepareFade();
-				next();
-			});
-
 			ui.started.add(function() {
-				// Restore saved status
-				playlist = JSON.parse(storage.get("player/playlist", "[]")).map(getTrack);
-				playlistIndex = JSON.parse(storage.get("player/index", "-1"));
+				// Initialize player state
+				initPlayerState(ui);
 
-				updateCurrentMetadata();
+				router.on("!player/play", function(err, req, next) {
+					state.play();
+					next();
+				});
 
-				var time = JSON.parse(storage.get("player/time", "0"));
-				playbackControls.seek(time);
+				router.on("!player/pause", function(err, req, next) {
+					state.pause();
+					next();
+				});
 
-				if (playlist.length) {
-					var track = playlist[playlistIndex];
+				router.on("!player/next", function(err, req, next) {
+					state.next();
+					next();
+				});
 
-					track.lengthChanged.add(function(length) {
-						dom.$("#player .slider").setRange(length);
-						dom.$("#player .slider").setAvailable(length);
-						dom.$("#player .slider").setValue(time);
-					});
+				router.on("!player/prev", function(err, req, next) {
+					state.prev();
+					next();
+				});
 
-					track.load();
-				}
+				router.on("!player/random", function(err, req, next) {
+					state.toggleRandom();
+					next();
+				});
 
-				if (JSON.parse(storage.get("player/playing", "false"))) {
-					playbackControls.play();
-				}
+				router.on("!player/repeat", function(err, req, next) {
+					state.toggleRepeat();
+					next();
+				});
 			});
 
 			return rendered;
@@ -295,53 +141,20 @@ function(template, components, dom, router, storage) {
 		public: {
 			/* Register track provider */
 			register: function(name, provider) {
-				trackProviders[name] = provider;
+				providers.register(name, provider);
 			},
 
 
 			/* Clear current playlist */
 			clear: function() {
-				stopCurrentTrack();
-				setPlayingStatus(false);
-				playlist.forEach(function(track) { track.dispose(); });
-				playlist = [];
-				playlistIndex = -1;
-
-				storage.set("player/index", playlistIndex);
-				storage.set("player/playlist", "[]");
+				state.clear();
 			},
 
 
 			/* Enqueue new track(s) either next to current track (next=true) or at the end of current playlist */
 			enqueue: function(trackdefs, next) {
-				var position = next ? playlistIndex + 1 : playlist.length;
-
-				if (!Array.isArray(trackdefs)) {
-					trackdefs = [trackdefs];
-				}
-
-				if (next && playlistIndex + 1 < playlist.length) {
-					// Stop loading next track, if any
-					playlist[playlistIndex + 1].stopLoading();
-				}
-
-				playlist.splice.bind(playlist, position, 0).apply(null, trackdefs.map(getTrack));
-
-				if (next && playing) {
-					// Start loading first new track
-					playlist[playlistIndex + 1].load();
-				}
-
-				if (playlistIndex === -1) {
-					playlistIndex = 0;
-				}
-
-				storage.set("player/index", playlistIndex);
-				storage.set("player/playlist", JSON.stringify(playlist.map(function(track) {
-					return { provider: track._provider, id: track._id };
-				})));
+				state.enqueue(trackdefs, next);
 			},
-
 
 			/* Start playing current playlist
 			   - if position is specified, play the position-th track from start
@@ -349,13 +162,7 @@ function(template, components, dom, router, storage) {
 			   - else, play current track or first track from the start
 			 */
 			play: function(position) {
-				if (typeof position !== "undefined") {
-					playTrack(position, true);
-				} else if (playing) {
-					playbackControls.play();
-				} else if (playlist.length) {
-					playTrack(playlistIndex);
-				}
+				state.play(position);
 			}
 		}
 	};

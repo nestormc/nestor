@@ -8,10 +8,10 @@
 
    - the dispose() method indicates that the player does not intend to use the
      track anymore.  Implementations should dispose interface signals, and
-     prevent any further network activity or memory usage.
+     prevent any further network activity, memory usage or promise updates.
 
    - the load() method may be called multiple times.  Even then, implementations
-     should not dispatch playable/loaded signals more than once. 
+     should not dispatch playable/loaded signals more than once.
 
  */
 

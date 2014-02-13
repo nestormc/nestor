@@ -11,11 +11,22 @@
 			.subtitle
 
 		.controls
-			a.active-icon.prev[href=#!player/prev]
-				@svg "images/prev.svg"
-			a.active-icon.play[href=#!player/play]
-				@svg "images/play.svg"
-			a.active-icon.pause[href=#!player/pause][style=display: none;]
-				@svg "images/pause.svg"
-			a.active-icon.next[href=#!player/next]
-				@svg "images/next.svg"
+			a.active-icon.repeat[href=#!player/repeat]
+				@svg "images/repeat.svg"
+
+			span.center-controls
+				a.active-icon.prev[href=#!player/prev]
+					@svg "images/prev.svg"
+				a.active-icon.play[href=#!player/play]
+					@svg "images/play.svg"
+				a.active-icon.pause[href=#!player/pause][style=display: none;]
+					@svg "images/pause.svg"
+				a.active-icon.next[href=#!player/next]
+					@svg "images/next.svg"
+
+			a.active-icon.random[href=#!player/random]
+				@svg "images/random.svg"
+
+			span.right-controls
+				a.active-icon.playlist[href=#!player/playlist]
+					@svg "images/playlist.svg"
