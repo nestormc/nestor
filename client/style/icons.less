@@ -26,8 +26,12 @@
 	}
 }
 
-.nestor-active-icon(@color, @activeColor) {
+.nestor-active-icon(@color, @hoverColor, @activeColor) {
 	.nestor-icon(@color);
+
+	&.active {
+		.nestor-icon(@activeColor);
+	}
 
 	svg * {
 		transition: 150ms;
@@ -35,7 +39,7 @@
 
 	&:hover svg * {
 		transition: 150ms;
-		fill: @activeColor !important;
+		fill: @hoverColor !important;
 	}
 }
 
@@ -53,7 +57,7 @@
 	}
 	
 	a.active-icon {
-		.nestor-active-icon(@midGray, @yellow);
+		.nestor-active-icon(@midGray, @yellow, @mlGray);
 		
 		& + a.active-icon {
 			margin-left: @margins;
@@ -75,7 +79,7 @@
 	}
 
 	a.active-icon {
-		.nestor-active-icon(@mlGray, @midGray);
+		.nestor-active-icon(@mlGray, @midGray, @midGray);
 
 		& + a.active-icon {
 			margin-left: @margins;
