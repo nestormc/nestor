@@ -8,7 +8,7 @@
  * Dispatches signals for use by the UI, and provides a public interface  to handle UI actions.
  */
 
-define(["storage", "player/providers"], function(storage, providers) {
+define(["when", "storage", "player/providers"], function(when, storage, providers) {
 	"use strict";
 
 	/* State variables */
@@ -188,6 +188,7 @@ define(["storage", "player/providers"], function(storage, providers) {
 			this.lengthChanged = ui.signal();
 			this.repeatChanged = ui.signal();
 			this.randomChanged = ui.signal();
+			this.playlistChanged = ui.signal();
 		},
 
 		/* Restore saved state */
@@ -217,6 +218,18 @@ define(["storage", "player/providers"], function(storage, providers) {
 			}
 
 			this.trackChanged.dispatch(newTrack);
+		},
+
+		/* Force dispatching playlistChanged */
+		updatePlaylist: function() {
+			when.all(playlist.map(function(t, i) {
+				return t.metadata.then(function(m) {
+					m.position = t._position;
+					return m;
+				});
+			})).then(function(playlist) {
+				state.playlistChanged.dispatch(playlist);
+			});
 		},
 
 		/* Toggle repeat full playlist */
@@ -343,6 +356,9 @@ define(["storage", "player/providers"], function(storage, providers) {
 
 			// Update play order
 			updatePlayOrder(trackdefs.map(function(t, i) { return position + i; }), next);
+
+			// Dispatch playlist changed
+			this.updatePlaylist();
 
 			saveState();
 		}

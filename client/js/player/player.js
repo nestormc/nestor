@@ -2,8 +2,8 @@
 /*global define*/
 
 define(
-["ist!tmpl/player", "components/index", "dom", "router", "player/state", "player/providers"],
-function(template, components, dom, router, state, providers) {
+["ist!tmpl/player", "ist!tmpl/playlist", "components/index", "dom", "router", "player/state", "player/providers"],
+function(playerTemplate, playlistTemplate, components, dom, router, state, providers) {
 	"use strict";
 	/* Connect to player state */
 	function initPlayerState(ui) {
@@ -35,7 +35,19 @@ function(template, components, dom, router, state, providers) {
 			dom.$("#player .metadata .title").innerHTML = "...";
 			dom.$("#player .metadata .subtitle").innerHTML = "";
 
+			var playlistView = ui.view("playlist");
+
+			if (playlistView.$(".playing")) {
+				playlistView.$(".playing").classList.remove("playing");
+			}
+
 			if (track) {
+				var trackElement = playlistView.$(".track[data-position=\"" + track._position + "\"");
+				
+				if (trackElement) {
+					trackElement.classList.add("playing");
+				}
+
 				track.metadata.then(function(meta) {
 					dom.$("#player .metadata .title").innerHTML = meta.title || "";
 					dom.$("#player .metadata .subtitle").innerHTML = meta.subtitle || "";
@@ -90,7 +102,10 @@ function(template, components, dom, router, state, providers) {
 	var manifest = {
 		name: "player",
 		views: {
-
+			playlist: {
+				type: "main",
+				css: "playlist"
+			}
 		},
 
 		render: function() {
@@ -100,7 +115,7 @@ function(template, components, dom, router, state, providers) {
 			slider.live = false;
 			slider.changed.add(state.seek);
 
-			var rendered = template.render({
+			var rendered = playerTemplate.render({
 				slider: slider,
 				behaviour: playerBehaviour
 			});
@@ -146,6 +161,30 @@ function(template, components, dom, router, state, providers) {
 			router.on("!player/fullscreen", function(err, req, next) {
 				dom.$("#player").classList.toggle("fullscreen");
 				next();
+			});
+
+			var renderedPlaylist;
+			var playlistView = ui.view("playlist");
+			var playlistBinding;
+
+			playlistView.displayed.add(function() {
+				dom.$("#player .playlist").classList.add("active");
+
+				if (!renderedPlaylist) {
+					renderedPlaylist = playlistTemplate.render({ playlist: [] });
+					playlistView.appendChild(renderedPlaylist);
+				}
+
+				playlistBinding = state.playlistChanged.add(function(playlist) {
+					renderedPlaylist.update({ playlist: playlist });
+				});
+
+				state.updatePlaylist();
+			});
+
+			playlistView.undisplayed.add(function() {
+				dom.$("#player .playlist").classList.remove("active");
+				playlistBinding.detach();
 			});
 		},
 

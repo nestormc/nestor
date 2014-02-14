@@ -1,0 +1,50 @@
+ul.tracklist {
+	list-style-type: none;
+
+	li.track {
+		position: relative;
+
+		&>* {
+			vertical-align: text-top;
+		}
+
+		.play-indicator {
+			visibility: hidden;
+
+			svg {
+				height: .75em;
+
+				* {
+					fill: @yellow !important;
+				}
+			}
+		}
+
+		&.playing .play-indicator {
+			visibility: visible;
+		}
+
+		.position {
+			margin-right: 1em;
+			color: @mlGray;
+
+			display: inline-block;
+			width: 1.5em;
+			text-align: right;
+		}
+
+		.subtitle {
+			&:before {
+				content: ' ';
+			}
+
+			color: @mlGray;
+		}
+
+		.length {
+			position: absolute;
+			right: 1em;
+			color: @mlGray;
+		}
+	}
+}

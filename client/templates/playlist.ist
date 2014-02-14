@@ -1,0 +1,14 @@
+@define "playlist-track"
+	li.track[data-position={{ position }}]
+		span.play-indicator
+			@svg "images/playing.svg"
+		span.position "{{ position + 1 }}"
+		span.title "{{ title || 'Unknown' }}"
+		span.subtitle "{{ subtitle || '' }}"
+		span.length "{{ humanTime(length) }}"
+
+.content-header "Current playlist"
+.content-box
+	ul.content-list.tracklist
+		@each playlist
+			@use "playlist-track"

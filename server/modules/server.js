@@ -19,10 +19,8 @@ var http = require("http"),
 	app = express();
 
 
-function lessPreprocessor(importDefs, src, req) {
-	if (importDefs) {
-		src = "@import \"defs.less\";\n" + src;
-	}
+function lessPreprocessor(src, req) {
+	src = "@import \"defs.less\";\n" + src;
 
 	if (req.param("namespace")) {
 		src = req.param("namespace") + " { " + src + " } ";
@@ -47,7 +45,7 @@ app.use(express.session({
 app.use(lessMiddleware({
 	src: __dirname + "/../../client",
 	force: true,
-	preprocessor: lessPreprocessor.bind(null, false)
+	preprocessor: lessPreprocessor
 }));
 
 /* Serve static files from client/ */
@@ -70,9 +68,9 @@ app.use("/heartbeat", function(req, res) {
 /* Log REST requests */
 app.use("/rest", function(req, res, next) {
 	if (req.body && Object.keys(req.body).length > 0) {
-		logger.debug("%s %s %j", req.method, req.url, req.body);
+		logger.debug("REST-%s %s %j", req.method, req.url, req.body);
 	} else {
-		logger.debug("%s %s", req.method, req.url);
+		logger.debug("REST-%s %s", req.method, req.url);
 	}
 	
 	next();
@@ -122,7 +120,7 @@ intents.on("nestor:startup", function() {
 
 	if (!serverConfig.ssl || !serverConfig.ssl.mandatory) {
 		logger.info("Starting HTTP server on %s:%s", serverConfig.host, serverConfig.port);
-		http.createServer(app).listen(serverConfig.port, serverConfig.host);		
+		http.createServer(app).listen(serverConfig.port, serverConfig.host);
 	}
 });
 
@@ -135,7 +133,7 @@ module.exports = {
 			src: dir,
 			force: true,
 			paths: [__dirname + "/../../client/style"],
-			preprocessor: lessPreprocessor.bind(null, true)
+			preprocessor: lessPreprocessor
 		}));
 
 		app.use("/plugins/" + name, express.static(dir));

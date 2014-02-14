@@ -28,5 +28,5 @@
 				@svg "images/random.svg"
 
 			span.right-controls
-				a.active-icon.playlist[href=#!player/playlist]
+				a.active-icon.playlist[href=#/playlist]
 					@svg "images/playlist.svg"
