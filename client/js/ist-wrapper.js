@@ -88,5 +88,28 @@ define(["ist", "ajax", "dom", "login"], function(ist, ajax, dom, login) {
 		dom.behave(fragment, value);
 	});
 
+
+	ist.global("humanTime", function(duration) {
+		var hours = Math.floor(duration / 3600),
+			minutes = Math.floor(duration % 3600 / 60),
+			seconds = Math.floor(duration) % 60;
+		
+		return hours === 0 ? minutes + ":" + (seconds > 9 ? seconds : "0" + seconds)
+						   : hours + "h" + (minutes > 9 ? minutes : "0" + minutes) + "m" + (seconds > 9 ? seconds : "0" + seconds) + "s";
+	});
+
+
+	ist.global("humanSize", function(size) {
+		var suffixes = ["", "k", "M", "G", "T"];
+		size = Math.floor(size);
+
+		while (size > 1024) {
+			size = size / 1024;
+			suffixes.shift();
+		}
+
+		return (Math.floor(size * 10) / 10) + " " + suffixes[0] + suffix;
+	});
+
 	return ist;
 });
