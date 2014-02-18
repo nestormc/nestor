@@ -58,7 +58,7 @@ define(["require", "when", "rest"], function(mainRequire, when, rest) {
 					define("plugins", function() { return pluginPublished; });
 
 					/* Load plugin */
-					pluginRequire(["index-built"], function() {
+					pluginRequire(["/js/built/" + plugin + ".js"], function() {
 						pluginRequire(["index"], function(pluginManifest) {
 							pluginManifest.name = plugin;
 							pluginDeferred.resolve(pluginManifest);

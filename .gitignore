@@ -2,5 +2,4 @@ node_modules
 client/style/*.css
 client/style/*/*.css
 client/js/bower
-client/js/main-built.js
-client/js/main-built.js.map
+client/js/built/*

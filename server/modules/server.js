@@ -39,22 +39,79 @@ function lessPreprocessor(src, req) {
 }
 
 
-function buildMiddleware(id, options) {
-	return function(req, res, next) {
-		logger.debug("Building " + id + " js");
 
-		requirejs.optimize(
-			options,
-			function(output) {
-				logger.debug("Build output for " + id + " js: \n%s", output);
-				res.sendfile(options.out);
+function rjsBuild(options, next) {
+	logger.debug("Building " + options.out);
+
+	requirejs.optimize(
+		options,
+		function(output) {
+			logger.debug("Build output:\n%s", output);
+			next();
+		},
+		function(err) {
+			logger.error("Build error for %s: %s", options.out, err);
+			next(err);
+		}
+	);
+}
+
+
+
+function rjsBuilder(name, next) {
+	var options;
+
+	if (name === "nestor") {
+		options = {
+			baseUrl: path.join(staticDirectory, "js"),
+			name: "main",
+			paths: requirejsConfig.paths,
+			packages: requirejsConfig.packages
+		};
+	} else {
+		options = {
+			baseUrl: path.join(plugins[name], "js"),
+			name: "index",
+			paths: {
+				"templates": "../templates",
+
+				/* Path to ist to allow template compilation, but it will be stubbed in the output */
+				"ist": path.join(staticDirectory, "js/bower/ist/ist"),
+
+				/* Do not look for modules provided by the client plugin loader */
+				"ui": "empty:",
+				"router": "empty:",
+				"storage": "empty:",
+				"plugins": "empty:",
+				"when": "empty:",
+				"rest": "empty:",
+				"dom": "empty:",
 			},
-			function(err) {
-				logger.error("Build error for " + id + " js: %s", err);
-				next(err);
+			stubModules: ["ist"]
+		};
+	}
+
+	options.out = path.join(path.join(staticDirectory, "js/built"), name + ".js");
+
+	if (app.get("env") === "development") {
+		options.optimize = "none";
+
+		// Force build
+		rjsBuild(options, next);
+	} else {
+		options.optimize = "uglify2";
+		options.generateSourceMaps = true;
+		options.preserveLicenseComments = false;
+
+		// Only build when file does not exist
+		fs.stat(options.out, function(err) {
+			if (err) {
+				rjsBuild(options, next);
+			} else {
+				next();
 			}
-		);
-	};
+		});
+	}
 }
 
 
@@ -100,33 +157,16 @@ app.use("/js/require.js", function(req, res, next) {
 });
 
 
-var mainBuildMiddleware = buildMiddleware("main", {
-	baseUrl: path.join(staticDirectory, "js"),
-	name: "main",
-	optimize: app.get("env") === "development" ? "none" : "uglify2",
-	generateSourceMaps: true,
-	out: path.join(path.join(staticDirectory, "js"), "main-built.js"),
-	paths: requirejsConfig.paths,
-	packages: requirejsConfig.packages,
-	preserveLicenseComments: false
-});
-
-
-app.configure("development", function() {
-	app.use("/js/main-built.js", mainBuildMiddleware);
+app.get(/^\/js\/built\/(\w+)\.js(?:\.map)?$/, function(req, res, next) {
+	rjsBuilder(req.params[0], next);
 });
 
 app.use(express.static(staticDirectory));
 
-app.configure("production", function() {
-	app.use("/js/main-built.js", mainBuildMiddleware);
-});
 
-
-
-var plugins = [];
+var plugins = {};
 function registerPlugin(name, dir) {
-	plugins.push(name);
+	plugins[name] = dir;
 
 	app.use("/plugins/" + name, lessMiddleware({
 		src: dir,
@@ -135,41 +175,7 @@ function registerPlugin(name, dir) {
 		preprocessor: lessPreprocessor
 	}));
 
-
-	var pluginBuildMiddleware = buildMiddleware(name, {
-		baseUrl: path.join(dir, "js"),
-		name: "index",
-		optimize: app.get("env") === "development" ? "none" : "uglify2",
-		generateSourceMaps: true,
-		out: path.join(path.join(dir, "js"), "index-built.js"),
-		paths: {
-			"templates": "../templates",
-
-			/* Path to ist to allow template compilation, but it will be stubbed in the output */
-			"ist": path.join(staticDirectory, "js/bower/ist/ist"),
-
-			/* Do not look for modules provided by the client plugin loader */
-			"ui": "empty:",
-			"router": "empty:",
-			"storage": "empty:",
-			"plugins": "empty:",
-			"when": "empty:",
-			"rest": "empty:",
-			"dom": "empty:",
-		},
-		stubModules: ["ist"],
-		preserveLicenseComments: false
-	});
-
-	app.configure("development", function() {
-		app.use("/plugins/" + name + "/js/index-built.js", pluginBuildMiddleware);
-	});
-
 	app.use("/plugins/" + name, express.static(dir));
-
-	app.configure("production", function() {
-		app.use("/plugins/" + name + "/js/index-built.js", pluginBuildMiddleware);
-	});
 }
 
 
@@ -201,7 +207,21 @@ Buffer.prototype.toJSON = function() {
 };
 
 /* Plugin list */
-yarm.native("plugins", plugins).readonly();
+yarm.resource("plugins")
+	.count(function(req, cb) {
+		cb(null, Object.keys(plugins).length);
+	})
+	.list(function(req, offset, limit, cb) {
+		var ary = Object.keys(plugins);
+
+		if (limit) {
+			ary = ary.slice(offset, offset + limit);
+		} else {
+			ary = ary.slice(offset);
+		}
+
+		cb(null, ary);
+	});
 
 
 
