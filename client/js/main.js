@@ -4,56 +4,15 @@
 (function() {
 	"use strict";
 
-	/*!
-	 * Main require configuration
-	 */
-
-	var mainConfig = {
-		context: "nestor",
-		baseUrl: "js",
-
-		paths: {
-			"hmac-sha1": "lib/hmac-sha1",
-
-			domReady: "bower/requirejs-domready/domReady",
-			signals: "bower/js-signals/dist/signals",
-			ist: "bower/ist/ist",
-	        async: "bower/requirejs-plugins/src/async",
-	        goog: "bower/requirejs-plugins/src/goog",
-	        propertyParser : "bower/requirejs-plugins/src/propertyParser",
-	        moment: "bower/momentjs/moment",
-
-			tmpl: "../templates"
-		},
-
-		shim: {
-			"hmac-sha1": {
-				exports: "CryptoJS",
-				init: function() {
-					return this.CryptoJS.HmacSHA1;
-				}
-			}
-		},
-
-		packages: [
-			{ name: "when", location: "bower/when/", main: "when" }
-		],
-
-		// deps: [ "when/monitor/console" ]
-	};
-
-	var mainRequire = require.config(mainConfig);
-
-	
 	function error(err) {
 		console.log("=== TOPLEVEL ERROR ===");
 		console.log(err.message);
 		console.log(err.stack);
 	}
 
-	mainRequire(
-	["dom", "login", "ui", "router", "settings/settings", "player/player", "storage", "plugins", "ajax", "rest"],
-	function(dom, login, ui, router, settings, player, storage, plugins, ajax, rest) {
+	require(
+	["ist", "dom", "login", "ui", "router", "settings/settings", "player/player", "storage", "plugins", "ajax", "rest"],
+	function(ist, dom, login, ui, router, settings, player, storage, plugins, ajax, rest) {
 		var $ = dom.$;
 		var apps = [settings, player];
 

@@ -36,38 +36,39 @@ define(["require", "when", "rest"], function(mainRequire, when, rest) {
 					var pluginDeferred = when.defer();
 					
 					/* Prepare plugin-specific require */
-					var pluginConfig = {
+					var pluginRequire = require.config({
 						context: plugin,
 						baseUrl: "plugins/" + plugin + "/js",
 						paths: {
 							"templates": "../templates"
-						},
-						define: {}
-					};
+						}
+					});
 
 					/* Predefine global libraries */
 					globalModules.forEach(function(module, index) {
-						pluginConfig.define[module] = args[index];
+						define(module, function() { return args[index]; });
 					});
 
 					/* Predefine plugin interface modules */
 					Object.keys(pluginInterface).forEach(function(module) {
-						pluginConfig.define[module] = pluginInterface[module](plugin);
+						define(module, function() { return pluginInterface[module](plugin); });
 					});
 
 					/* Add public plugin access */
-					pluginConfig.define.plugins = pluginPublished;
-
-					var pluginRequire = require.config(pluginConfig);
+					define("plugins", function() { return pluginPublished; });
 
 					/* Load plugin */
-					pluginRequire(["index"], function(pluginManifest) {
-						pluginManifest.name = plugin;
-						pluginDeferred.resolve(pluginManifest);
+					pluginRequire(["index-built"], function() {
+						pluginRequire(["index"], function(pluginManifest) {
+							pluginManifest.name = plugin;
+							pluginDeferred.resolve(pluginManifest);
 
-						if (pluginManifest.public) {
-							pluginPublished[plugin] = pluginManifest.public;
-						}
+							if (pluginManifest.public) {
+								pluginPublished[plugin] = pluginManifest.public;
+							}
+						}, function(err) {
+							pluginDeferred.reject(err);
+						});
 					}, function(err) {
 						pluginDeferred.reject(err);
 					});

@@ -21,6 +21,7 @@
     "passport-local": "*",
     "passport-google": "*",
     "passport-twitter": "*",
+    "requirejs": "*",
     "when": "*",
     "yarm": "*"
   },
