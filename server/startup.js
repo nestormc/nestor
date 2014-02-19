@@ -11,12 +11,12 @@ var mongoose = require("mongoose"),
 	ncall = require("when/node/function").call,
 	logger = require("log4js").getLogger("nestor"),
 
-	config = require("./modules/config"),
-	intents = require("./modules/intents"),
-	plugins = require("./modules/plugins");
+	config = require("./config"),
+	intents = require("./intents"),
+	plugins = require("./plugins");
 
-require("./modules/server");
-require("./modules/scheduler");
+require("./server");
+require("./scheduler");
 
 module.exports = function startup() {
 	process.on("error", function(err) {

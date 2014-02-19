@@ -92,17 +92,14 @@ function rjsBuilder(name, next) {
 	}
 
 	options.out = path.join(path.join(staticDirectory, "js/built"), name + ".js");
+	options.optimize = "uglify2";
+	options.generateSourceMaps = true;
+	options.preserveLicenseComments = false;
 
 	if (app.get("env") === "development") {
-		options.optimize = "none";
-
 		// Force build
 		rjsBuild(options, next);
 	} else {
-		options.optimize = "uglify2";
-		options.generateSourceMaps = true;
-		options.preserveLicenseComments = false;
-
 		// Only build when file does not exist
 		fs.stat(options.out, function(err) {
 			if (err) {
@@ -155,7 +152,7 @@ app.use(lessMiddleware({
 app.use("/js/require.js", function(req, res, next) {
 	res.sendfile(path.join(nestorRoot, "node_modules/requirejs/require.js"));
 });
-
+	
 
 app.get(/^\/js\/built\/(\w+)\.js(?:\.map)?$/, function(req, res, next) {
 	rjsBuilder(req.params[0], next);
