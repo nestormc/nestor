@@ -81,9 +81,7 @@ function rjsBuilder(name, next) {
 				{ name: "when", location: "bower/when/", main: "when" }
 			]
 		};
-	} else if (name === "require") {
-		return next();
-	} else {
+	} else if (name in plugins && plugins[name].build) {
 		var build = plugins[name].build;
 
 		options = {
@@ -110,6 +108,8 @@ function rjsBuilder(name, next) {
 				options.paths[path] = build.paths[path];
 			});
 		}
+	} else {
+		return next();
 	}
 
 	options.out = path.join(path.join(publicRoot, "js"), name + ".js");
@@ -186,14 +186,16 @@ var plugins = {};
 function registerPlugin(name, clientPlugin) {
 	plugins[name] = clientPlugin;
 
-	app.use("/plugins/" + name, lessMiddleware({
-		src: clientPlugin.public,
-		force: true,
-		paths: [path.join(publicRoot, "style")],
-		preprocessor: lessPreprocessor
-	}));
+	if (clientPlugin.public) {
+		app.use("/plugins/" + name, lessMiddleware({
+			src: clientPlugin.public,
+			force: true,
+			paths: [path.join(publicRoot, "style")],
+			preprocessor: lessPreprocessor
+		}));
 
-	app.use("/plugins/" + name, express.static(clientPlugin.public));
+		app.use("/plugins/" + name, express.static(clientPlugin.public));
+	}
 }
 
 

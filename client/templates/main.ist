@@ -7,7 +7,7 @@
 		#user-container
 			.user "{{ user }}"
 			ul.userlinks
-				@eachkey { debug: "!debug/open", settings: "/settings", logout: "/logout" }
+				@eachkey { settings: "/settings", logout: "/logout" }
 					li
 						a[href=#{{ value }}] "{{ key }}"
 					
