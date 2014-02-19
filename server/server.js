@@ -13,13 +13,19 @@ var http = require("http"),
 	MongoStore = require("connect-mongo")(express),
 	
 	config = require("./config"),
-	serverConfig = config.server,
 
 	intents = require("./intents"),
 	auth = require("./auth"),
 	
 	app = express();
 
+
+
+var serverConfig = config.server;
+serverConfig.host = serverConfig.host || "localhost";
+serverConfig.port = serverConfig.port || (serverConfig.ssl ? 443 : 80);
+
+var webHost = (serverConfig.ssl ? "https" : "http") + "://" + serverConfig.host + ":" + serverConfig.port;
 
 
 /*!
@@ -149,7 +155,7 @@ app.use(express.session({
 	store: new MongoStore({ url: config.database })
 }));
 app.use("/auth", express.json());
-auth.init(app, "http://" + serverConfig.host + ":" + serverConfig.port);
+auth.init(app, webHost);
 
 
 
@@ -298,12 +304,10 @@ intents.on("nestor:startup", function() {
 			throw e;
 		}
 
-		logger.info("Starting HTTPS server on %s:%s", serverConfig.host, serverConfig.ssl.port);
-		https.createServer(sslOptions, app).listen(serverConfig.ssl.port, serverConfig.host);
-	}
-
-	if (!serverConfig.ssl || !serverConfig.ssl.mandatory) {
-		logger.info("Starting HTTP server on %s:%s", serverConfig.host, serverConfig.port);
+		logger.info("Starting web server on %s", webHost);
+		https.createServer(sslOptions, app).listen(serverConfig.port, serverConfig.host);
+	} else {
+		logger.info("Starting wbe server on %s", webHost);
 		http.createServer(app).listen(serverConfig.port, serverConfig.host);
 	}
 });
