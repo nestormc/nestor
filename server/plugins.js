@@ -54,8 +54,8 @@ function loadPlugin(moduleName) {
 					return;
 				}
 
-				if (manifest.clientDir) {
-					servePluginFiles(manifest.name, manifest.clientDir);
+				if (manifest.client) {
+					servePluginFiles(manifest.name, manifest.client);
 				}
 
 				logger.info("Loaded plugin %s", manifest.name);

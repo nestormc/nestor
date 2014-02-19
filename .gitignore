@@ -1,5 +1,5 @@
 node_modules
-client/style/*.css
-client/style/*/*.css
-client/js/bower
-client/js/built/*
+client/public/style/*.css
+client/public/tyle/*/*.css
+client/bower
+client/public/js

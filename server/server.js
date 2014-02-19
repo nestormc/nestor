@@ -63,20 +63,35 @@ function rjsBuilder(name, next) {
 
 	if (name === "nestor") {
 		options = {
-			baseUrl: path.join(staticDirectory, "js"),
-			name: "main",
-			paths: requirejsConfig.paths,
-			packages: requirejsConfig.packages
-		};
-	} else {
-		options = {
-			baseUrl: path.join(plugins[name], "js"),
-			name: "index",
+			baseUrl: clientRoot,
+			name: "nestor",
 			paths: {
-				"templates": "../templates",
+				domReady: "bower/requirejs-domready/domReady",
+				signals: "bower/js-signals/dist/signals",
+				ist: "bower/ist/ist",
+				async: "bower/requirejs-plugins/src/async",
+				goog: "bower/requirejs-plugins/src/goog",
+				propertyParser : "bower/requirejs-plugins/src/propertyParser",
+				moment: "bower/momentjs/moment",
 
+				tmpl: "templates"
+			},
+
+			packages: [
+				{ name: "when", location: "bower/when/", main: "when" }
+			]
+		};
+	} else if (name === "require") {
+		return next();
+	} else {
+		var build = plugins[name].build;
+
+		options = {
+			baseUrl: build.base,
+			name: name,
+			paths: {
 				/* Path to ist to allow template compilation, but it will be stubbed in the output */
-				"ist": path.join(staticDirectory, "js/bower/ist/ist"),
+				"ist": path.join(clientRoot, "bower/ist/ist"),
 
 				/* Do not look for modules provided by the client plugin loader */
 				"ui": "empty:",
@@ -89,9 +104,15 @@ function rjsBuilder(name, next) {
 			},
 			stubModules: ["ist"]
 		};
+
+		if (build.paths) {
+			Object.keys(build.paths).forEach(function(path) {
+				options.paths[path] = build.paths[path];
+			});
+		}
 	}
 
-	options.out = path.join(path.join(staticDirectory, "js/built"), name + ".js");
+	options.out = path.join(path.join(publicRoot, "js"), name + ".js");
 	options.optimize = "uglify2";
 	options.generateSourceMaps = true;
 	options.preserveLicenseComments = false;
@@ -138,12 +159,12 @@ auth.init(app, "http://" + serverConfig.host + ":" + serverConfig.port);
 
 
 
-var nestorRoot = path.normalize(path.join(__dirname, "../.."));
-var staticDirectory = path.join(nestorRoot, "client");
-var requirejsConfig = require(path.join(staticDirectory, "/js/require.config"));
+var nestorRoot = path.normalize(path.join(__dirname, ".."));
+var clientRoot = path.join(nestorRoot, "client");
+var publicRoot = path.join(clientRoot, "public");
 
 app.use(lessMiddleware({
-	src: staticDirectory,
+	src: publicRoot,
 	force: true,
 	preprocessor: lessPreprocessor
 }));
@@ -154,25 +175,25 @@ app.use("/js/require.js", function(req, res, next) {
 });
 	
 
-app.get(/^\/js\/built\/(\w+)\.js(?:\.map)?$/, function(req, res, next) {
+app.get(/^\/js\/(\w+)\.js$/, function(req, res, next) {
 	rjsBuilder(req.params[0], next);
 });
 
-app.use(express.static(staticDirectory));
+app.use(express.static(publicRoot));
 
 
 var plugins = {};
-function registerPlugin(name, dir) {
-	plugins[name] = dir;
+function registerPlugin(name, clientPlugin) {
+	plugins[name] = clientPlugin;
 
 	app.use("/plugins/" + name, lessMiddleware({
-		src: dir,
+		src: clientPlugin.public,
 		force: true,
-		paths: [path.join(staticDirectory, "style")],
+		paths: [path.join(publicRoot, "style")],
 		preprocessor: lessPreprocessor
 	}));
 
-	app.use("/plugins/" + name, express.static(dir));
+	app.use("/plugins/" + name, express.static(clientPlugin.public));
 }
 
 
