@@ -45,6 +45,7 @@ function loadPlugin(moduleName) {
 			loadPlugins(deps).then(function() {
 				var pluginServices = Object.create(services);
 				pluginServices.logger = log4js.getLogger(manifest.name);
+				pluginServices.config = config.plugins[moduleName];
 
 				try {
 					plugin(pluginServices);

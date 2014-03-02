@@ -104,7 +104,7 @@ function rjsBuilder(name, next) {
 				"plugins": "empty:",
 				"when": "empty:",
 				"rest": "empty:",
-				"dom": "empty:",
+				"dom": "empty:"
 			},
 			stubModules: ["ist"]
 		};
@@ -118,11 +118,10 @@ function rjsBuilder(name, next) {
 		return next();
 	}
 
-	options.out = path.join(path.join(publicRoot, "js"), name + ".js");
-	options.optimize = "uglify2";
-	options.generateSourceMaps = true;
-	options.preserveLicenseComments = false;
-
+	options.out = path.join(path.join(publicRoot, "js"), name + "-min.js");
+	//options.optimize = "uglify2";
+	options.optimize = "none";
+	
 	if (app.get("env") === "development") {
 		// Force build
 		rjsBuild(options, next);
@@ -181,7 +180,7 @@ app.use("/js/require.js", function(req, res, next) {
 });
 	
 
-app.get(/^\/js\/(\w+)\.js$/, function(req, res, next) {
+app.get(/^\/js\/(\w+)-min\.js$/, function(req, res, next) {
 	rjsBuilder(req.params[0], next);
 });
 
@@ -290,6 +289,7 @@ intents.on("nestor:http:get", function(route, handler) {
 
 intents.on("nestor:startup", function() {
 	/* Launch HTTP server */
+	var server;
 
 	if (serverConfig.ssl) {
 		var sslOptions;
@@ -305,10 +305,12 @@ intents.on("nestor:startup", function() {
 		}
 
 		logger.info("Starting web server on %s", webHost);
-		https.createServer(sslOptions, app).listen(serverConfig.port, serverConfig.host);
+		server = https.createServer(sslOptions, app);
+		server.listen(serverConfig.port, serverConfig.host);
 	} else {
 		logger.info("Starting wbe server on %s", webHost);
-		http.createServer(app).listen(serverConfig.port, serverConfig.host);
+		server = http.createServer(app);
+		server.listen(serverConfig.port, serverConfig.host);
 	}
 });
 
