@@ -2,11 +2,11 @@
 	#player
 		.display
 			.status
-				.playing
+				.icon.playing
 					@svg "images/pause.svg"
-				.paused.visible
+				.icon.paused.visible
 					@svg "images/play.svg"
-				.loading
+				.icon.loading
 					@svg "images/loading.svg"
 
 		.controls
