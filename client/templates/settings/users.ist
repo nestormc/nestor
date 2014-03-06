@@ -2,7 +2,7 @@ ul.content-list
 	@if users.length === 0
 		"No users"
 	@each users
-		li.list-item.user[data-id={{ identifier }}]
+		li[class=list-item user{{ showRights ? " show-rights" : "" }}][data-id={{ identifier }}]
 			.list-item-status "Last logged in {{ lastLogin }}"
 			
 			.list-item-description
@@ -20,13 +20,13 @@ ul.content-list
 				@each loop.outer.rights
 					li
 						@if loop.outer.rights.indexOf(this.name) === -1
-							span.icon.active
-								@svg "images/bullet.svg"
+							a.action-with-icon[href=#!settings/users/{{ loop.outer.identifier }}/addRight/{{ name }}]
+								@svg "images/commit.svg"
+								"{{ description }}"
 						@else
-							span.icon
-								@svg "images/bullet.svg"
-
-						"{{ description }}"
+							a.action-with-icon[href=#!settings/users/{{ loop.outer.identifier }}/delRight/{{ name }}]
+								@svg "images/cancel.svg"
+								"{{ description }}"
 
 			.list-item-actions
 				@if rights.indexOf("nestor:login") === -1

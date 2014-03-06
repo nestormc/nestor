@@ -186,7 +186,27 @@ yarm.mongoose("users", User)
 			delete ret._id;
 			delete ret.__v;
 		}
-	});
+	})
+
+	// Allow removing right by name instead of array index
+	.sub(":docid/rights/:right")
+		.del(function(req, cb) {
+			var doc = req.mongoose.doc;
+			var idx = doc.rights.indexOf(req.params.right);
+
+			if (idx === -1) {
+				cb.notFound();
+			} else {
+				doc.rights.splice(idx, 1);
+				doc.save(function(err) {
+					if (err) {
+						cb(err);
+					} else {
+						cb.noContent();
+					}
+				});
+			}
+		});
 
 yarm.resource("rights")
 	.count(countRights)
