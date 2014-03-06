@@ -355,6 +355,20 @@ function(ist, mainTemplate, components, signals, dom, when, uihelpers) {
 				sub.plugin = plugin;
 
 				pluginUIs[plugin] = sub;
+
+				// Bind helpers
+				var helpers = {};
+				Object.keys(ui.helpers).forEach(function(name) {
+					var helper = ui.helpers[name];
+
+					if (helper.bindPlugin) {
+						helpers[name] = helper.bindPlugin(name);
+					} else {
+						helpers[name] = helper;
+					}
+				});
+
+				sub.helpers = helpers;
 			}
 
 			return pluginUIs[plugin];
