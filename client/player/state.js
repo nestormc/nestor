@@ -306,6 +306,17 @@ define(["when", "storage", "player/providers"], function(when, storage, provider
 			}
 		},
 
+		/* Toggle play/pause */
+		togglePlay: function() {
+			if (playOrder.length) {
+				if (playing) {
+					this.pause();
+				} else {
+					this.play();
+				}
+			}
+		},
+
 		/* Seek to specific timestamp in current track */
 		seek: function(time) {
 			if (playOrder.length) {

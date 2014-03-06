@@ -49,6 +49,16 @@
 				border-collapse: collapse;
 			}
 
+			.content-list, .content-list-with-header {
+				.selected {
+					background-color: @lyellow;
+
+					&:nth-child(2n+1) {
+						background-color: @myellow;
+					}
+				}
+			}
+			
 			.content-list {
 				&>:nth-child(2n+1) {
 					background-color: @xlightGray;

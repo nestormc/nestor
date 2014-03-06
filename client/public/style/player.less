@@ -12,70 +12,85 @@
 	color: @mlGray;
 
 	.display {
-		height: 100%;
-		width: @displayWidth;
-		float: left;
-		margin-right: @margins;
-
-		position: relative;
-
-		.toggle-fullscreen {
-			position: absolute;
-			top: @margins;
-			right: @margins;
-		}
-
-		.track-display {
-			width: 100%;
-			height: 100%;
-		}
-	}
-
-	.slider {
-		margin-left: @displayWidth + @margins;
-	}
-
-	.metadata {
 		position: absolute;
+
+		width: @displayWidth;
+		top: 0;
+		bottom: 0;
 		left: 0;
-		right: 0;
 
-		font-size: .75em;
-		text-align: center;
-
-		.title {
-			font-weight: bold;
-		}
-
-		.title:after {
-			content: " ";
-		}
-
-		.title, .subtitle {
-			display: inline;
+		.track-display, .track-display .full-display {
+			position: absolute;
+			top: 0;
+			left: 0;
+			bottom: 0;
+			right: 0;
 		}
 	}
 
 	.controls {
 		position: absolute;
-		left: 0;
+		left: @displayWidth + @margins;
+		top: 0;
+		bottom: 0;
 		right: 0;
-		top: 1.75em;
 
-		text-align: center;
+		.time {
+			position: absolute;
+			left: 0;
+			right: 0;
 
-		.center-controls {
-			margin: 0 2em;
+			font-size: .75em;
+
+			.total {
+				position: absolute;
+				top: 0;
+				right: 0;
+			}
 		}
 
-		.right-controls {
-			float: right;
-		}
-	}
+		.metadata {
+			position: absolute;
+			left: 0;
+			right: 0;
 
-	.controls svg, .toggle-fullscreen svg {
-		height: @controlHeight;
-		width: @controlHeight;
+			font-size: .75em;
+			text-align: center;
+
+			.title {
+				font-weight: bold;
+			}
+
+			.title:after {
+				content: " ";
+			}
+
+			.title, .subtitle {
+				display: inline;
+			}
+		}
+
+		.buttons {
+			position: absolute;
+			left: 0;
+			right: 0;
+			top: 1.75em;
+
+			text-align: center;
+
+			.center-controls {
+				margin: 0 2em;
+			}
+
+			.right-controls {
+				float: right;
+			}
+		}
+
+		.buttons svg {
+			height: @controlHeight;
+			width: @controlHeight;
+		}
 	}
 }
 
@@ -84,36 +99,72 @@
 	left: 0;
 	height: 100%;
 	width: 100%;
+	bottom: 0;
+	right: 0;
 
 	.display {
-		height: 100%;
 		width: 100%;
 	}
 
-	.slider {
-		position: absolute;
+	.controls {
 		bottom: 0;
+		top: 0;
 		left: 0;
 		right: 0;
-		margin: 0;
-	}
 
-	.metadata {
-		position: absolute;
-		top: @margins;
-		left: @margins;
-		text-align: left;
+		pointer-events: none;
+
+		* {
+			pointer-events: auto;
+		}
+
+		.slider {
+			position: absolute;
+			bottom: 0;
+			left: 4em;
+			right: 4em;
+			margin: 0;
+		}
+
+		.time {
+			top: auto;
+			left: @margins;
+			right: @margins;
+			bottom: 0;
+
+			pointer-events: none !important;
+		}
+
+		.metadata {
+			top: @margins;
+			left: @margins;
+			text-align: left;
+		}
+
+		.buttons {
+			top: auto;
+			left: 0;
+			right: 0;
+			bottom: .5em;
+
+			.playlist {
+				display: none;
+			}
+		}
 	}
 
 	&.fade {
-		.display .toggle-fullscreen,
+		.time,
 		.metadata,
-		.controls {
+		.buttons {
 			transition: .5s;
 			opacity: 0;
 		}
 
 		.slider {
+			left: 0;
+			right: 0;
+
 			.fill {
 				background-color: @midGray;
 			}

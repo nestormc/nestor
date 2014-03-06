@@ -1,8 +1,8 @@
 /*jshint browser:true*/
 /*global define*/
 define(
-["ist-wrapper", "ist!tmpl/main", "components/index", "signals", "dom", "when"],
-function(ist, mainTemplate, components, signals, dom, when) {
+["ist-wrapper", "ist!tmpl/main", "components/index", "signals", "dom", "when", "uihelpers/index"],
+function(ist, mainTemplate, components, signals, dom, when, uihelpers) {
 	"use strict";
 
 	var $ = dom.$;
@@ -194,6 +194,9 @@ function(ist, mainTemplate, components, signals, dom, when) {
 		/* Signals */
 		started: new signals.Signal(),
 		stopping: new signals.Signal(),
+
+		/* Helpers */
+		helpers: uihelpers,
 
 		/* Error handler, should make this nicer... */
 		error: function(title, details) {

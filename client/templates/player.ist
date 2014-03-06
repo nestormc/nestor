@@ -1,32 +1,35 @@
 @behave behaviour
 	#player
 		.display
-			a.active-icon.toggle-fullscreen[href=#!player/fullscreen]
-				@svg "images/fullscreen.svg"
-
-		@dom slider
-
-		.metadata
-			.title
-			.subtitle
 
 		.controls
-			a.active-icon.repeat[href=#!player/repeat]
-				@svg "images/repeat.svg"
+			@dom slider
 
-			span.center-controls
-				a.active-icon.prev[href=#!player/prev]
-					@svg "images/prev.svg"
-				a.active-icon.play[href=#!player/play]
-					@svg "images/play.svg"
-				a.active-icon.pause[href=#!player/pause][style=display: none;]
-					@svg "images/pause.svg"
-				a.active-icon.next[href=#!player/next]
-					@svg "images/next.svg"
+			.time
+				.current " "
+				.total " "
 
-			a.active-icon.random[href=#!player/random]
-				@svg "images/random.svg"
+			.metadata
+				.title
+				.subtitle
 
-			span.right-controls
-				a.active-icon.playlist[href=#/playlist]
-					@svg "images/playlist.svg"
+			.buttons
+				a.active-icon.repeat[href=#!player/repeat]
+					@svg "images/repeat.svg"
+
+				span.center-controls
+					a.active-icon.prev[href=#!player/prev]
+						@svg "images/prev.svg"
+					a.active-icon.play[href=#!player/play]
+						@svg "images/play.svg"
+					a.active-icon.pause[href=#!player/pause][style=display: none;]
+						@svg "images/pause.svg"
+					a.active-icon.next[href=#!player/next]
+						@svg "images/next.svg"
+
+				a.active-icon.random[href=#!player/random]
+					@svg "images/random.svg"
+
+				span.right-controls
+					a.active-icon.playlist[href=#/playlist]
+						@svg "images/playlist.svg"

@@ -5,6 +5,16 @@ define(
 ["ist!tmpl/player", "ist!tmpl/playlist", "components/index", "dom", "router", "player/state", "player/providers"],
 function(playerTemplate, playlistTemplate, components, dom, router, state, providers) {
 	"use strict";
+
+	function humanTime(duration) {
+		var hours = Math.floor(duration / 3600),
+			minutes = Math.floor(duration % 3600 / 60),
+			seconds = Math.floor(duration) % 60;
+		
+		return hours === 0 ? minutes + ":" + (seconds > 9 ? seconds : "0" + seconds)
+						   : hours + "h" + (minutes > 9 ? minutes : "0" + minutes) + "m" + (seconds > 9 ? seconds : "0" + seconds) + "s";
+	}
+
 	/* Connect to player state */
 	function initPlayerState(ui) {
 		state.init(ui);
@@ -25,15 +35,17 @@ function(playerTemplate, playlistTemplate, components, dom, router, state, provi
 		state.lengthChanged.add(function(length) {
 			dom.$("#player .slider").setRange(length);
 			dom.$("#player .slider").setAvailable(length);
+			dom.$("#player .time .total").innerHTML = humanTime(length);
 		});
 
 		state.timeChanged.add(function(time) {
 			dom.$("#player .slider").setValue(time);
+			dom.$("#player .time .current").innerHTML = humanTime(time);
 		});
 
 		state.trackChanged.add(function(track) {
-			dom.$("#player .metadata .title").innerHTML = "...";
-			dom.$("#player .metadata .subtitle").innerHTML = "";
+			dom.$("#player .metadata .title").innerHTML = " ";
+			dom.$("#player .metadata .subtitle").innerHTML = " ";
 
 			var playlistView = ui.view("playlist");
 
@@ -49,8 +61,12 @@ function(playerTemplate, playlistTemplate, components, dom, router, state, provi
 				}
 
 				track.metadata.then(function(meta) {
-					dom.$("#player .metadata .title").innerHTML = meta.title || "";
-					dom.$("#player .metadata .subtitle").innerHTML = meta.subtitle || "";
+					dom.$("#player .metadata .title").innerHTML = meta.title || " ";
+					dom.$("#player .metadata .subtitle").innerHTML = meta.subtitle || " ";
+
+					if (meta.length) {
+						state.lengthChanged.dispatch(meta.length);
+					}
 				});
 
 				track.display.then(function(display) {
@@ -94,6 +110,12 @@ function(playerTemplate, playlistTemplate, components, dom, router, state, provi
 				}
 
 				prepareFade();
+			}
+		},
+
+		".display": {
+			"dblclick": function() {
+				dom.$("#player").classList.toggle("fullscreen");
 			}
 		}
 	};
@@ -155,11 +177,6 @@ function(playerTemplate, playlistTemplate, components, dom, router, state, provi
 
 			router.on("!player/repeat", function(err, req, next) {
 				state.toggleRepeat();
-				next();
-			});
-
-			router.on("!player/fullscreen", function(err, req, next) {
-				dom.$("#player").classList.toggle("fullscreen");
 				next();
 			});
 
