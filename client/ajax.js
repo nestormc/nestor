@@ -58,8 +58,8 @@ define(["when", "signals"], function(when, signals) {
 			} else {
 				d.resolve(type === "text" ? xhr.responseText : xhr.responseXML);
 			}
-		} else if (xhr.status === 204) {
-			// No content
+		} else if (xhr.status > 200 && xhr.status < 300) {
+			// No interesting content in response
 			d.resolve();
 		} else if (xhr.status === 0) {
 			// No connectivity
