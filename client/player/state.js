@@ -234,6 +234,7 @@ define(["when", "storage", "player/providers"], function(when, storage, provider
 			when.all(playlist.map(function(t, i) {
 				return t.metadata.then(function(m) {
 					m.position = t._position;
+					m.subtitle = m.subtitle || "";
 					return m;
 				});
 			})).then(function(playlist) {
