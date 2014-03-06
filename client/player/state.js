@@ -118,6 +118,15 @@ define(["when", "storage", "player/providers"], function(when, storage, provider
 
 	/* Play track at specific playorder index */
 	function playTrack(index, fromStart) {
+		if (index === playIndex && !fromStart) {
+			// Restart paused track
+			playlist[playOrder[playIndex]].play();
+			setPlayingStatus(true);
+			saveState();
+
+			return;
+		}
+
 		stopCurrentTrack();
 
 		index = clamp(index);
