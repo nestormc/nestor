@@ -362,7 +362,7 @@ function(ist, mainTemplate, components, signals, dom, when, uihelpers) {
 					var helper = ui.helpers[name];
 
 					if (helper.bindPlugin) {
-						helpers[name] = helper.bindPlugin(name);
+						helpers[name] = helper.bindPlugin(plugin);
 					} else {
 						helpers[name] = helper;
 					}
