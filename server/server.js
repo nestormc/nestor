@@ -212,6 +212,7 @@ function registerPlugin(name, clientPlugin) {
 
 
 /* Log REST requests */
+app.use("/rest", express.json());
 app.use("/rest", function(req, res, next) {
 	if (req.body && Object.keys(req.body).length > 0) {
 		logger.debug("REST-%s %s %j", req.method, req.url, req.body);
@@ -223,7 +224,6 @@ app.use("/rest", function(req, res, next) {
 });
 
 /* Serve YARM rest resources */
-app.use("/rest", express.json());
 app.use("/rest", yarm());
 
 /* Override Buffer toJSON, just in case yarm sends an object with a huge buffer */
