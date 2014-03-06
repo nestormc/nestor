@@ -1,6 +1,13 @@
 @behave behaviour
 	#player
 		.display
+			.status
+				.playing
+					@svg "images/pause.svg"
+				.paused.visible
+					@svg "images/play.svg"
+				.loading
+					@svg "images/loading.svg"
 
 		.controls
 			@dom slider

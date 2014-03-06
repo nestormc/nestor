@@ -30,6 +30,14 @@ function(playerTemplate, playlistTemplate, components, dom, router, state, provi
 		state.playingChanged.add(function(playing) {
 			dom.$("#player .play").style.display = playing ? "none" : "inline-block";
 			dom.$("#player .pause").style.display = playing ? "inline-block" : "none";
+
+			if (playing) {
+				dom.$("#player .display .status .playing").classList.add("visible");
+				dom.$("#player .display .status .paused").classList.remove("visible");
+			} else {
+				dom.$("#player .display .status .playing").classList.remove("visible");
+				dom.$("#player .display .status .paused").classList.add("visible");
+			}
 		});
 
 		state.lengthChanged.add(function(length) {
@@ -77,7 +85,7 @@ function(playerTemplate, playlistTemplate, components, dom, router, state, provi
 						}
 
 						display.classList.add("track-display");
-						dom.$("#player .display").appendChild(display);
+						dom.$("#player .display").insertBefore(display, dom.$("#player .display .status"));
 					}
 				});
 			}
@@ -100,7 +108,7 @@ function(playerTemplate, playlistTemplate, components, dom, router, state, provi
 
 
 	var playerBehaviour = {
-		"#player": {
+		".display": {
 			"mousemove": function() {
 				dom.$("#player").classList.remove("fade");
 				dom.$("#player .slider").classList.remove("one-pixel");
@@ -110,14 +118,12 @@ function(playerTemplate, playlistTemplate, components, dom, router, state, provi
 				}
 
 				prepareFade();
-			}
-		},
+			},
 
-		".display": {
 			"click": function() {
 				state.togglePlay();
 			},
-			
+
 			"dblclick": function() {
 				dom.$("#player").classList.toggle("fullscreen");
 			}
