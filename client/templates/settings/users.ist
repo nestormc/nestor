@@ -21,11 +21,11 @@ ul.content-list
 					li
 						@if loop.outer.rights.indexOf(this.name) === -1
 							a.action-with-icon[href=#!settings/users/{{ loop.outer.identifier }}/addRight/{{ name }}]
-								@svg "images/commit.svg"
+								@svg "images/cancel.svg"
 								"{{ description }}"
 						@else
 							a.action-with-icon[href=#!settings/users/{{ loop.outer.identifier }}/delRight/{{ name }}]
-								@svg "images/cancel.svg"
+								@svg "images/commit.svg"
 								"{{ description }}"
 
 			.list-item-actions
