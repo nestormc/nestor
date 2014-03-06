@@ -168,11 +168,15 @@ var nestorRoot = path.normalize(path.join(__dirname, ".."));
 var clientRoot = path.join(nestorRoot, "client");
 var publicRoot = path.join(clientRoot, "public");
 
-app.use(lessMiddleware({
-	src: publicRoot,
-	force: true,
-	preprocessor: lessPreprocessor
-}));
+app.use(lessMiddleware(
+	publicRoot,
+	{
+		force: true,
+		preprocess: {
+			less: lessPreprocessor
+		}
+	}
+));
 
 
 app.use("/js/require.js", function(req, res, next) {
@@ -192,12 +196,18 @@ function registerPlugin(name, clientPlugin) {
 	plugins[name] = clientPlugin;
 
 	if (clientPlugin.public) {
-		app.use("/plugins/" + name, lessMiddleware({
-			src: clientPlugin.public,
-			force: true,
-			paths: [path.join(publicRoot, "style")],
-			preprocessor: lessPreprocessor
-		}));
+		app.use("/plugins/" + name, lessMiddleware(
+			clientPlugin.public,
+			{
+				force: true,
+				preprocess: {
+					less: lessPreprocessor
+				}
+			},
+			{
+				paths: [path.join(publicRoot, "style")]
+			}
+		));
 
 		app.use("/plugins/" + name, express.static(clientPlugin.public));
 	}
