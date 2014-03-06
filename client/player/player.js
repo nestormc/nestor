@@ -114,6 +114,10 @@ function(playerTemplate, playlistTemplate, components, dom, router, state, provi
 		},
 
 		".display": {
+			"click": function() {
+				state.togglePlay();
+			},
+			
 			"dblclick": function() {
 				dom.$("#player").classList.toggle("fullscreen");
 			}
