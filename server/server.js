@@ -104,7 +104,8 @@ function rjsBuilder(name, next) {
 				"plugins": "empty:",
 				"when": "empty:",
 				"rest": "empty:",
-				"dom": "empty:"
+				"dom": "empty:",
+				"moment": "empty:"
 			},
 			stubModules: ["ist"]
 		};
