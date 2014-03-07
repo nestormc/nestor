@@ -2,8 +2,8 @@
 /*global define*/
 
 define(
-["ist!tmpl/player", "ist!tmpl/playlist", "components/index", "dom", "router", "player/state", "player/providers"],
-function(playerTemplate, playlistTemplate, components, dom, router, state, providers) {
+["ist!tmpl/player", "ist!tmpl/playlist", "components/index", "dom", "router", "player/state", "player/providers", "player/fullscreen"],
+function(playerTemplate, playlistTemplate, components, dom, router, state, providers, fullscreen) {
 	"use strict";
 
 	function humanTime(duration) {
@@ -106,6 +106,9 @@ function(playerTemplate, playlistTemplate, components, dom, router, state, provi
 		}, fadeTime);
 	}
 
+	fullscreen.exited.add(function() {
+		dom.$("#player").classList.remove("fullscreen");
+	});
 
 	var playerBehaviour = {
 		".display": {
@@ -126,6 +129,12 @@ function(playerTemplate, playlistTemplate, components, dom, router, state, provi
 
 			"dblclick": function() {
 				dom.$("#player").classList.toggle("fullscreen");
+
+				if (dom.$("#player").classList.contains("fullscreen")) {
+					fullscreen.enter(dom.$("#player"));
+				} else {
+					fullscreen.exit();
+				}
 			}
 		}
 	};
