@@ -1,0 +1,73 @@
+/*jshint browser:true*/
+/*global define*/
+define(["signals", "socketio"], function(signals, socketio) {
+	"use strict";
+
+
+	function CollectionWatcher(io, collection) {
+		this._io = io;
+		this._collection = collection;
+
+		this._io.emit("watch:start", this._collection);
+
+		this.updated = new signals.Signal();
+		this.removed = new signals.Signal();
+
+		var self = this;
+		this._io.on("watch:" + collection, function(changes) {
+			changes.forEach(function(change) {
+				if (change.op === "save") {
+					self.updated.dispatch(change.doc);
+				} else if (change.op === "remove") {
+					self.removed.dispatch(change.doc);
+				}
+			});
+		});
+	}
+
+	["pause", "resume"].forEach(function(message) {
+		CollectionWatcher.prototype[message] = function() {
+			this._io.emit("watch:" + message, this._collection);
+		};
+	});
+
+	CollectionWatcher.prototype.dispose = function() {
+		this._io.emit("watch:stop", this._collection);
+	};
+
+
+	var origin = location.origin;
+	var rootIo;
+	var io = {
+		_namespace: null,
+		_io: null,
+
+		pluginIO: function(plugin) {
+			var sub = Object.create(io);
+			sub._namespace = plugin;
+			sub._io = null;
+			return sub;
+		},
+
+		connect: function() {
+			if (!this._io) {
+				if (this.namespace) {
+					this._io = socketio.connect(origin + "/" + this._namespace);
+				} else {
+					this._io = rootIo = socketio.connect(origin);
+				}
+			}
+		},
+
+		disconnect: function() {
+			this._io.disconnect();
+			this._io = null;
+		},
+
+		watch: function(collection) {
+			return new CollectionWatcher(rootIo, collection);
+		}
+	};
+	
+	return io;
+});

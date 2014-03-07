@@ -4,7 +4,7 @@
 define(["require", "when", "rest"], function(mainRequire, when, rest) {
 	"use strict";
 	
-	return function(ui, router, storage) {
+	return function(ui, router, storage, io) {
 		var globalModules = ["ist", "when", "rest", "dom", "moment"];
 		var pluginPublished = {};
 		
@@ -28,6 +28,10 @@ define(["require", "when", "rest"], function(mainRequire, when, rest) {
 
 					ui: function(plugin) {
 						return ui.pluginUI(plugin);
+					},
+
+					io: function(plugin) {
+						return io.pluginIO(plugin);
 					}
 				};
 

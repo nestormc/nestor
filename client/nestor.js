@@ -10,11 +10,28 @@
 		console.log(err.stack);
 	}
 
+	require.config({
+		shim: {
+			"socketio": {
+				exports: "io"
+			},
+		},
+
+		paths: {
+			"socketio": "/socket.io/socket.io"
+		}
+	});
+
 	require(
-	["ist", "dom", "login", "ui", "router", "settings/settings", "player/player", "storage", "plugins", "ajax", "rest"],
-	function(ist, dom, login, ui, router, settings, player, storage, plugins, ajax, rest) {
+	[
+		"ist", "dom", "login", "ui", "router", "storage", "plugins", "ajax", "rest", "io",
+		"settings/settings", "player/player"
+	],
+	function(ist, dom, login, ui, router, storage, plugins, ajax, rest, io, settings, player) {
 		var $ = dom.$;
 		var apps = [settings, player];
+
+		io.connect();
 
 		ajax.connectionStatusChanged.add(function(connected) {
 			var lost = $("#heartbeat-lost");
@@ -64,7 +81,7 @@
 				
 				rest.start();
 
-				plugins(ui, router, storage)
+				plugins(ui, router, storage, io)
 				.then(function(plugins) {
 					ui.start(user, plugins, apps, router);
 					router.start();

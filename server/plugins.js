@@ -8,7 +8,7 @@ var log4js = require("log4js");
 
 var config = require("./config");
 var intents = require("./intents");
-var servePluginFiles = require("./server").registerPlugin;
+var server = require("./server");
 
 var logger = log4js.getLogger("plugins");
 
@@ -56,7 +56,7 @@ function loadPlugin(moduleName) {
 				}
 
 				if (manifest.client) {
-					servePluginFiles(manifest.name, manifest.client);
+					server.registerPlugin(manifest.name, manifest.client);
 				}
 
 				logger.info("Loaded plugin %s", manifest.name);

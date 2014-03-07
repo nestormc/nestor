@@ -16,6 +16,7 @@ var http = require("http"),
 
 	intents = require("./intents"),
 	auth = require("./auth"),
+	io = require("./io"),
 	
 	app = express();
 
@@ -80,7 +81,9 @@ function rjsBuilder(name, next) {
 				propertyParser : "bower/requirejs-plugins/src/propertyParser",
 				moment: "bower/momentjs/moment",
 
-				tmpl: "templates"
+				tmpl: "templates",
+
+				socketio: "empty:"
 			},
 
 			packages: [
@@ -104,6 +107,7 @@ function rjsBuilder(name, next) {
 				"plugins": "empty:",
 				"when": "empty:",
 				"rest": "empty:",
+				"io": "empty:",
 				"dom": "empty:",
 				"moment": "empty:"
 			},
@@ -212,6 +216,10 @@ function registerPlugin(name, clientPlugin) {
 
 		app.use("/plugins/" + name, express.static(clientPlugin.public));
 	}
+}
+
+function getPluginIO(name) {
+
 }
 
 
@@ -323,9 +331,12 @@ intents.on("nestor:startup", function() {
 		server = http.createServer(app);
 		server.listen(serverConfig.port, serverConfig.host);
 	}
+
+	io.listen(server);
 });
 
 
 module.exports = {
-	registerPlugin: registerPlugin
+	registerPlugin: registerPlugin,
+	getPluginIO: getPluginIO
 };
