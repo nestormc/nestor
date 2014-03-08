@@ -17,7 +17,7 @@ define(["signals", "socketio"], function(signals, socketio) {
 		this._io.on("watch:" + collection, function(changes) {
 			changes.forEach(function(change) {
 				if (change.op === "save" || change.op === "fetch") {
-					self.updated.dispatch(change.doc);
+					self.updated.dispatch(change.doc, change.next);
 				} else if (change.op === "remove") {
 					self.removed.dispatch(change.doc);
 				}
@@ -73,6 +73,7 @@ define(["signals", "socketio"], function(signals, socketio) {
 		},
 
 		watch: function(collection) {
+			// Collections are always watched on root IO connection
 			return new CollectionWatcher(rootIo, collection);
 		}
 	};

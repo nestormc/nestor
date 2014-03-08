@@ -138,18 +138,7 @@ function enableWatchers(socket) {
 		});
 	}, WATCH_FLUSH_THROTTLE);
 
-	socket._watchPush = function(collection, data, isFetch) {
-		var sort = watchables[collection].sort;
-
-		if (!isFetch && sort && fullyFetched.indexOf(collection) === -1) {
-			// Collection is sorted and not fully fetched yet,
-			// ensure saved document comes before what has been already fetched
-			if (!lastFetched[collection] ||
-				compareDocs(sort, data.doc, lastFetched[collection]) > 0) {
-				return;
-			}
-		}
-
+	function watchPush(collection, data) {
 		if (!(collection in pending)) {
 			pending[collection] = [];
 		} else {
@@ -161,6 +150,36 @@ function enableWatchers(socket) {
 
 		pending[collection].push(data);
 		flush();
+	}
+
+	socket._watchPush = function(collection, data, isFetch) {
+		var watchable = watchables[collection];
+		var sort = watchable.sort;
+
+		if (!isFetch && sort) {
+			// Collection is sorted
+
+			if (fullyFetched.indexOf(collection) === -1) {
+				// Not fully fetched yet, ensure saved document
+				// comes before what has been already fetched
+				if (!lastFetched[collection] ||
+					compareDocs(sort, data.doc, lastFetched[collection]) > 0) {
+					return;
+				}
+			}
+
+			// Find document next to saved document
+			watchable.model.findOne(getAfterDocOperator(sort, data.doc), function(err, doc) {
+				if (err) {
+					socket.emit("watch:" + collection + ":error", "Error while looking for next document in collection: " + err.message);
+				} else {
+					data.next = doc;
+					watchPush(collection, data);
+				}
+			});
+		} else {
+			watchPush(collection, data);
+		}
 	};
 
 	socket.on("disconnect", function() {
