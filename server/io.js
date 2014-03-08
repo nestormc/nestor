@@ -273,13 +273,12 @@ function enableWatchers(socket) {
 
 
 exports.listen = function(server) {
-	var io = socketio.listen(server);
-	
-	io.enable("browser client minification");
-	io.enable("browser client etag");
-	io.enable("browser client gzip");
-	io.set("logger", socketioLogger);
-	io.set("log level", 2);
+	var io = socketio.listen(server, {
+			"browser client minification": true,
+			"browser client etag": true,
+			"browser client gzip": true,
+			"logger": socketioLogger
+		});
 
 	io.on("connection", function(socket) {
 		enableWatchers(socket);
