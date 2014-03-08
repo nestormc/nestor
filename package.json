@@ -22,6 +22,7 @@
     "passport-google": "*",
     "passport-twitter": "*",
     "requirejs": "*",
+    "socket.io": "*",
     "when": "*",
     "yarm": "*"
   },
