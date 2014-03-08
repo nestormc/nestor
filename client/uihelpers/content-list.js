@@ -5,7 +5,8 @@ define(["router", "ui", "dom"], function(router, ui, dom) {
 
 	function setupContentList(router, ui, view, config) {
 		var resource = config.resource;
-		var modifier = config.dataModifier || function(d) { return d; };
+		var fetchCount = config.fetchCount || 10;
+		var dataMapper = config.dataMapper;
 		var behaviour = config.behaviour || {};
 		var routes = config.routes || {};
 		var root = config.root;
@@ -33,76 +34,99 @@ define(["router", "ui", "dom"], function(router, ui, dom) {
 		});
 
 
-		function updateView(data, current, container) {
-			var key = current.key;
-			var selector = current.selector;
-			var template = current.template;
+		function updateIntoView(data, currentConfig, container) {
+			var key = currentConfig.key;
+			var selector = currentConfig.selector;
+			var template = currentConfig.template;
 
 			data.forEach(function(item) {
 				var itemKey = item[key];
 				var elem = dom.$(container, selector.replace("%s", itemKey));
 
 				if (!elem) {
+					// Element does not exist, add it
 					container.appendChild(template.render(item));
-				} else if ("nextArray" in current) {
-					updateView(item[current.nextArray], config[current.nextConfig], elem);
+				} else if ("childrenArray" in currentConfig) {
+					// Element exists and may have children, update them
+					updateIntoView(item[currentConfig.childrenArray], config[currentConfig.childrenConfig], elem);
+				} else {
+					// Element exists and is leaf element, update it
+					container.replaceChild(template.render(item), elem);
 				}
 			});
 		}
 
 
-		var promise;
-		var loaded = false;
+		function removeFromView(data, currentConfig, container) {
+			var key = currentConfig.key;
+			var selector = currentConfig.selector;
+
+			data.forEach(function(item) {
+				// Find element at current level, and do nothing if none found
+				var itemKey = item[key];
+				var elem = dom.$(container, selector.replace("%s", itemKey));
+
+				if (elem) {
+					if ("childrenArray" in currentConfig) {
+						// Remove children first
+						removeFromView(item[currentConfig.childrenArray], config[currentConfig.childrenConfig], elem);
+
+						// Remove current element if no more children are present
+						if (!dom.$(elem, currentConfig.childSelector)) {
+							elem.parentNode.removeChild(elem);
+						}
+					} else {
+						// Leaf element, remove it
+						elem.parentNode.removeChild(elem);
+					}
+				}
+			});
+		}
 
 
-		view.loading = ui.signal();
+		var watcher;
 		view.displayed.add(function() {
-			setupContentList.activeView = view;
-
-			if (!promise) {
-				promise = resource.list();
+			if (!watcher) {
+				watcher = resource.watch();
 			}
 
 			// Add scroll handler to load more
 			view.scrolledToEnd.add(function() {
-				if (!loaded) {
-					view.loading.dispatch(true);
-					promise.fetchMore();
-				}
+				watcher.fetch(fetchCount);
 			});
 
-
-			promise
-			.whenData(function(items) {
-				// Call data modifier
-				var data = modifier(items);
+			// Setup data update handlers
+			watcher.updated.add(function(document) {
 				var rootContainer = view.$(root.selector);
+				var mapped = dataMapper(document);
+
+				console.dir({ type: "Got document", doc: document, mapped: mapped });
 
 				if (!rootContainer) {
-					try {
-						view.appendChild(root.template.render(data));
-					} catch(e) {
-						ui.error("Cannot render root template", e.stack);
-						return;
-					}
+					// Initial render
+					view.appendChild(root.template.render(mapped));
 				} else {
-					updateView(data[root.nextArray], config[root.nextConfig], rootContainer);
+					// Update
+					updateIntoView(mapped[root.childrenArray], config[root.childrenConfig], rootContainer);
 				}
 
-				view.loading.dispatch(false);
 				view.behave(behaviour);
-			})
-			.then(function() {
-				// Nothing more to load
-				loaded = true;
-			})
-			.otherwise(function(err) {
-				ui.error("Cannot fetch data", err.stack);
 			});
 
+			watcher.removed.add(function(document) {
+				var rootContainer = view.$(root.selector);
+				var mapped = dataMapper(document);
+
+				removeFromView(mapped[root.childrenArray], config[root.childrenConfig], rootContainer);
+			});
+
+			// Initial fetch
+			watcher.fetch(fetchCount);
+
+			// Cancel loading when UI stops
 			ui.stopping.add(function() {
-				// Cancel loading when UI stops
-				promise.cancel();
+				watcher.dispose();
+				watcher = null;
 			});
 		});
 	}
