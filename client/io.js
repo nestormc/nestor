@@ -16,12 +16,16 @@ define(["signals", "socketio"], function(signals, socketio) {
 		var self = this;
 		this._io.on("watch:" + collection, function(changes) {
 			changes.forEach(function(change) {
-				if (change.op === "save") {
+				if (change.op === "save" || change.op === "fetch") {
 					self.updated.dispatch(change.doc);
 				} else if (change.op === "remove") {
 					self.removed.dispatch(change.doc);
 				}
 			});
+		});
+
+		this._io.on("watch:" + collection + ":error", function(err) {
+			console.log("Watch error on collection " + collection + ": " + err);
 		});
 	}
 

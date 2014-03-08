@@ -8,24 +8,6 @@ var logger = require("log4js").getLogger("io");
 
 var WATCH_FLUSH_THROTTLE = 200;
 
-var socketioLogger = {
-	debug: function(msg) {
-		logger.debug("(socket.io) %s", msg);
-	},
-
-	info: function(msg) {
-		logger.info("(socket.io) %s", msg);
-	},
-
-	warn: function(msg) {
-		logger.warn("(socket.io) %s", msg);
-	},
-
-	error: function(msg) {
-		logger.error("(socket.io) %s", msg);
-	}
-};
-
 
 /* Compare two documents according to a mongodb sort operator */
 function compareDocs(sort, docA, docB) {
@@ -157,19 +139,25 @@ function enableWatchers(socket) {
 	}, WATCH_FLUSH_THROTTLE);
 
 	socket._watchPush = function(collection, data, isFetch) {
-		if (!isFetch && watchables[collection].sort && fullyFetched.indexOf(collection) === -1) {
+		var sort = watchables[collection].sort;
+
+		if (!isFetch && sort && fullyFetched.indexOf(collection) === -1) {
 			// Collection is sorted and not fully fetched yet,
 			// ensure saved document comes before what has been already fetched
 			if (!lastFetched[collection] ||
-				compareDocs(watchables[collection].sort, data.doc, lastFetched[collection]) > 0) {
+				compareDocs(sort, data.doc, lastFetched[collection]) > 0) {
 				return;
 			}
 		}
 
-		// Remove previous events on same doc
-		pending[collection] = pending[collection].filter(function(item) {
-			return item.doc._id !== data.doc._id;
-		});
+		if (!(collection in pending)) {
+			pending[collection] = [];
+		} else {
+			// Remove previous events on same doc
+			pending[collection] = pending[collection].filter(function(item) {
+				return item.doc._id.toString() !== data.doc._id.toString();
+			});
+		}
 
 		pending[collection].push(data);
 		flush();
@@ -195,6 +183,8 @@ function enableWatchers(socket) {
 			watchables[collection].sockets.push(socket);
 			pending[collection] = [];
 			resetFetch(collection);
+		} else if (!(collection in watchables)) {
+			socket.emit("watch:" + collection + ":error", "Unknown collection");
 		}
 	});
 
@@ -207,6 +197,7 @@ function enableWatchers(socket) {
 		var sort = watchable.sort;
 
 		if (!sort) {
+			socket.emit("watch:" + collection + ":error", "Unsorted collection cannot be fetched");
 			return;
 		}
 
@@ -215,6 +206,7 @@ function enableWatchers(socket) {
 
 		watchable.model.find(query).limit(count).exec(function(err, docs) {
 			if (err) {
+				socket.emit("watch:" + collection + ":error", err.message);
 				logger.error("Error fetching " + count + " docs from watched collection " + collection + ": " + err.message);
 				return;
 			}
@@ -228,7 +220,7 @@ function enableWatchers(socket) {
 			}
 
 			docs.forEach(function(doc) {
-				socket._watchPush({ op: "fetch", doc: doc.toObject(watchable.toObject) }, true);
+				socket._watchPush(collection, { op: "fetch", doc: doc.toObject(watchable.toObject) }, true);
 			});
 		});
 	});
@@ -277,7 +269,23 @@ exports.listen = function(server) {
 			"browser client minification": true,
 			"browser client etag": true,
 			"browser client gzip": true,
-			"logger": socketioLogger
+			"logger": {
+				debug: function(msg) {
+					logger.debug("(socket.io) %s", msg);
+				},
+
+				info: function(msg) {
+					logger.info("(socket.io) %s", msg);
+				},
+
+				warn: function(msg) {
+					logger.warn("(socket.io) %s", msg);
+				},
+
+				error: function(msg) {
+					logger.error("(socket.io) %s", msg);
+				}
+			}
 		});
 
 	io.on("connection", function(socket) {
