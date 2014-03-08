@@ -8,6 +8,24 @@ var logger = require("log4js").getLogger("io");
 
 var WATCH_FLUSH_THROTTLE = 200;
 
+var socketioLogger = {
+	debug: function(msg) {
+		logger.debug("(socket.io) %s", msg);
+	},
+
+	info: function(msg) {
+		logger.info("(socket.io) %s", msg);
+	},
+
+	warn: function(msg) {
+		logger.warn("(socket.io) %s", msg);
+	},
+
+	error: function(msg) {
+		logger.error("(socket.io) %s", msg);
+	}
+};
+
 
 /* Compare two documents according to a mongodb sort operator */
 function compareDocs(sort, docA, docB) {
@@ -133,7 +151,6 @@ function enableWatchers(socket) {
 				return;
 			}
 
-			logger.debug("Sending changes for " + collection +":\n" + pending[collection].map(function(i) { return i.op + " " + i.doc._id; }).join("\n"));
 			socket.emit("watch:" + collection, pending[collection]);
 			pending[collection] = [];
 		});
@@ -174,7 +191,6 @@ function enableWatchers(socket) {
 	});
 
 	socket.on("watch:start", function(collection) {
-		logger.debug("Start watching " + collection);
 		if (collection in watchables && watchables[collection].sockets.indexOf(socket) === -1) {
 			watchables[collection].sockets.push(socket);
 			pending[collection] = [];
@@ -218,7 +234,6 @@ function enableWatchers(socket) {
 	});
 
 	socket.on("watch:pause", function(collection) {
-		logger.debug("Pause watching " + collection);
 		if (collection in watchables &&
 			watchables[collection].sockets.indexOf(socket) !== -1 &&
 			paused.indexOf(collection) === -1) {
@@ -227,7 +242,6 @@ function enableWatchers(socket) {
 	});
 
 	socket.on("watch:resume", function(collection) {
-		logger.debug("Resume watching " + collection);
 		if (collection in watchables &&
 			watchables[collection].sockets.indexOf(socket) !== -1 &&
 			paused.indexOf(collection) !== -1) {
@@ -238,7 +252,6 @@ function enableWatchers(socket) {
 	});
 
 	socket.on("watch:stop", function(collection) {
-		logger.debug("Stop watching " + collection);
 		if (collection in watchables) {
 			var sockets = watchables[collection].sockets;
 			var index = sockets.indexOf(socket);
@@ -261,9 +274,12 @@ function enableWatchers(socket) {
 
 exports.listen = function(server) {
 	var io = socketio.listen(server);
+	
 	io.enable("browser client minification");
 	io.enable("browser client etag");
 	io.enable("browser client gzip");
+	io.set("logger", socketioLogger);
+	io.set("log level", 2);
 
 	io.on("connection", function(socket) {
 		enableWatchers(socket);
