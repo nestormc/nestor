@@ -9,6 +9,7 @@ var log4js = require("log4js");
 var config = require("./config");
 var intents = require("./intents");
 var server = require("./server");
+var misc = require("./misc");
 
 var logger = log4js.getLogger("plugins");
 
@@ -16,7 +17,8 @@ var services = {
 		config: config,
 		intents: intents,
 		mongoose: mongoose,
-		rest: yarm
+		rest: yarm,
+		misc: misc
 	};
 
 var loadPromises = {};

@@ -31,6 +31,10 @@ define(["signals", "socketio"], function(signals, socketio) {
 		};
 	});
 
+	CollectionWatcher.prototype.fetch = function(count) {
+		this._io.emit("watch:fetch", this._collection, count);
+	});
+
 	CollectionWatcher.prototype.dispose = function() {
 		this._io.emit("watch:stop", this._collection);
 	};
