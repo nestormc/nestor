@@ -34,7 +34,7 @@ define(["router", "ui", "dom"], function(router, ui, dom) {
 		});
 
 
-		function updateIntoView(data, currentConfig, container) {
+		function updateIntoView(data, currentConfig, container, next) {
 			var key = currentConfig.key;
 			var selector = currentConfig.selector;
 			var template = currentConfig.template;
@@ -42,13 +42,29 @@ define(["router", "ui", "dom"], function(router, ui, dom) {
 			data.forEach(function(item) {
 				var itemKey = item[key];
 				var elem = dom.$(container, selector.replace("%s", itemKey));
+				var nextSibling;
 
 				if (!elem) {
 					// Element does not exist, add it
-					container.appendChild(template.render(item));
+
+					if (next) {
+						// Look for next sibling
+						nextSibling = dom.$(container, selector.replace("%s", next[0][key]));
+					}
+
+					if (nextSibling) {
+						container.insertBefore(template.render(item), nextSibling);
+					} else {
+						container.appendChild(template.render(item));
+					}
 				} else if ("childrenArray" in currentConfig) {
 					// Element exists and may have children, update them
-					updateIntoView(item[currentConfig.childrenArray], config[currentConfig.childrenConfig], elem);
+					updateIntoView(
+						item[currentConfig.childrenArray],
+						config[currentConfig.childrenConfig],
+						elem,
+						next ? next[0][currentConfig.childrenArray] : null
+					);
 				} else {
 					// Element exists and is leaf element, update it
 					container.replaceChild(template.render(item), elem);
@@ -69,7 +85,11 @@ define(["router", "ui", "dom"], function(router, ui, dom) {
 				if (elem) {
 					if ("childrenArray" in currentConfig) {
 						// Remove children first
-						removeFromView(item[currentConfig.childrenArray], config[currentConfig.childrenConfig], elem);
+						removeFromView(
+							item[currentConfig.childrenArray],
+							config[currentConfig.childrenConfig],
+							elem
+						);
 
 						// Remove current element if no more children are present
 						if (!dom.$(elem, currentConfig.childSelector)) {
@@ -96,18 +116,21 @@ define(["router", "ui", "dom"], function(router, ui, dom) {
 			});
 
 			// Setup data update handlers
-			watcher.updated.add(function(document) {
+			watcher.updated.add(function(document, next) {
 				var rootContainer = view.$(root.selector);
 				var mapped = dataMapper(document);
-
-				console.dir({ type: "Got document", doc: document, mapped: mapped });
 
 				if (!rootContainer) {
 					// Initial render
 					view.appendChild(root.template.render(mapped));
 				} else {
 					// Update
-					updateIntoView(mapped[root.childrenArray], config[root.childrenConfig], rootContainer);
+					updateIntoView(
+						mapped[root.childrenArray],
+						config[root.childrenConfig],
+						rootContainer,
+						next ? dataMapper(next)[root.childrenArray] : null
+					);
 				}
 
 				view.behave(behaviour);
@@ -117,7 +140,11 @@ define(["router", "ui", "dom"], function(router, ui, dom) {
 				var rootContainer = view.$(root.selector);
 				var mapped = dataMapper(document);
 
-				removeFromView(mapped[root.childrenArray], config[root.childrenConfig], rootContainer);
+				removeFromView(
+					mapped[root.childrenArray],
+					config[root.childrenConfig],
+					rootContainer
+				);
 			});
 
 			// Initial fetch
