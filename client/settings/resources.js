@@ -11,19 +11,19 @@ define(["rest"], function(rest) {
 			},
 
 			remove: function(identifier) {
-				return rest.del("users/" + identifier);
+				return rest.del("users/%s", identifier);
 			},
 
 			enable: function(identifier) {
-				return rest.patch("users/" + identifier, { rights: ["nestor:login"] });
+				return rest.patch("users/%s", identifier, { rights: ["nestor:login"] });
 			},
 
 			addRight: function(identifier, right) {
-				return rest.post("users/" + identifier + "/rights", { _value: right });
+				return rest.post("users/%s/rights", identifier, { _value: right });
 			},
 
 			delRight: function(identifier, right) {
-				return rest.del("users/" + identifier + "/rights/" + right);
+				return rest.del("users/%s/rights/%s", identifier, right);
 			}
 		},
 

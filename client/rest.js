@@ -56,7 +56,39 @@ define(["ajax", "when", "signals"], function(ajax, when, signals) {
 	});
 
 
-	function makeURI(uri, querystring) {
+	/* Build and URI from an argument list, optionnally extracting
+	 * additional arguments.
+	 *
+	 * Returns an object with an 'uri' key, which is the first element
+	 * in 'args' with each instance of '%s' replaced by url-encoding an
+	 * additional element in 'args'.
+	 *
+	 * For each key name in 'names', an additional element is taken from
+	 * 'args' and added to the returned object.
+	 *
+	 * Example:
+	 *  getArguments(['/path/to/%s', 'foo bar', 'baz'], ['arg'])
+	 *  returns { uri: '/path/to/foo%20bar', arg: 'baz' }
+	 *
+	 */
+	function getArguments(args, names) {
+		args = [].slice.call(args);
+
+		var ret = {
+				uri: args.shift().replace(/%s/g, function() {
+					return encodeURIComponent(args.shift());
+				})
+			};
+
+		(names || []).forEach(function(name) {
+			ret[name] = args.shift();
+		});
+
+		return ret;
+	}
+
+
+	function addQueryString(uri, querystring) {
 		if (Object.keys(querystring || {}).length) {
 			uri += "?" + Object.keys(querystring).map(function(param) {
 				return param + "=" + encodeURIComponent(querystring[param]);
@@ -68,25 +100,27 @@ define(["ajax", "when", "signals"], function(ajax, when, signals) {
 
 
 	var rest = {
-		list: function(uri, options) {
+		list: function(/* uri[, uri params][, options] */) {
+			var args = getArguments(arguments, ["options"]);
+
 			var querystring = {};
-			options = options || {};
+			args.options = args.options || {};
 
-			if ("skip" in options) {
-				querystring.skip = options.skip;
+			if ("skip" in args.options) {
+				querystring.skip = args.options.skip;
 			}
 
-			if ("limit" in options) {
-				querystring.limit = options.limit;
+			if ("limit" in args.options) {
+				querystring.limit = args.options.limit;
 			}
 
-			if ("query" in options) {
-				querystring.query = options.query;
+			if ("query" in args.options) {
+				querystring.query = args.options.query;
 			}
 
 			var d = when.defer();
 
-			request.get(makeURI(uri, querystring))
+			request.get(addQueryString(args.uri, querystring))
 			.then(function(result) {
 				var items = result._items;
 					items.totalCount = result._count;
@@ -114,7 +148,9 @@ define(["ajax", "when", "signals"], function(ajax, when, signals) {
 		 * progress update before calling it again.  Calling it either when items are pending
 		 * or after the promise has been fulfilled or rejected has no effect.
 		 */
-		incremental: function(uri, query, limit) {
+		incremental: function(/* uri[, uri params][, query][, limit] */) {
+			var args = getArguments(arguments, ["query", "limit"]);
+
 			var loading, count,
 				rejected = false,
 				d = when.defer(),
@@ -122,15 +158,15 @@ define(["ajax", "when", "signals"], function(ajax, when, signals) {
 				offset = 0,
 				options;
 
-			if (typeof limit === "undefined" && typeof query === "number") {
-				limit = query;
-				query = "";
+			if (typeof args.limit === "undefined" && typeof args.query === "number") {
+				args.limit = args.query;
+				args.query = "";
 			}
 
-			options = { query: query || "" };
+			options = { query: args.query || "" };
 
-			if (typeof limit !== "undefined") {
-				options.limit = limit;
+			if (typeof args.limit !== "undefined") {
+				options.limit = args.limit;
 			}
 
 
@@ -142,7 +178,7 @@ define(["ajax", "when", "signals"], function(ajax, when, signals) {
 				loading = true;
 
 				options.skip = offset;
-				rest.list(uri, options)
+				rest.list(args.uri, options)
 				.then(function(result) {
 					loading = false;
 
@@ -178,39 +214,48 @@ define(["ajax", "when", "signals"], function(ajax, when, signals) {
 			return promise;
 		},
 
-		get: function(uri, querystring) {
-			return request.get(makeURI(uri, querystring));
+		get: function(/* uri[, uri params][, querystring] */) {
+			var args = getArguments(arguments, ["querystring"]);
+
+			return request.get(addQueryString(args.uri, args.querystring));
 		},
 
-		put: function(uri, querystring, data) {
-			if (!data) {
-				data = querystring;
-				querystring = null;
+		put: function(/* uri[, uri params][, querystring], data */) {
+			var args = getArguments(arguments, ["querystring", "data"]);
+
+			if (!args.data) {
+				args.data = args.querystring;
+				args.querystring = null;
 			}
 
-			return request.put(makeURI(uri, querystring), data);
+			return request.put(addQueryString(args.uri, args.querystring), args.data);
 		},
 
-		patch: function(uri, querystring, data) {
-			if (!data) {
-				data = querystring;
-				querystring = null;
+		patch: function(/* uri[, uri params][, querystring], data */) {
+			var args = getArguments(arguments, ["querystring", "data"]);
+
+			if (!args.data) {
+				args.data = args.querystring;
+				args.querystring = null;
 			}
 
-			return request.patch(makeURI(uri, querystring), data);
+			return request.patch(addQueryString(args.uri, args.querystring), args.data);
 		},
 
-		post: function(uri, querystring, data) {
-			if (!data) {
-				data = querystring;
-				querystring = null;
+		post: function(/* uri[, uri params][, querystring], data */) {
+			var args = getArguments(arguments, ["querystring", "data"]);
+
+			if (!args.data) {
+				args.data = args.querystring;
+				args.querystring = null;
 			}
 
-			return request.post(makeURI(uri, querystring), data);
+			return request.post(addQueryString(args.uri, args.querystring), args.data);
 		},
 
-		del: function(uri, querystring) {
-			return request.del(makeURI(uri, querystring));
+		del: function(/* uri[, uri params][, querystring] */) {
+			var args = getArguments(arguments, ["querystring"]);
+			return request.del(addQueryString(args.uri, args.querystring));
 		},
 
 		stop: function() {
