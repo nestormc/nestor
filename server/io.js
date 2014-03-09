@@ -72,9 +72,37 @@ function getAfterDocOperator(sort, doc) {
 }
 
 
+function triggerSave(collection, doc) {
+	var watchable = watchables[collection];
+
+	if (watchable) {
+		var data = { op: "save", doc: doc.toObject(watchable.toObject) };
+
+		// Push change to every socket watching this collection
+		watchable.sockets.forEach(function(socket) {
+			socket._watchPush(collection, data);
+		});
+	}
+}
+
+
+function triggerRemove(collection, doc) {
+	var watchable = watchables[collection];
+
+	if (watchable) {
+		var data = { op: "remove", doc: doc.toObject(watchable.toObject) };
+
+		// Push change to every socket watching this collection
+		watchable.sockets.forEach(function(socket) {
+			socket._watchPush(collection, data);
+		});
+	}
+}
+
+
 /* Allow plugins to enable watching a mongoose collection */
 var watchables = {};
-intents.on("nestor:http:watchable", function(name, Model, options) {
+intents.on("nestor:watchable", function(name, Model, options) {
 	options = options || {};
 
 	watchables[name] = {
@@ -85,23 +113,17 @@ intents.on("nestor:http:watchable", function(name, Model, options) {
 	};
 
 	Model.schema.post("save", function(doc) {
-		var data = { op: "save", doc: doc.toObject(options.toObject) };
-
-		// Push change to every socket watching this collection
-		watchables[name].sockets.forEach(function(socket) {
-			socket._watchPush(name, data);
-		});
+		triggerSave(name, doc);
 	});
 
 	Model.schema.post("remove", function(doc) {
-		var data = { op: "remove", doc: doc.toObject(options.toObject) };
-
-		// Push change to every socket watching this collection
-		watchables[name].sockets.forEach(function(socket) {
-			socket._watchPush(name, data);
-		});
+		triggerRemove(name, doc);
 	});
 });
+
+/* Allow manual trigger of watched events */
+intents.on("nestor:watchable:save", triggerSave);
+intents.on("nestor:watchable:remove", triggerRemove);
 
 
 /* Enable collection watching for a socket, called on socket connection */
@@ -133,6 +155,10 @@ function enableWatchers(socket) {
 				return;
 			}
 
+			logger.debug("Sending changes for %s:\n%s", collection,
+				pending[collection].map(function(c) { return JSON.stringify(c);}).join("\n")
+			);
+			
 			socket.emit("watch:" + collection, pending[collection]);
 			pending[collection] = [];
 		});
@@ -148,7 +174,15 @@ function enableWatchers(socket) {
 			});
 		}
 
+		logger.debug("Pushing document on %s:\n%j", collection, data);
+
 		pending[collection].push(data);
+
+
+		logger.debug("Now pending for %s:\n%s", collection,
+			pending[collection].map(function(c) { return JSON.stringify(c);}).join("\n")
+		);
+
 		flush();
 	}
 
