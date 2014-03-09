@@ -2,13 +2,17 @@
 "use strict";
 
 var intents = require("./intents");
+var config = require("./config").scheduler;
 
 var when = require("when");
 var timeout = require("when/timeout");
 var logger = require("log4js").getLogger("scheduler");
 
+var maxJobs = (config || {}).maxJobs || 1;
+var jobTimeout = (config || {}).jobTimeout || 10000;
+
 var queue = [];
-var processing = false;
+var processing = 0;
 var processors = {};
 
 function jobDesc(op) {
@@ -27,36 +31,43 @@ function enqueue(op) {
 	logger.debug("Enqueue %j", jobDesc(op));
 	queue.push(op);
 	
-	if (!processing) {
+	if (processing === 0) {
 		logger.debug("Start processing queue");
-		run();
 	}
+	
+	run();
+}
+
+function runJob(op) {
+	logger.debug("Dequeue %j", jobDesc(op));
+	var promise = processOperation(op);
+
+	timeout(jobTimeout, promise).otherwise(function() {
+		logger.warn("Job did not finish after %s seconds: %j", jobTimeout/1000, jobDesc(op));
+
+		promise._gotTimeout = true;
+		processing--;
+
+		// Run next job anyway, or all scheduled jobs will stall
+		run();
+	});
+
+	promise.then(function() {
+		if (promise._gotTimeout) {
+			logger.warn("Job finished after timeout: %j", jobDesc(op));
+		} else {
+			logger.debug("Finished %j", jobDesc(op));
+			processing--;
+		}
+
+		run();
+	});
 }
 
 function run() {
-	processing = true;
-	var op = queue.shift();
-
-	if (op) {
-		logger.debug("Dequeue %j", jobDesc(op));
-
-		var promise = processOperation(op);
-
-		timeout(10000, promise).otherwise(function() {
-			logger.warn("Job did not finish after 10 seconds: %j", jobDesc(op));
-
-			// Run next job anyway, or all scheduled jobs will stall
-			run();
-		});
-
-		promise.then(function() {
-			logger.debug("Finished %j", jobDesc(op));
-			run();
-		});
-	} else {
-		logger.debug("Finished processing queue");
-		logger.info("Processing queue drained");
-		processing = false;
+	while (queue.length && processing < maxJobs) {
+		processing++;
+		runJob(queue.shift());
 	}
 }
 
@@ -64,7 +75,7 @@ function processOperation(item) {
 	if (item.op in processors) {
 		return processors[item.op](item.data);
 	} else {
-		logger.error("No processor for queued operation '%s'", item.op);
+		logger.warn("No processor for queued operation '%s'", item.op);
 		return when.resolve();
 	}
 }
