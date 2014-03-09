@@ -5,7 +5,14 @@
 
 @each panes
 	.pane.content-box
-		.info
+		@if typeof actions !== "undefined"
+			.content-box-actions
+				@each actions
+					a.action-with-icon[href=#{{ route }}]
+						@svg "images/" + icon + ".svg"
+						"{{ title }}"
+
+		.content-box-header
 			.pane-icon
 				@svg "images/" + icon + ".svg"
 			.title "{{ title }}"

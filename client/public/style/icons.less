@@ -65,7 +65,7 @@
 	}
 }
 
-#viewport {
+#viewport, #popup {
 	.icon {
 		.nestor-icon(@mlGray);
 
@@ -83,6 +83,16 @@
 
 		& + a.active-icon {
 			margin-left: @margins;
+		}
+	}
+
+	a.action {
+		color: @mlGray;
+		text-decoration: none;
+
+		&:hover {
+			color: @midGray;
+			text-decoration: underline;
 		}
 	}
 

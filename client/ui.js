@@ -444,6 +444,7 @@ function(ist, mainTemplate, components, signals, dom, when, uihelpers) {
 						title: options.title,
 						description: options.description,
 						icon: options.icon,
+						actions: options.actions || [],
 						view: view
 					});
 
