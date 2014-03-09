@@ -111,5 +111,12 @@ define(["ist", "ajax", "dom", "login"], function(ist, ajax, dom, login) {
 		return (Math.floor(size * 10) / 10) + " " + suffixes[0] + suffix;
 	});
 
+	ist.global("uri", function() {
+		var args = [].slice.call(arguments);
+		return args.shift().replace(/%s/g, function() {
+				return encodeURIComponent(args.shift());
+			});
+	});
+
 	return ist;
 });
