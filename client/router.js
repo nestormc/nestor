@@ -55,7 +55,7 @@ define(["dom"], function(dom) {
 			
 			ret.forEach(function(value, index) {
 				if (typeof vars[index] !== "undefined") {
-					params[vars[index]] = value;
+					params[vars[index]] = decodeURIComponent(value);
 				}
 			});
 			
