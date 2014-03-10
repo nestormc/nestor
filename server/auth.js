@@ -237,7 +237,7 @@ module.exports = {
 			if (id === "admin") {
 				done(null, AdminUser);
 			} else {
-				User.findOne({ identifier: id }, done);
+				User.findOneAndUpdate({ identifier: id }, { lastLogin: new Date() }, done);
 			}
 		});
 
