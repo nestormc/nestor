@@ -1,6 +1,6 @@
 /*jshint browser:true*/
 /*global define*/
-define(["signals", "socketio"], function(signals, socketio) {
+define(["signals", "socketio", "when"], function(signals, socketio, when) {
 	"use strict";
 
 
@@ -36,7 +36,17 @@ define(["signals", "socketio"], function(signals, socketio) {
 	});
 
 	CollectionWatcher.prototype.fetch = function(count) {
-		this._io.emit("watch:fetch", this._collection, count);
+		var d = when.defer();
+
+		this._io.emit("watch:fetch", this._collection, count, function(err, docs) {
+			if (err) {
+				d.reject(err);
+			} else {
+				d.resolve(docs);
+			}
+		});
+
+		return d.promise;
 	};
 
 	CollectionWatcher.prototype.dispose = function() {

@@ -105,20 +105,33 @@ define(["router", "ui", "dom"], function(router, ui, dom) {
 
 
 		var watcher;
+
+		view.loading = ui.signal();
 		view.displayed.add(function() {
 			if (!watcher) {
 				watcher = resource.watch();
 			}
 
-			// Add scroll handler to load more
-			view.scrolledToEnd.add(function() {
-				watcher.fetch(fetchCount);
-			});
+			function fetch() {
+				view.loading.dispatch(true);
 
-			// Setup data update handlers
-			watcher.updated.add(function(document, next) {
+				watcher.fetch(fetchCount)
+				.then(function(docs) {
+					if (docs.length) {
+						renderDocs(docs);
+					}
+					
+					view.loading.dispatch(false);
+				})
+				.otherwise(function(err) {
+					console.log("Watch fetch error: " + err);
+					view.loading.dispatch(false);
+				});
+			}
+
+			function renderDocs(docs, next) {
 				var rootContainer = view.$(root.selector);
-				var mapped = dataMapper(document);
+				var mapped = dataMapper(docs);
 
 				if (!rootContainer) {
 					// Initial render
@@ -129,16 +142,24 @@ define(["router", "ui", "dom"], function(router, ui, dom) {
 						mapped[root.childrenArray],
 						config[root.childrenConfig],
 						rootContainer,
-						next ? dataMapper(next)[root.childrenArray] : null
+						next ? dataMapper([next])[root.childrenArray] : null
 					);
 				}
 
 				view.behave(behaviour);
+			}
+
+			// Add scroll handler to load more
+			view.scrolledToEnd.add(fetch);
+
+			// Setup data update handlers
+			watcher.updated.add(function(document, next) {
+				renderDocs([document], next);
 			});
 
 			watcher.removed.add(function(document) {
 				var rootContainer = view.$(root.selector);
-				var mapped = dataMapper(document);
+				var mapped = dataMapper([document]);
 
 				removeFromView(
 					mapped[root.childrenArray],
@@ -148,7 +169,7 @@ define(["router", "ui", "dom"], function(router, ui, dom) {
 			});
 
 			// Initial fetch
-			watcher.fetch(fetchCount);
+			fetch();
 
 			// Cancel loading when UI stops
 			ui.stopping.add(function() {

@@ -170,7 +170,7 @@ function enableWatchers(socket) {
 		} else {
 			// Remove previous events on same doc
 			pending[collection] = pending[collection].filter(function(item) {
-				return item.doc._id.toString() !== data.doc._id.toString();
+				return item.doc ? item.doc._id.toString() !== data.doc._id.toString() : true;
 			});
 		}
 
@@ -241,7 +241,7 @@ function enableWatchers(socket) {
 		}
 	});
 
-	socket.on("watch:fetch", function(collection, count) {
+	socket.on("watch:fetch", function(collection, count, callback) {
 		if (fullyFetched.indexOf(collection) !== -1) {
 			return;
 		}
@@ -250,7 +250,7 @@ function enableWatchers(socket) {
 		var sort = watchable.sort;
 
 		if (!sort) {
-			socket.emit("watch:" + collection + ":error", "Unsorted collection cannot be fetched");
+			callback("Unsorted collection cannot be fetched");
 			return;
 		}
 
@@ -259,7 +259,7 @@ function enableWatchers(socket) {
 
 		watchable.model.find(query).limit(count).exec(function(err, docs) {
 			if (err) {
-				socket.emit("watch:" + collection + ":error", err.message);
+				callback(err.message);
 				logger.error("Error fetching " + count + " docs from watched collection " + collection + ": " + err.message);
 				return;
 			}
@@ -272,9 +272,7 @@ function enableWatchers(socket) {
 				fullyFetched.push(collection);
 			}
 
-			docs.forEach(function(doc) {
-				socket._watchPush(collection, { op: "fetch", doc: doc.toObject(watchable.toObject) }, true);
-			});
+			callback(null, docs.map(function(d) { return d.toObject(watchable.toObject); }));
 		});
 	});
 
