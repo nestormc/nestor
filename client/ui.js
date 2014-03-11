@@ -183,6 +183,8 @@ function(ist, mainTemplate, components, signals, dom, when, uihelpers) {
 	var settingsApp;
 	var playerApp;
 
+	var SCROLL_THRESHOLD = 100;
+
 	var ui = {
 		plugin: "nestor",
 		components: components,
@@ -280,7 +282,7 @@ function(ist, mainTemplate, components, signals, dom, when, uihelpers) {
 			dom.behave($("#viewport"), {
 				"&": {
 					"scroll": function() {
-						if (activeMainView && this.scrollTop + this.offsetHeight > this.scrollHeight - this.offsetHeight) {
+						if (activeMainView && this.scrollTop + this.offsetHeight > this.scrollHeight - SCROLL_THRESHOLD) {
 							activeMainView.scrolledToEnd.dispatch();
 						}
 					}
