@@ -112,7 +112,13 @@ define(["router", "ui", "dom"], function(router, ui, dom) {
 				watcher = resource.watch();
 			}
 
+			var fetching = false;
 			function fetch() {
+				if (fetching) {
+					return;
+				}
+
+				fetching = true;
 				view.loading.dispatch(true);
 
 				watcher.fetch(fetchCount)
@@ -121,6 +127,7 @@ define(["router", "ui", "dom"], function(router, ui, dom) {
 						renderDocs(docs);
 					}
 					
+					fetching = false;
 					view.loading.dispatch(false);
 				})
 				.otherwise(function(err) {
