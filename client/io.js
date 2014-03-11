@@ -7,6 +7,7 @@ define(["signals", "socketio", "when"], function(signals, socketio, when) {
 	function CollectionWatcher(io, collection) {
 		this._io = io;
 		this._collection = collection;
+		this._disposed = false;
 
 		this._io.emit("watch:start", this._collection);
 
@@ -15,27 +16,39 @@ define(["signals", "socketio", "when"], function(signals, socketio, when) {
 
 		var self = this;
 		this._io.on("watch:" + collection, function(changes) {
-			changes.forEach(function(change) {
-				if (change.op === "save" || change.op === "fetch") {
-					self.updated.dispatch(change.doc, change.next);
-				} else if (change.op === "remove") {
-					self.removed.dispatch(change.doc);
-				}
-			});
+			if (!this._disposed) {
+				changes.forEach(function(change) {
+					if (change.op === "save" || change.op === "fetch") {
+						self.updated.dispatch(change.doc, change.next);
+					} else if (change.op === "remove") {
+						self.removed.dispatch(change.doc);
+					}
+				});
+			}
 		});
 
 		this._io.on("watch:" + collection + ":error", function(err) {
-			console.log("Watch error on collection " + collection + ": " + err);
+			if (!this._disposed) {
+				console.log("Watch error on collection " + collection + ": " + err);
+			}
 		});
 	}
 
 	["pause", "resume"].forEach(function(message) {
 		CollectionWatcher.prototype[message] = function() {
+			if (this._disposed) {
+				throw new Error("Watcher has been disposed of");
+			}
+
 			this._io.emit("watch:" + message, this._collection);
 		};
 	});
 
 	CollectionWatcher.prototype.fetch = function(count) {
+		if (this._disposed) {
+			throw new Error("Watcher has been disposed of");
+		}
+
 		var d = when.defer();
 
 		this._io.emit("watch:fetch", this._collection, count, function(err, docs) {
@@ -50,6 +63,7 @@ define(["signals", "socketio", "when"], function(signals, socketio, when) {
 	};
 
 	CollectionWatcher.prototype.dispose = function() {
+		this._disposed = true;
 		this._io.emit("watch:stop", this._collection);
 	};
 
