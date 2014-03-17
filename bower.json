@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "main": "client/index.html",
   "dependencies": {
-    "ist": "*",
+    "ist": "njoyard/ist#group-nodes",
     "js-signals": "*",
     "momentjs": "*",
     "requirejs-domready": "*",
