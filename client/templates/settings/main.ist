@@ -19,7 +19,4 @@
 			.description "{{ description }}"
 
 		.settings
-			@if typeof view !== "undefined"
-				@dom view
-			@else
-				@dom render()
+			@dom view
