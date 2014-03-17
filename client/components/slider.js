@@ -124,7 +124,7 @@ define(["ist!tmpl/components/slider", "signals", "dom"], function(sliderTemplate
 
 
 	function createSlider(range, value, available) {
-		var slider = sliderTemplate.render({ behaviour: behaviour }).firstChild;
+		var slider = sliderTemplate.render({ behaviour: behaviour }).querySelector(".slider");
 
 		slider._range = range || 1;
 		slider._value = value || 0;
