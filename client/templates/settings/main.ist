@@ -9,12 +9,12 @@
 			.content-box-actions
 				@each actions
 					a.action-with-icon[href=#{{ route }}]
-						@svg "images/" + icon + ".svg"
+						@svg uri("images/%s.svg", icon)
 						"{{ title }}"
 
 		.content-box-header
 			.pane-icon
-				@svg "images/" + icon + ".svg"
+				@svg uri("images/%s.svg", icon)
 			.title "{{ title }}"
 			.description "{{ description }}"
 
