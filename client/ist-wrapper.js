@@ -97,16 +97,22 @@ define(["ist", "ajax", "dom", "login"], function(ist, ajax, dom, login) {
 	});
 
 
-	ist.global("humanSize", function(size) {
-		var suffixes = ["", "k", "M", "G", "T"];
+	ist.global("humanSize", function(size, suffix, decimals) {
+		var suffixes = ["", "k", "M", "G", "T", "P", "E"];
 		size = Math.floor(size);
 
-		while (size > 1024) {
+		if (typeof decimals === "undefined") {
+			decimals = 1;
+		}
+
+		var precision = Math.pow(10, decimals);
+
+		while (size > 1024 && suffixes.length > 1) {
 			size = size / 1024;
 			suffixes.shift();
 		}
 
-		return (Math.floor(size * 10) / 10) + " " + suffixes[0] + suffix;
+		return (Math.floor(size * precision) / precision) + " " + suffixes[0] + suffix;
 	});
 
 	ist.global("uri", function() {
