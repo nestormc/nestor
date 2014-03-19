@@ -48,10 +48,10 @@ define(["when", "storage", "player/providers"], function(when, storage, provider
 
 
 	/* Play order updater
-       
+
        When just toggled random playback, to either randomize or flatten play order.
        In this case, call with no arguments.
-	   
+
 	   When just enqueued new tracks in playlist, pass the indices of enqueued tracks
 	   and a boolean indicating whether those are expected to play next.
 	 */
@@ -206,11 +206,12 @@ define(["when", "storage", "player/providers"], function(when, storage, provider
 
 			playlist = (loaded.playlist || []).map(providers.getTrack);
 			playOrder = loaded.playOrder || [];
-			playIndex = loaded.playIndex || -1;
 			currentTime = loaded.currentTime || 0;
 			playing = loaded.playing || false;
 			repeat = loaded.repeat || false;
 			random = loaded.random || false;
+
+			var playIndex = loaded.playIndex || -1;
 
 			this.repeatChanged.dispatch(repeat);
 			this.randomChanged.dispatch(random);
@@ -222,7 +223,7 @@ define(["when", "storage", "player/providers"], function(when, storage, provider
 				newTrack.seek(currentTime);
 
 				if (playing) {
-					this.play();
+					playTrack(playIndex);
 				}
 			}
 
@@ -267,9 +268,9 @@ define(["when", "storage", "player/providers"], function(when, storage, provider
 				} else {
 					playIndex = clamp(playIndex + 1);
 					var newTrack = playlist[playOrder[playIndex]];
-				
+
 					state.trackChanged.dispatch(newTrack);
-					
+
 					newTrack.seek(0);
 					state.timeChanged.dispatch(0);
 				}
@@ -284,7 +285,7 @@ define(["when", "storage", "player/providers"], function(when, storage, provider
 				} else {
 					playIndex = clamp(playIndex - 1);
 					var newTrack = playlist[playOrder[playIndex]];
-				
+
 					state.trackChanged.dispatch(newTrack);
 
 					newTrack.seek(0);
@@ -295,7 +296,7 @@ define(["when", "storage", "player/providers"], function(when, storage, provider
 
 		/* Start or resume playback
 		   - if playlistIndex is specified, play that track from the start
-		   - else, resume current playback, or start playing playlist in play order 
+		   - else, resume current playback, or start playing playlist in play order
 		 */
 		play: function(playlistIndex) {
 			if (playOrder.length) {
