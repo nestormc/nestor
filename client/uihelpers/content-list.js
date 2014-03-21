@@ -5,7 +5,8 @@ define(["router", "ui", "dom"], function(router, ui, dom) {
 
 	function setupContentList(router, ui, view, config) {
 		var resource = config.resource;
-		var fetchCount = config.fetchCount || 10;
+		var fetcher = config.fetcher;
+		var fetchCount = typeof config.fetchCount === "undefined" ? 10 : config.fetchCount;
 		var dataMapper = config.dataMapper;
 		var behaviour = config.behaviour || {};
 		var routes = config.routes || {};
@@ -107,10 +108,19 @@ define(["router", "ui", "dom"], function(router, ui, dom) {
 		var watcher;
 
 		view.loading = ui.signal();
+
+		view.undisplayed.add(function() {
+			if (watcher) {
+				watcher.pause();
+			}
+		});
+
 		view.displayed.add(function() {
 			if (!watcher) {
 				watcher = resource.watch();
 			}
+
+			watcher.resume();
 
 			var fetching = false;
 			function fetch() {
@@ -121,17 +131,15 @@ define(["router", "ui", "dom"], function(router, ui, dom) {
 				fetching = true;
 				view.loading.dispatch(true);
 
-				watcher.fetch(fetchCount)
+				(fetcher ? fetcher(fetchCount) : watcher.fetch(fetchCount))
 				.then(function(docs) {
-					if (docs.length) {
-						renderDocs(docs);
-					}
-					
+					renderDocs(docs);
 					fetching = false;
 					view.loading.dispatch(false);
 				})
 				.otherwise(function(err) {
-					console.log("Watch fetch error: " + err);
+					console.log((fetcher ? "Fetcher" : "Watch fetch") + " error: " + err);
+					fetching = false;
 					view.loading.dispatch(false);
 				});
 			}
