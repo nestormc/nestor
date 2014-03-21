@@ -6,7 +6,48 @@ var intents = require("./intents");
 var misc = require("./misc");
 var logger = require("log4js").getLogger("io");
 
-var WATCH_FLUSH_THROTTLE = 200;
+var FLUSH_THROTTLE = 1000;
+
+
+/* A "nestor:watchable"(name, Model, options) intent enables watching
+   changes in a collection from the client using socket.io.
+
+
+   Clients can use the following messages to watch a named watchable
+   (all with <name> as an argument):
+   - "watch:start": start watching
+   - "watch:stop": stop watching
+   - "watch:pause": pause watching but keep track of what happens
+   - "watch:resume": resume watching, sending all changes that happened
+     while paused ASAP
+
+   They receive "watch:<name>" messages, with an array of objects containing:
+   - "op": "save" or "remove"
+   - "doc": saved or removed document
+
+   Those messages are sent at most once every FLUSH_THROTTLE millisecs for
+   each collection to each client.
+
+   The "nestor:watchable:save"(name, doc) and "nestor:watchable:remove"(name, doc)
+   intents trigger manual updates to be sent to clients watching <name>.
+
+
+
+   If <Model> is a mongoose model:
+   - "save" and "remove" hooks on the model trigger update message
+   - if <options> contains a "toObject" key, it is used to transform documents
+     before sending updates.
+   - if <options> contains a "sort" key, it indicates a sort operator for the
+     collection.  In this case, clients must send "watch:fetch"(name, count, callback)
+     messages to get the contents of the collection first. The callback receives an
+     error and an array of documents as parameters.  Updates are only sent when
+     updated documents come before the last fetched document according to the sort
+     operator.
+
+   Otherwise, <Model> must be null or undefined.  In this case, manual intents
+   must be dispatched to send updates,  <options> is unused, and other means of
+   fetching the full collection must be used (eg. REST).
+ */
 
 
 /* Compare two documents according to a mongodb sort operator */
@@ -100,25 +141,28 @@ function triggerRemove(collection, doc) {
 }
 
 
-/* Allow plugins to enable watching a mongoose collection */
 var watchables = {};
 intents.on("nestor:watchable", function(name, Model, options) {
 	options = options || {};
 
 	watchables[name] = {
 		sockets: [],
-		sort: options.sort,
+
 		model: Model,
-		toObject: options.toObject
+
+		sort: Model ? options.sort : null,
+		toObject: Model ? options.toObject : null
 	};
 
-	Model.schema.post("save", function(doc) {
-		triggerSave(name, doc);
-	});
+	if (Model) {
+		Model.schema.post("save", function(doc) {
+			triggerSave(name, doc);
+		});
 
-	Model.schema.post("remove", function(doc) {
-		triggerRemove(name, doc);
-	});
+		Model.schema.post("remove", function(doc) {
+			triggerRemove(name, doc);
+		});
+	}
 });
 
 /* Allow manual trigger of watched events */
@@ -155,14 +199,10 @@ function enableWatchers(socket) {
 				return;
 			}
 
-			logger.debug("Sending changes for %s:\n%s", collection,
-				pending[collection].map(function(c) { return JSON.stringify(c);}).join("\n")
-			);
-			
 			socket.emit("watch:" + collection, pending[collection]);
 			pending[collection] = [];
 		});
-	}, WATCH_FLUSH_THROTTLE);
+	}, FLUSH_THROTTLE);
 
 	function watchPush(collection, data) {
 		if (!(collection in pending)) {
@@ -174,15 +214,7 @@ function enableWatchers(socket) {
 			});
 		}
 
-		logger.debug("Pushing document on %s:\n%j", collection, data);
-
 		pending[collection].push(data);
-
-
-		logger.debug("Now pending for %s:\n%s", collection,
-			pending[collection].map(function(c) { return JSON.stringify(c);}).join("\n")
-		);
-
 		flush();
 	}
 
