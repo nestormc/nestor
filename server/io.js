@@ -117,7 +117,7 @@ function triggerSave(collection, doc) {
 	var watchable = watchables[collection];
 
 	if (watchable) {
-		var data = { op: "save", doc: doc.toObject(watchable.toObject) };
+		var data = { op: "save", doc: watchable.model ? doc.toObject(watchable.toObject) : doc };
 
 		// Push change to every socket watching this collection
 		watchable.sockets.forEach(function(socket) {
@@ -131,7 +131,7 @@ function triggerRemove(collection, doc) {
 	var watchable = watchables[collection];
 
 	if (watchable) {
-		var data = { op: "remove", doc: doc.toObject(watchable.toObject) };
+		var data = { op: "remove", doc: watchable.model ? doc.toObject(watchable.toObject) : doc };
 
 		// Push change to every socket watching this collection
 		watchable.sockets.forEach(function(socket) {
