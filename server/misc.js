@@ -46,7 +46,7 @@ function ucFirst(str) {
 
 var noCap = /^(a|an|and|in|of|the|les?|la|une?|des?)$/;
 exports.titleCase = function(str) {
-	return ucFirst(str.replace(/\b(\w+)\b/g, function(m, word) {
+	return ucFirst(str.toLowerCase().replace(/\b(\w+)\b/g, function(m, word) {
 		return word.match(noCap) ? word : ucFirst(word);
 	}));
 };
