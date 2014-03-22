@@ -63,6 +63,9 @@ define(["signals", "socketio", "when"], function(signals, socketio, when) {
 	};
 
 	CollectionWatcher.prototype.dispose = function() {
+		this.removed.dispose();
+		this.updated.dispose();
+
 		this._disposed = true;
 		this._io.emit("watch:stop", this._collection);
 	};
@@ -101,6 +104,6 @@ define(["signals", "socketio", "when"], function(signals, socketio, when) {
 			return new CollectionWatcher(rootIo, collection);
 		}
 	};
-	
+
 	return io;
 });
