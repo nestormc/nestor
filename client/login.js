@@ -4,7 +4,7 @@
 define(["ist!tmpl/login", "signals", "when", "ajax", "dom"],
 function(template, signals, when, ajax, dom) {
 	"use strict";
-	
+
 	var $ = dom.$,
 		currentInput,
 		currentStatus;
@@ -46,7 +46,7 @@ function(template, signals, when, ajax, dom) {
 				return ajax.text("get", "/auth/logout");
 			}
 		};
-	
+
 
 	var loginBehaviour = {
 		"input": {
@@ -72,7 +72,7 @@ function(template, signals, when, ajax, dom) {
 					$("#password").style.display = "block";
 					$("#login").style.display = "none";
 					error(false);
-					
+
 					input.focus();
 					currentInput = input;
 				}
@@ -118,7 +118,7 @@ function(template, signals, when, ajax, dom) {
 		if (!$("#login")) {
 			$("#login-container").replaceChild(
 				template.render({}),
-				$("#loading")
+				$("#initial-loading")
 			);
 
 			dom.behave($("#login-container"), loginBehaviour);
@@ -130,15 +130,15 @@ function(template, signals, when, ajax, dom) {
 		$("#main-container").style.display = $("#password").style.display = "none";
         showProviders(true);
 		error(err);
-		
+
 		input.value = $("#password input").value = "";
 		input.focus();
 		currentInput = input;
 	}
-	
-	
+
+
 	login.loggedIn = new signals.Signal();
-	
+
 	login.logout = function() {
 		return loginResource.logout().then(function() {
 			login();
@@ -158,6 +158,6 @@ function(template, signals, when, ajax, dom) {
 			}
 		}
 	};
-	
+
 	return login;
 });

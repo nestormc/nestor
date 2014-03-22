@@ -3,18 +3,30 @@
 
 define(["require", "when", "rest"], function(mainRequire, when, rest) {
 	"use strict";
-	
-	return function(ui, router, storage, io) {
+
+	return function(ui, router, storage, io, loading) {
 		var globalModules = ["ist", "when", "rest", "dom", "moment"];
 		var pluginPublished = {};
-		
-		
+
+
+		loading.start("plugin list");
+		loading.add("plugin helper modules");
+
 		/* List available plugins */
 		return rest.list("plugins", { limit: 0 })
 		.then(function(plugins) {
+			loading.done("plugin list");
+			loading.start("plugin helper modules");
+
+			plugins.forEach(function(plugin) {
+				loading.add(plugin + " plugin");
+			});
+
 			var deferred = when.defer();
 
 			mainRequire(globalModules, function() {
+				loading.done("plugin helper modules");
+
 				var args = [].slice.call(arguments);
 
 				var pluginInterface = {
@@ -37,8 +49,10 @@ define(["require", "when", "rest"], function(mainRequire, when, rest) {
 
 
 				when.map(plugins, function(plugin) {
+					loading.start(plugin + " plugin");
+
 					var pluginDeferred = when.defer();
-					
+
 					/* Prepare plugin-specific require */
 					var pluginRequire = require.config({
 						context: plugin,
@@ -64,6 +78,8 @@ define(["require", "when", "rest"], function(mainRequire, when, rest) {
 					/* Load plugin */
 					pluginRequire(["/js/" + plugin + "-min.js"], function() {
 						pluginRequire([plugin], function(pluginManifest) {
+							loading.done(plugin + " plugin");
+
 							pluginManifest.name = plugin;
 							pluginDeferred.resolve(pluginManifest);
 
@@ -74,6 +90,7 @@ define(["require", "when", "rest"], function(mainRequire, when, rest) {
 							pluginDeferred.reject(err);
 						});
 					}, function(err) {
+						loading.error(plugin + " plugin");
 						pluginDeferred.reject(err);
 					});
 
