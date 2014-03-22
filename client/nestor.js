@@ -154,6 +154,7 @@
 				})
 				.otherwise(error);
 			} else {
+				loading.reset();
 				login(loginError);
 				loginError = false;
 			}
