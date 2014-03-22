@@ -35,6 +35,11 @@
 		var loading = {
 			items: {},
 
+			reset: function() {
+				this.items = {};
+				this.update();
+			},
+
 			update: function() {
 				var keys = Object.keys(this.items);
 				var count = keys.length;
@@ -54,7 +59,9 @@
 					var errored = keys.filter(function(k) { return self.items[k] === "error"; })[0];
 
 					loading.style.display = "block";
-					initial.style.display = "none";
+					if (initial) {
+						initial.style.display = "none";
+					}
 
 					startedBar.style.width = (100 * started.length / count) + "%";
 					loadedBar.style.width = (100 * loaded / count) + "%";
@@ -86,6 +93,7 @@
 			}
 		};
 
+		loading.reset();
 		io.connect();
 
 		ajax.connectionStatusChanged.add(function(connected) {
@@ -122,6 +130,8 @@
 		var loginError = getErrorParameter();
 
 		function checkLogin(user) {
+			loading.done("checking login status");
+
 			if (user) {
 				storage.user = user;
 
@@ -131,6 +141,7 @@
 						router.reset();
 						rest.stop();
 						login.logout();
+						loading.reset();
 					});
 				});
 
@@ -149,6 +160,8 @@
 		}
 
 		login.loggedIn.add(checkLogin);
+
+		loading.start("checking login status");
 
 		login.status()
 		.then(checkLogin)
