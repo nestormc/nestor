@@ -46,6 +46,7 @@ define(["ist", "dom"], function(ist, dom) {
 	 *
 	 *   getValues() returns { fieldName: fieldValue, ... }
 	 *   setValues({ fieldName: fieldValue, ... }) sets fields values
+	 *   focus() sets the focus to the first field
 	 */
 	return function form(options) {
 		var rendered;
@@ -67,24 +68,48 @@ define(["ist", "dom"], function(ist, dom) {
 		function setValues(values) {
 			Object.keys(values).forEach(function(name) {
 				if (name in fields) {
+					var field = fields[name];
+					var parent = dom.$P(field, ".form-field");
+					var message = dom.$(parent, ".message");
+
 					fields[name].value = values[name];
+					parent.classList.remove("error");
+					message.textContent = "";
 				}
 			});
 		}
 
 		options.behaviour = {
+			"input, select": {
+				"keyup": function(e) {
+					if (e.keyCode === 13) {
+						dom.$(root, "input[type=submit]").click();
+					} else if (e.keyCode === 27) {
+						var cancel = dom.$(root, "input.cancel[type=button]");
+						if (cancel) {
+							cancel.click();
+						}
+					}
+				}
+			},
+
 			"input[type=submit]": {
 				"click": function() {
 					var values = getValues();
 					var errors = options.fields.reduce(function(count, field) {
 						if ("validate" in field) {
 							var error = field.validate(values[field.name]);
+							var parent = dom.$P(fields[field.name], ".form-field");
+							var message = dom.$(parent, ".message");
 
 							if (error) {
-								fields[name].classList.add("error");
+								parent.classList.add("error");
+								message.textContent = error;
+
 								count++;
 							} else {
-								fields[name].classList.remove("error");
+								parent.classList.remove("error");
+								message.textContent = "";
 							}
 						}
 
@@ -107,6 +132,15 @@ define(["ist", "dom"], function(ist, dom) {
 		rendered = ist("@use 'form'").render(options);
 		rendered.setValues = setValues;
 		rendered.getValues = getValues;
+		rendered.focus = function() {
+			var first = options.fields.filter(function(field) {
+				return field.type !== "label" && field.type !== "hidden" && !field.readonly;
+			})[0];
+
+			if (first) {
+				fields[first.name].focus();
+			}
+		};
 
 		root = dom.$(rendered, ".form");
 		options.fields.forEach(function(field) {

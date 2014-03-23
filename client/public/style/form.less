@@ -1,11 +1,5 @@
 #viewport, #popup {
 	.form {
-		label.field-label {
-			&:after {
-				content: ' : ';
-			}
-		}
-
 		input, select {
 			margin-bottom: .25em;
 			border-radius: 0;
@@ -29,24 +23,44 @@
 			}
 		}
 
-		input[type=text], input[type=number], select {
-			padding: 0 .25em;
-
-			border: 0;
-			border-bottom: 1px solid @mlGray;
-			background-color: transparent;
-
-			&:focus {
-				border-bottom-color: @yellow;
+		.form-field {
+			label.field-label {
+				&:after {
+					content: ' : ';
+				}
 			}
 
-			&:disabled {
-				border-bottom-width: 0;
-				color: @mlGray;
+			.message {
+				margin-left: 33%;
+				display: none;
+			}
+
+			input[type=text], input[type=number], select {
+				padding: 0 .25em;
+
+				border: 0;
+				border-bottom: 1px solid @mlGray;
+				background-color: transparent;
+
+				&:focus {
+					border-bottom-color: @yellow;
+				}
+
+				&:disabled {
+					border-bottom-width: 0;
+					color: @mlGray;
+				}
 			}
 
 			&.error {
-				border-bottom-color: @error;
+				input[type=text], input[type=number], select {
+					border-bottom-color: @error;
+				}
+
+				.message {
+					display: block;
+					color: @error;
+				}
 			}
 		}
 	}

@@ -5,7 +5,7 @@
 	left: @barWidth + 2*@margins;
 	right: @margins;
 	overflow: auto;
-	
+
 	background-color: @lightGray;
 
 	#search {
@@ -35,7 +35,7 @@
 			.white-box;
 			display: inline-block;
 		}
-		
+
 		.content-box {
 			.white-box;
 
@@ -58,6 +58,8 @@
 			}
 
 			.content-list, .content-list-with-header {
+				clear: right;
+
 				.selected {
 					background-color: @lyellow;
 
@@ -66,7 +68,7 @@
 					}
 				}
 			}
-			
+
 			.content-list {
 				&>:nth-child(2n+1) {
 					background-color: @xlightGray;
@@ -110,38 +112,38 @@
 
 			.progress {
 				height: .3em;
-				
+
 				background-color: @midGray;
 				margin: 0;
 				position: relative;
-					
+
 				.bar {
 					position: absolute;
 					top: 0;
 					left: 0;
-					
+
 					height: 100%;
 					width: 0;
 					background-color: @yellow;
 				}
-				
+
 			}
 		}
 	}
-	
+
 	.datagrid {
 		font-size: .75em;
 		padding: @margins;
 		border-spacing: 0;
 		width: 100%;
-		
+
 		th {
 			text-align: left;
 			font-family: NestorTitleFont;
 			background-color: @darkGray;
 			color: @yellow;
 		}
-		
+
 		tr:nth-child(even) {
 			background-color: @lightGray;
 		}
