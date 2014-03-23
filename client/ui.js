@@ -14,8 +14,8 @@ function(ist, mainTemplate, components, signals, dom, when, uihelpers) {
 	 */
 
 	function showView(view) {
-		view.displayed.dispatch();
 		view.style.display = "block";
+		view.displayed.dispatch();
 	}
 
 
@@ -26,13 +26,15 @@ function(ist, mainTemplate, components, signals, dom, when, uihelpers) {
 
 
 	function resizePopup() {
-		var container = $("#popup #content");
+		setTimeout(function() {
+			var container = $("#popup #content");
 
-		var w = container.offsetWidth;
-		var h = container.offsetHeight;
+			var w = container.offsetWidth;
+			var h = container.offsetHeight;
 
-		container.style.marginLeft = (-w/2) + "px";
-		container.style.marginTop = (-h/2) + "px";
+			container.style.marginLeft = (-w/2) + "px";
+			container.style.marginTop = (-h/2) + "px";
+		}, 0);
 	}
 
 
@@ -273,7 +275,7 @@ function(ist, mainTemplate, components, signals, dom, when, uihelpers) {
 
 			var mainContainer = $("#main-container");
 			mainContainer.style.display = "block";
-			
+
 			istRendered = mainTemplate.render(istContext);
 			mainContainer.innerHTML = "";
 			mainContainer.appendChild(istRendered);
@@ -294,7 +296,7 @@ function(ist, mainTemplate, components, signals, dom, when, uihelpers) {
 				if (err) {
 					ui.error("router/* - " + err.message, err.stack);
 				}
-				
+
 				next(err);
 			});
 
@@ -319,7 +321,7 @@ function(ist, mainTemplate, components, signals, dom, when, uihelpers) {
 							hideView(view);
 						});
 					});
-					
+
 					delete manifest.viewTypes;
 					delete manifest.links;
 				});
@@ -386,12 +388,12 @@ function(ist, mainTemplate, components, signals, dom, when, uihelpers) {
 		/*
 		 * Get a view element, creating it if necessary
 		 *
-		 * Options: 
+		 * Options:
 		 *   type:        "main", "popup", "applet" or "settings"
 		 *   updater:     optional; passed to view.autoUpdate()
 		 *   css:         optional; passed to view.loadCSS()
 		 *
-		 * When type is "main" or "popup", those can be specified to add a link to show 
+		 * When type is "main" or "popup", those can be specified to add a link to show
 		 * the view in the action bar :
 		 *   link:        link label
 		 *   icon:        optional; link icon name
