@@ -1,12 +1,6 @@
 /*jshint node:true */
 "use strict";
 
-var argv = require("optimist").argv;
-
-if (argv.daemon) {
-	require("daemon")();
-}
-
 var mongoose = require("mongoose"),
 	ncall = require("when/node/function").call,
 	logger = require("log4js").getLogger("nestor"),

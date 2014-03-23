@@ -10,7 +10,6 @@
   "dependencies": {
     "bower": "*",
     "connect-mongo": "*",
-    "daemon": "*",
     "express": "*",
     "less-middleware": "*",
     "log4js": "*",
