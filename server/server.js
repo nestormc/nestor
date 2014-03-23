@@ -11,13 +11,13 @@ var http = require("http"),
 	yarm = require("yarm"),
 	logger = require("log4js").getLogger("server"),
 	MongoStore = require("connect-mongo")(express),
-	
+
 	config = require("./config"),
 
 	intents = require("./intents"),
 	auth = require("./auth"),
 	io = require("./io"),
-	
+
 	app = express();
 
 
@@ -41,7 +41,7 @@ function lessPreprocessor(src, req) {
 	if (req.param("namespace")) {
 		src = req.param("namespace") + " { " + src + " } ";
 	}
-	
+
 	return src;
 }
 
@@ -126,7 +126,7 @@ function rjsBuilder(name, next) {
 	options.out = path.join(path.join(publicRoot, "js"), name + "-min.js");
 	//options.optimize = "uglify2";
 	options.optimize = "none";
-	
+
 	if (app.get("env") === "development") {
 		// Force build
 		rjsBuild(options, next);
@@ -187,7 +187,7 @@ app.use(lessMiddleware(
 app.use("/js/require.js", function(req, res, next) {
 	res.sendfile(path.join(nestorRoot, "node_modules/requirejs/require.js"));
 });
-	
+
 
 app.get(/^\/js\/(\w+)-min\.js$/, function(req, res, next) {
 	rjsBuilder(req.params[0], next);
@@ -218,10 +218,6 @@ function registerPlugin(name, clientPlugin) {
 	}
 }
 
-function getPluginIO(name) {
-
-}
-
 
 
 /*!
@@ -238,7 +234,7 @@ app.use("/rest", function(req, res, next) {
 	} else {
 		logger.debug("REST-%s %s", req.method, req.url);
 	}
-	
+
 	next();
 });
 
@@ -337,6 +333,5 @@ intents.on("nestor:startup", function() {
 
 
 module.exports = {
-	registerPlugin: registerPlugin,
-	getPluginIO: getPluginIO
+	registerPlugin: registerPlugin
 };
