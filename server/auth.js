@@ -76,7 +76,7 @@ UserSchema.virtual("provider").get(function() {
 
 UserSchema.virtual("userid").get(function() {
 	var userid = this.identifier.replace(/^[^:]+:/, "");
-	
+
 	if (this.provider === "twitter") {
 		return "@" + userid;
 	} else {
@@ -150,7 +150,7 @@ intents.on("nestor:right", function(right) {
 		right.route.replace(/\*/g, ".*").replace(/:\w+/g, "[^\/]+") +
 		"$", "i"
 	);
-	
+
 	knownRights.push(right);
 });
 
@@ -299,8 +299,8 @@ module.exports = {
 		passport.use(new TwitterStrategy(
 			{
 				consumerKey: config.twitter.key,
-    			consumerSecret: config.twitter.secret,
-    			callbackURL: host + "/auth/twitter/return"
+				consumerSecret: config.twitter.secret,
+				callbackURL: host + "/auth/twitter/return"
 			},
 			function (token, tokenSecret, profile, done) {
 				logger.debug("Return from twitter auth with token %s, secret %s and profile %j", token, tokenSecret, profile);
@@ -364,8 +364,8 @@ module.exports = {
 			var restricted = !req.isAuthenticated() || knownRights.some(function(right) {
 				if ((!right.methods || right.methods.indexOf(req.method) !== -1) && req.path.match(right.regexp)) {
 					if (!req.user.hasRight(right.name)) {
-						logger.debug("Denied access to /rest%s to user %s who's missing right %s",
-							req.path, req.user.identifier, right.name);
+						logger.debug("Denied access to %s /rest%s to user %s who's missing right %s",
+							req.method, req.path, req.user.identifier, right.name);
 						return true;
 					}
 				}
