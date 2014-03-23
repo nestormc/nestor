@@ -3,14 +3,14 @@
 	#nestor
 		#logo-container
 			img[src=images/nestor.svg]
-			
+
 		#user-container
 			.user "{{ user }}"
 			ul.userlinks
 				@eachkey { settings: "/settings", logout: "/logout" }
 					li
 						a[href=#{{ value }}] "{{ key }}"
-					
+
 	/* Plugin list */
 	@each plugins
 		@if typeof title !== "undefined"
@@ -25,8 +25,8 @@
 						li
 							a[href=#{{ route }}]
 								img[src=images/{{ icon || "list" }}.svg]
-								"{{ label }}" 
-					
+								"{{ label }}"
+
 #viewport
 	@each plugins
 		@each viewTypes.main
@@ -36,7 +36,7 @@
 		@dom this
 
 @dom player
-	
+
 #popup
 	#background
 	#content
@@ -52,3 +52,5 @@
 @define "progress-bar"
 	.progress
 		.bar[.style.width={{ this }}%]
+
+@include "form"

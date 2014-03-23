@@ -1,11 +1,12 @@
 /*jshint browser:true*/
 /*global define*/
-define(["./list-selection-behaviour", "./content-list"],
-function(listSelectionBehaviour, setupContentList) {
+define(["./list-selection-behaviour", "./content-list", "./form"],
+function(listSelectionBehaviour, setupContentList, form) {
 	"use strict";
-	
+
 	return {
 		listSelectionBehaviour: listSelectionBehaviour,
-		setupContentList: setupContentList
+		setupContentList: setupContentList,
+		form: form
 	};
 });

@@ -9,10 +9,14 @@
 	box-sizing: border-box;
 	-webkit-box-sizing: border-box;
 	-moz-box-sizing: border-box;
-	
+
 	/* reset UA margins */
 	margin: 0;
 	padding: 0;
+}
+
+::selection, input::selection, select::selection {
+	background: @yellow;
 }
 
 input:focus,
@@ -48,3 +52,4 @@ body {
 
 @import "slider.less";
 @import "icons.less";
+@import "form.less";

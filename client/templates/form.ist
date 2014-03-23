@@ -1,0 +1,46 @@
+@define "form"
+	.form
+		@behave behaviour
+			@each fields
+				@use "form-field"
+			.form-buttons
+				@with { label: typeof submitLabel === 'undefined' ? 'Submit' : submitLabel }
+					@use "form-submit"
+				@if typeof cancelLabel !== 'undefined'
+					@use "form-cancel"
+
+
+@define "form-field"
+	@if type === "hidden"
+		@use "form-input"
+	@else
+		.form-field
+			label.field-label[for={{ name }}] "{{ label }}"
+			@if ["text", "number"].indexOf(type) !== -1
+				@use "form-input"
+			@else
+				@use "form-" + type
+
+
+@define "form-label"
+	label "{{ value }}"
+
+
+@define "form-select"
+	select[name={{ name }}]
+		@each options
+			option[value={{ value }}] "{{ typeof label === 'undefined' ? '' : label }}"
+
+@define "form-input"
+	@if typeof readonly !== "undefined" && readonly
+		input[type={{ type }}][name={{ name }}][disabled=disabled][value={{ typeof value === "undefined" ? "" : value }}]
+	@else
+		input[type={{ type }}][name={{ name }}][value={{ typeof value === "undefined" ? "" : value }}]
+
+
+@define "form-submit"
+	@with { type: "submit", name: "submit", value: label }
+		@use "form-input"
+
+@define "form-cancel"
+	input.cancel[type=button][value={{ cancelLabel }}]
