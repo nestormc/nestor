@@ -69,12 +69,19 @@ define(["ist", "dom"], function(ist, dom) {
 			Object.keys(values).forEach(function(name) {
 				if (name in fields) {
 					var field = fields[name];
-					var parent = dom.$P(field, ".form-field");
-					var message = dom.$(parent, ".message");
+					field.value = values[name];
 
-					fields[name].value = values[name];
-					parent.classList.remove("error");
-					message.textContent = "";
+
+					var parent = dom.$P(field, ".form-field");
+					if (parent) {
+						parent.classList.remove("error");
+
+						var message = dom.$(parent, ".message");
+
+						if (message) {
+							message.textContent = "";
+						}
+					}
 				}
 			});
 		}
