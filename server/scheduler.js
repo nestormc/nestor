@@ -7,13 +7,49 @@ var config = require("./config").scheduler;
 var when = require("when");
 var timeout = require("when/timeout");
 var logger = require("log4js").getLogger("scheduler");
+var spawn = require("child_process").spawn;
 
 var maxJobs = (config || {}).maxJobs || 1;
 var jobTimeout = (config || {}).jobTimeout || 10000;
 
 var queue = [];
 var processing = 0;
-var processors = {};
+
+
+var processors = {
+	"mimetype": function(data) {
+		var path = data.path;
+		var callback = data.callback;
+		var mime = "";
+		var child;
+
+		try {
+			child = spawn("file", ["--brief", "--mime-type", path]);
+		} catch(e) {
+			callback(e);
+			return when.resolve();
+		}
+
+		var d = when.defer();
+
+		child.stdout.on("data", function(data) {
+			mime += data.toString();
+		});
+
+		child.stdout.on("error", function(err) {
+			callback(err);
+			d.resolve();
+		});
+
+		child.stdout.on("end", function() {
+			callback(null, path, mime.trim("\n"));
+			d.resolve();
+		});
+
+		return d.promise;
+	}
+};
+
 
 function jobDesc(op) {
 	var desc = op.op;
@@ -30,11 +66,11 @@ function jobDesc(op) {
 function enqueue(op) {
 	logger.debug("Enqueue %j", jobDesc(op));
 	queue.push(op);
-	
+
 	if (processing === 0) {
 		logger.debug("Start processing queue");
 	}
-	
+
 	run();
 }
 

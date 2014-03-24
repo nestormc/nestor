@@ -1,6 +1,8 @@
 /*jshint node:true*/
 "use strict";
 
+var intents = require("./intents");
+
 
 /* Throttle work to run at most once every interval milliseconds.
  *
@@ -49,4 +51,12 @@ exports.titleCase = function(str) {
 	return ucFirst(str.toLowerCase().replace(/\b(\w+)\b/g, function(m, word) {
 		return word.match(noCap) ? word : ucFirst(word);
 	}));
+};
+
+
+exports.mimetype = function(path, callback) {
+	intents.emit("nestor:scheduler:enqueue", "mimetype", {
+		path: path,
+		callback: callback
+	});
 };
