@@ -7,6 +7,7 @@ var misc = require("./misc");
 var logger = require("log4js").getLogger("io");
 
 var FLUSH_THROTTLE = 1000;
+var VERBOSE_DEBUG = false;
 
 
 /* A "nestor:watchable"(name, Model, options) intent enables watching
@@ -117,6 +118,11 @@ function triggerSave(collection, doc) {
 	var watchable = watchables[collection];
 
 	if (watchable) {
+		if (VERBOSE_DEBUG) {
+			logger.debug("--- save %s ---", collection);
+			logger.debug("  => %s", doc.title || doc._id || JSON.stringify(doc));
+		}
+
 		var data = { op: "save", doc: watchable.model ? doc.toObject(watchable.toObject) : doc };
 
 		// Push change to every socket watching this collection
@@ -131,6 +137,11 @@ function triggerRemove(collection, doc) {
 	var watchable = watchables[collection];
 
 	if (watchable) {
+		if (VERBOSE_DEBUG) {
+			logger.debug("--- remove %s ---", collection);
+			logger.debug("  => %s", doc.title || doc._id || JSON.stringify(doc));
+		}
+
 		var data = { op: "remove", doc: watchable.model ? doc.toObject(watchable.toObject) : doc };
 
 		// Push change to every socket watching this collection
@@ -197,6 +208,13 @@ function enableWatchers(socket) {
 		Object.keys(pending).forEach(function(collection) {
 			if (paused.indexOf(collection) !== -1 || pending[collection].length === 0) {
 				return;
+			}
+
+			if (VERBOSE_DEBUG) {
+				logger.debug("--- flushing %s ---", collection);
+				pending[collection].forEach(function(item) {
+					logger.debug("  %s %s", item.op, item.doc.title || item.doc._id || JSON.stringify(item.doc));
+				});
 			}
 
 			socket.emit("watch:" + collection, pending[collection]);
@@ -289,11 +307,15 @@ function enableWatchers(socket) {
 		var last = lastFetched[collection];
 		var query = last ? getAfterDocOperator(sort, last) : {};
 
-		watchable.model.find(query).limit(count).exec(function(err, docs) {
+		watchable.model.find(query).sort(sort).limit(count).exec(function(err, docs) {
 			if (err) {
 				callback(err.message);
 				logger.error("Error fetching " + count + " docs from watched collection " + collection + ": " + err.message);
 				return;
+			}
+
+			if (VERBOSE_DEBUG) {
+				logger.debug("--- fetching %s ---", collection);
 			}
 
 			if (docs.length) {
@@ -302,6 +324,15 @@ function enableWatchers(socket) {
 
 			if (docs.length < count) {
 				fullyFetched.push(collection);
+				if (VERBOSE_DEBUG) {
+					logger.debug("  => fully fetched");
+				}
+			}
+
+			if (VERBOSE_DEBUG) {
+				docs.forEach(function(doc) {
+					logger.debug("  fetch %s", doc.title || doc._id || JSON.stringify(doc));
+				});
 			}
 
 			callback(null, docs.map(function(d) { return d.toObject(watchable.toObject); }));
