@@ -118,79 +118,79 @@ define(["router", "ui", "dom"], function(router, ui, dom) {
 		view.displayed.add(function() {
 			if (!watcher) {
 				watcher = resource.watch();
-			}
 
-			watcher.resume();
+				var fetching = false;
+				var fetch = function() {
+					if (fetching) {
+						return;
+					}
 
-			var fetching = false;
-			function fetch() {
-				if (fetching) {
-					return;
-				}
+					fetching = true;
+					view.loading.dispatch(true);
 
-				fetching = true;
-				view.loading.dispatch(true);
+					(fetcher ? fetcher(fetchCount) : watcher.fetch(fetchCount))
+					.then(function(docs) {
+						renderDocs(docs);
+						fetching = false;
+						view.loading.dispatch(false);
+					})
+					.otherwise(function(err) {
+						console.log((fetcher ? "Fetcher" : "Watch fetch") + " error: " + err);
+						fetching = false;
+						view.loading.dispatch(false);
+					});
+				};
 
-				(fetcher ? fetcher(fetchCount) : watcher.fetch(fetchCount))
-				.then(function(docs) {
-					renderDocs(docs);
-					fetching = false;
-					view.loading.dispatch(false);
-				})
-				.otherwise(function(err) {
-					console.log((fetcher ? "Fetcher" : "Watch fetch") + " error: " + err);
-					fetching = false;
-					view.loading.dispatch(false);
+				var renderDocs = function(docs, next) {
+					var rootContainer = view.$(root.selector);
+					var mapped = dataMapper(docs);
+
+					if (!rootContainer) {
+						// Initial render
+						view.appendChild(root.template.render(mapped));
+					} else {
+						// Update
+						updateIntoView(
+							mapped[root.childrenArray],
+							config[root.childrenConfig],
+							rootContainer,
+							next ? dataMapper([next])[root.childrenArray] : null
+						);
+					}
+
+					view.behave(behaviour);
+				};
+
+				// Add scroll handler to load more
+				view.scrolledToEnd.add(fetch);
+
+				// Setup data update handlers
+				watcher.updated.add(function(document, next) {
+					renderDocs([document], next);
+				});
+
+				watcher.removed.add(function(document) {
+					var rootContainer = view.$(root.selector);
+					var mapped = dataMapper([document]);
+
+					removeFromView(
+						mapped[root.childrenArray],
+						config[root.childrenConfig],
+						rootContainer
+					);
+				});
+
+				// Initial fetch
+				fetch();
+
+				// Cancel loading when UI stops
+				ui.stopping.add(function() {
+					watcher.dispose();
+					watcher = null;
 				});
 			}
 
-			function renderDocs(docs, next) {
-				var rootContainer = view.$(root.selector);
-				var mapped = dataMapper(docs);
-
-				if (!rootContainer) {
-					// Initial render
-					view.appendChild(root.template.render(mapped));
-				} else {
-					// Update
-					updateIntoView(
-						mapped[root.childrenArray],
-						config[root.childrenConfig],
-						rootContainer,
-						next ? dataMapper([next])[root.childrenArray] : null
-					);
-				}
-
-				view.behave(behaviour);
-			}
-
-			// Add scroll handler to load more
-			view.scrolledToEnd.add(fetch);
-
-			// Setup data update handlers
-			watcher.updated.add(function(document, next) {
-				renderDocs([document], next);
-			});
-
-			watcher.removed.add(function(document) {
-				var rootContainer = view.$(root.selector);
-				var mapped = dataMapper([document]);
-
-				removeFromView(
-					mapped[root.childrenArray],
-					config[root.childrenConfig],
-					rootContainer
-				);
-			});
-
-			// Initial fetch
-			fetch();
-
-			// Cancel loading when UI stops
-			ui.stopping.add(function() {
-				watcher.dispose();
-				watcher = null;
-			});
+			watcher.resume();
 		});
 	}
 
