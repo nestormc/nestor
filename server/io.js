@@ -35,7 +35,8 @@ var VERBOSE_DEBUG = false;
 
 
    If <Model> is a mongoose model:
-   - "save" and "remove" hooks on the model trigger update message
+   - "save" and "remove" hooks on the model trigger update message, except when
+     <options> contains a truthy "noHooks" key
    - if <options> contains a "toObject" key, it is used to transform documents
      before sending updates.
    - if <options> contains a "sort" key, it indicates a sort operator for the
@@ -165,7 +166,7 @@ intents.on("nestor:watchable", function(name, Model, options) {
 		toObject: Model ? options.toObject : null
 	};
 
-	if (Model) {
+	if (Model && !options.noHooks) {
 		Model.schema.post("save", function(doc) {
 			triggerSave(name, doc);
 		});
