@@ -19,7 +19,7 @@
 	@else
 		.form-field
 			label.field-label[for={{ name }}] "{{ label }}"
-			@if ["text", "number"].indexOf(type) !== -1
+			@if ["text", "number", "password"].indexOf(type) !== -1
 				@use "form-input"
 			@else
 				@use "form-" + type
@@ -32,8 +32,11 @@
 
 @define "form-select"
 	select[name={{ name }}]
-		@each options
-			option[value={{ value }}] "{{ typeof label === 'undefined' ? '' : label }}"
+		@eachkey options
+			@if typeof loop.outer.value !== "undefined" && loop.outer.value === value
+				option[value={{ key }}][selected=selected] "{{ value }}"
+			@else
+				option[value={{ key }}] "{{ value }}"
 
 @define "form-input"
 	@if typeof readonly !== "undefined" && readonly

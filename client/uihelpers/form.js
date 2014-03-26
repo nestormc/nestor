@@ -4,6 +4,9 @@ define(["ist", "dom"], function(ist, dom) {
 	"use strict";
 
 	/* options = {
+	 *   // Specify form title, defaults to no title
+	 *   title: "My form",
+	 *
 	 *   // Specify submit button label, defaults to "Submit"
 	 *   submitLabel: "submit",
 	 *
@@ -21,9 +24,9 @@ define(["ist", "dom"], function(ist, dom) {
 	 *   // Field definitions
 	 *   fields: [
 	 *     // Text field
-	 *     { type: "text", name: "name", label: "label", value: "value" },
+	 *     { type: "text", name: "name", label: "label" },
 	 *
-	 *     // Number field
+	 *     // Number field with initial value
 	 *     { type: "number", name: "name", label: "label", value: "42" },
 	 *
 	 *     // Select field
@@ -32,7 +35,16 @@ define(["ist", "dom"], function(ist, dom) {
 	 *     // Hidden field
 	 *     { type: "hidden", name: "name", value: "hidden value" },
 	 *
-	 *     // Field with validator
+	 *     // Only show field when other field has value "value"
+	 *     { ..., when: { other: "value" } },
+	 *
+	 *     // Only show field when other field has value "foo" or "bar"
+	 *     { ..., when: { other: ["foo", "bar"] } },
+	 *
+	 *     // Only show field when other field matches regexp
+	 *     { ..., when: { other: /^foo|bar$/ } },
+	 *
+	 *     // Field with validator (only called when field is shown)
 	 *     {
 	 *       ...,
 	 *       validate: function(value) {
@@ -69,10 +81,10 @@ define(["ist", "dom"], function(ist, dom) {
 			Object.keys(values).forEach(function(name) {
 				if (name in fields) {
 					var field = fields[name];
+					var parent = field._parent;
+
 					field.value = values[name];
 
-
-					var parent = dom.$P(field, ".form-field");
 					if (parent) {
 						parent.classList.remove("error");
 
@@ -82,6 +94,28 @@ define(["ist", "dom"], function(ist, dom) {
 							message.textContent = "";
 						}
 					}
+				}
+			});
+
+			updateFieldVisibility();
+		}
+
+		function updateFieldVisibility() {
+			var values = getValues();
+
+			options.fields.forEach(function(field) {
+				if ("when" in field) {
+					var parent = fields[field.name]._parent;
+
+					parent.style.display =
+						Object.keys(field.when).every(function(other) {
+							var expected = field.when[other];
+							var value = values[other];
+
+							return value === expected ||
+								Array.isArray(expected) && expected.indexOf(value) !== -1 ||
+								expected instanceof RegExp && value.match(expected);
+						}) ? "block" : "none";
 				}
 			});
 		}
@@ -97,16 +131,26 @@ define(["ist", "dom"], function(ist, dom) {
 							cancel.click();
 						}
 					}
+				},
+
+				"change": function() {
+					updateFieldVisibility();
+
+					if (this._parent) {
+						this._parent.classList.remove("error");
+					}
 				}
 			},
 
 			"input[type=submit]": {
 				"click": function() {
 					var values = getValues();
+
+					// Call validators for visible fields
 					var errors = options.fields.reduce(function(count, field) {
-						if ("validate" in field) {
+						if (fields[field.name]._parent && fields[field.name]._parent.style.display === "block" && "validate" in field) {
 							var error = field.validate(values[field.name]);
-							var parent = dom.$P(fields[field.name], ".form-field");
+							var parent = fields[field.name]._parent;
 							var message = dom.$(parent, ".message");
 
 							if (error) {
@@ -152,9 +196,13 @@ define(["ist", "dom"], function(ist, dom) {
 		root = dom.$(rendered, ".form");
 		options.fields.forEach(function(field) {
 			if (field.type !== "label") {
-				fields[field.name] = dom.$(root, "[name='" + field.name + "']");
+				var _field = fields[field.name] = dom.$(root, "[name='" + field.name + "']");
+				_field._parent = dom.$P(_field, ".form-field");
+				_field._options = field;
 			}
 		});
+
+		updateFieldVisibility();
 
 		return rendered;
 	};
