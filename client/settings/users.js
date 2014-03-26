@@ -13,6 +13,10 @@ define([
 	var rightsPromise = resources.rights.get();
 
 	ui.started.add(function() {
+		if (!ui.hasRight("nestor:users")) {
+			return;
+		}
+
 		var usersView = ui.view("users");
 		var uvRendered;
 		var uvContext = { users: [], rights: [] };
@@ -185,6 +189,7 @@ define([
 	});
 
 	return {
+		ifRight: "nestor:users",
 		type: "settings",
 		title: "Users",
 		description: "Manage nestor users",
