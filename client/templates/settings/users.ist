@@ -4,15 +4,17 @@ ul.content-list
 	@each users
 		li[class=list-item user{{ showRights ? " show-rights" : "" }}][data-id={{ identifier }}]
 			.list-item-status "Last logged in {{ lastLogin }}"
-			
+
 			.list-item-description
 				.list-item-title "{{ displayName }}"
 				.list-item-subtitle
-					span.icon
+					span.icon-color
 						@if provider === "google"
 							img[src=images/google/hover.png]
 						@if provider === "twitter"
 							@svg "images/twitter/hover.svg"
+						@if provider === "local"
+							@svg "images/nestor-margin.svg"
 
 					"{{ userid }}"
 
@@ -39,7 +41,7 @@ ul.content-list
 						span.more "More"
 						span.less "Less"
 
-				
+
 				a.action-with-icon[title=Remove user][href=#!settings/users/remove/{{ identifier }}]
 					@svg "images/cancel.svg"
 					"Remove user"

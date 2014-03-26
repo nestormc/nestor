@@ -6,6 +6,10 @@ define(["rest"], function(rest) {
 
 	return {
 		users: {
+			add: function(data) {
+				return rest.post("users", data);
+			},
+
 			get: function() {
 				return rest.get("users", { limit: 0 });
 			},

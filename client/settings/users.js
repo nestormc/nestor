@@ -11,7 +11,7 @@ define([
 	"use strict";
 
 	var rightsPromise = resources.rights.get();
-	
+
 	ui.started.add(function() {
 		var usersView = ui.view("users");
 		var uvRendered;
@@ -41,6 +41,109 @@ define([
 			}
 
 			updateUsers();
+		});
+
+		var addView = ui.view("add-user", { type: "popup" });
+		var addForm = ui.helpers.form({
+			title: "Add user",
+
+			submitLabel: "Add",
+			cancelLabel: "Cancel",
+
+			onSubmit: function(values) {
+				resources.users.add(values)
+				.then(function() {
+					addView.hide();
+					updateUsers();
+				})
+				.otherwise(function(err) {
+					addForm.setErrors({ type: err.message });
+				});
+			},
+
+			onCancel: function() {
+				addView.hide();
+			},
+
+			fields: [
+				{
+					name: "type", type: "select", label: "User type", value: "local",
+					options: {
+						"local": "Local user",
+						"twitter": "Twitter",
+						"google": "Google"
+					}
+				},
+				{
+					name: "username", type: "text", label: "User name", value: "",
+					when: { type: "local" },
+					validate: function(value) {
+						if (value.length === 0) {
+							return "User name is mandatory";
+						}
+					}
+				},
+				{
+					name: "twitterhandle", type: "text", label: "Twitter handle", value: "",
+					when: { type: "twitter" },
+					validate: function(value) {
+						var values = addForm.getValues();
+
+						if (values.type === "twitter" && value.length === 0) {
+							return "Twitter handle is mandatory";
+						}
+					}
+				},
+				{
+					name: "googlemail", type: "text", label: "E-mail address", value: "",
+					when: { type: "google" },
+					validate: function(value) {
+						var values = addForm.getValues();
+
+						if (values.type === "google" && value.length === 0) {
+							return "E-mail address is mandatory";
+						}
+					}
+				},
+				{
+					name: "password", type: "password", label: "Password", value: "",
+					when: { type: "local" },
+					validate: function(value) {
+						var values = addForm.getValues();
+
+						if (values.type === "local" && value.length === 0) {
+							return "Password is mandatory";
+						}
+					}
+				},
+				{
+					name: "confirm", type: "password", label: "Confirm", value: "",
+					when: { type: "local" },
+					validate: function(value) {
+						var values = addForm.getValues();
+
+						if (values.type === "local" && value !== values.password) {
+							return "Passwords do not match";
+						}
+					}
+				}
+			]
+		});
+		addView.appendChild(addForm);
+
+		router.on("!settings/users/add", function(err, req, next) {
+			addForm.setValues({
+				type: "local",
+				username: "",
+				password: "",
+				confirm: "",
+				twitterhandle: "",
+				googlemail: ""
+			});
+			addView.show();
+			addView.resize();
+
+			next();
 		});
 
 		router.on("!settings/users/remove/:id", function(err, req, next) {
@@ -85,6 +188,13 @@ define([
 		type: "settings",
 		title: "Users",
 		description: "Manage nestor users",
-		icon: "key"
+		icon: "key",
+		actions: [
+			{
+				"title": "Add user",
+				"icon": "add",
+				"route": "!settings/users/add"
+			}
+		]
 	};
 });
