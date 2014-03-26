@@ -188,6 +188,49 @@ yarm.mongoose("users", User)
 		}
 	})
 
+	.post(function(req, cb) {
+		var values = req.body;
+
+		var user = new User();
+		user.policy = "deny";
+		user.rights.push("nestor:login");
+
+		switch (values.type) {
+			case "local":
+				if (values.username === "admin") {
+					return cb(new Error("Invalid user name: " + values.username));
+				}
+
+				user.identifier = "local:" + values.username;
+				user.displayName = values.username;
+				user.setPassword(values.password);
+				break;
+
+			case "google":
+				user.identifier = "google:" + values.googlemail;
+				user.displayName = values.googlemail;
+				break;
+
+			case "twitter":
+				user.identifier = "twitter:" + values.twitterhandle.replace(/^@/, "");
+				user.displayName = "@" + values.twitterhandle.replace(/^@/, "");
+				break;
+
+			default:
+				return cb(new Error("Unknown user type: " + values.type));
+		}
+
+		logger.warn("POSTing user %j", user);
+
+		user.save(function(err) {
+			if (err) {
+				return cb(err);
+			}
+
+			cb.created();
+		});
+	})
+
 	// Allow removing right by name instead of array index
 	.sub(":docid/rights/:right")
 		.del(function(req, cb) {
