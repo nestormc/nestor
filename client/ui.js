@@ -1,8 +1,8 @@
 /*jshint browser:true*/
 /*global define*/
 define(
-["ist-wrapper", "ist!tmpl/main", "components/index", "signals", "dom", "when", "uihelpers/index"],
-function(ist, mainTemplate, components, signals, dom, when, uihelpers) {
+["ist-wrapper", "ist!tmpl/main", "components/index", "signals", "dom", "when", "login", "uihelpers/index"],
+function(ist, mainTemplate, components, signals, dom, when, login, uihelpers) {
 	"use strict";
 
 	var $ = dom.$;
@@ -194,6 +194,8 @@ function(ist, mainTemplate, components, signals, dom, when, uihelpers) {
 		/* Player interface */
 		player: null,
 
+		/* Login shortcut */
+		hasRight: function(right) { return login.hasRight(right); },
 
 		/* Signals */
 		started: new signals.Signal(),
@@ -248,6 +250,11 @@ function(ist, mainTemplate, components, signals, dom, when, uihelpers) {
 				/* Create manifest views and routes */
 				Object.keys(manifest.views || {}).forEach(function(id) {
 					var options = manifest.views[id];
+
+					if ("ifRight" in options && !login.hasRight(options.ifRight)) {
+						return;
+					}
+
 					var view = pluginUI.view(id, options);
 
 					if (options.type === "main" || options.type === "popup") {
