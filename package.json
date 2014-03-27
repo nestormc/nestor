@@ -11,6 +11,7 @@
     "bower": "*",
     "connect-mongo": "*",
     "express": "*",
+    "fluent-ffmpeg": "*",
     "less-middleware": "*",
     "log4js": "*",
     "mongodb": "*",

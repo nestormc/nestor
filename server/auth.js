@@ -2,7 +2,8 @@
 
 "use strict";
 
-var crypto = require("crypto"),
+var express = require("express"),
+	crypto = require("crypto"),
 	mongoose = require("mongoose"),
 	passport = require("passport"),
 	LocalStrategy = require("passport-local").Strategy,
@@ -265,162 +266,162 @@ intents.on("nestor:startup", function() {
 });
 
 
-module.exports = {
-	init: function(app, host) {
-		/* Initialize passport */
+exports.listen = function(app, host) {
+	/* Initialize passport */
 
-		app.use(passport.initialize());
-		app.use(passport.session());
+	app.use(passport.initialize());
+	app.use(passport.session());
 
-		passport.serializeUser(function(user, done) {
-			done(null, user.identifier);
-		});
+	passport.serializeUser(function(user, done) {
+		done(null, user.identifier);
+	});
 
-		passport.deserializeUser(function(id, done) {
-			if (id === "admin") {
-				done(null, AdminUser);
-			} else {
-				User.findOneAndUpdate({ identifier: id }, { lastLogin: new Date() }, done);
-			}
-		});
+	passport.deserializeUser(function(id, done) {
+		if (id === "admin") {
+			done(null, AdminUser);
+		} else {
+			User.findOneAndUpdate({ identifier: id }, { lastLogin: new Date() }, done);
+		}
+	});
 
 
-		/* Setup auth strategies */
+	/* Setup auth strategies */
 
-		passport.use(new LocalStrategy(
-			function (username, password, done) {
-				logger.debug("Local auth attempt for user %s", username);
+	passport.use(new LocalStrategy(
+		function (username, password, done) {
+			logger.debug("Local auth attempt for user %s", username);
 
-				findLocalUser(username, function(err, user) {
+			findLocalUser(username, function(err, user) {
+				if (err) {
+					return done(err);
+				}
+
+				if (!user) {
+					return done(null, false, { message: "Unknown user" });
+				}
+
+				if (!user.validatePassword(password)) {
+					return done(null, false, { message: "Invalid password" });
+				}
+
+				if (!user.hasRight("nestor:login")) {
+					return done(null, false, { message: "Unauthorized user" });
+				}
+
+				done(null, user);
+			});
+		}
+	));
+
+	passport.use(new GoogleStrategy(
+		{
+			returnURL: host + "/auth/google/return",
+			realm: host
+		},
+		function (id, profile, done) {
+			logger.debug("Return from google auth with id %s and profile %j", id, profile);
+			User.findOneAndUpdate(
+				{ identifier: "google:" + profile.emails[0].value },
+				{ displayName: profile.displayName, lastLogin: new Date() },
+				{ upsert: true },
+				function(err, user) {
 					if (err) {
 						return done(err);
 					}
 
-					if (!user) {
-						return done(null, false, { message: "Unknown user" });
-					}
-
-					if (!user.validatePassword(password)) {
-						return done(null, false, { message: "Invalid password" });
-					}
-
 					if (!user.hasRight("nestor:login")) {
-						return done(null, false, { message: "Unauthorized user" });
+						return done(err, false, { message: "Unauthorized user" });
 					}
 
 					done(null, user);
-				});
-			}
-		));
-
-		passport.use(new GoogleStrategy(
-			{
-				returnURL: host + "/auth/google/return",
-				realm: host
-			},
-			function (id, profile, done) {
-				logger.debug("Return from google auth with id %s and profile %j", id, profile);
-				User.findOneAndUpdate(
-					{ identifier: "google:" + profile.emails[0].value },
-					{ displayName: profile.displayName, lastLogin: new Date() },
-					{ upsert: true },
-					function(err, user) {
-						if (err) {
-							return done(err);
-						}
-
-						if (!user.hasRight("nestor:login")) {
-							return done(err, false, { message: "Unauthorized user" });
-						}
-
-						done(null, user);
-					}
-				);
-			}
-		));
-
-		passport.use(new TwitterStrategy(
-			{
-				consumerKey: config.twitter.key,
-				consumerSecret: config.twitter.secret,
-				callbackURL: host + "/auth/twitter/return"
-			},
-			function (token, tokenSecret, profile, done) {
-				logger.debug("Return from twitter auth with token %s, secret %s and profile %j", token, tokenSecret, profile);
-				User.findOneAndUpdate(
-					{ identifier: "twitter:" + profile.username },
-					{ displayName: profile.displayName, lastLogin: new Date() },
-					{ upsert: true },
-					function(err, user) {
-						if (err) {
-							return done(err);
-						}
-
-						if (!user.hasRight("nestor:login")) {
-							return done(err, false, { message: "Unauthorized user" });
-						}
-
-						done(null, user);
-					}
-				);
-			}
-		));
-
-
-		/* Setup login routes */
-
-		app.post("/auth/login", function(req, res, next) {
-			handleAuthentification("local", req, res, next);
-		});
-
-		app.get("/auth/google", passport.authenticate("google"));
-		app.get("/auth/google/return", function(req, res, next) {
-			handleAuthentification("google", req, res, next);
-		});
-
-		app.get("/auth/twitter", passport.authenticate("twitter"));
-		app.get("/auth/twitter/return", function(req, res, next) {
-			handleAuthentification("twitter", req, res, next);
-		});
-
-		app.get("/auth/logout", function(req, res, next) {
-			req.logout();
-			res.send(204);
-		});
-
-		app.get("/auth/status", function(req, res, next) {
-			if (req.isAuthenticated()) {
-				res.send({
-					user: req.user.displayName,
-					policy: req.user.policy,
-					rights: req.user.rights
-				});
-			} else {
-				res.send({});
-			}
-		});
-
-
-		/* Setup rights checking middleware */
-
-		app.use("/rest", function(req, res, next) {
-			var restricted = !req.isAuthenticated() || knownRights.some(function(right) {
-				if ((!right.methods || right.methods.indexOf(req.method) !== -1) && req.path.match(right.regexp)) {
-					if (!req.user.hasRight(right.name)) {
-						logger.debug("Denied access to %s /rest%s to user %s who's missing right %s",
-							req.method, req.path, req.user.identifier, right.name);
-						return true;
-					}
 				}
+			);
+		}
+	));
 
-				return false;
+	passport.use(new TwitterStrategy(
+		{
+			consumerKey: config.twitter.key,
+			consumerSecret: config.twitter.secret,
+			callbackURL: host + "/auth/twitter/return"
+		},
+		function (token, tokenSecret, profile, done) {
+			logger.debug("Return from twitter auth with token %s, secret %s and profile %j", token, tokenSecret, profile);
+			User.findOneAndUpdate(
+				{ identifier: "twitter:" + profile.username },
+				{ displayName: profile.displayName, lastLogin: new Date() },
+				{ upsert: true },
+				function(err, user) {
+					if (err) {
+						return done(err);
+					}
+
+					if (!user.hasRight("nestor:login")) {
+						return done(err, false, { message: "Unauthorized user" });
+					}
+
+					done(null, user);
+				}
+			);
+		}
+	));
+
+
+	/* Setup login routes */
+
+	app.use("/auth", express.json());
+
+	app.post("/auth/login", function(req, res, next) {
+		handleAuthentification("local", req, res, next);
+	});
+
+	app.get("/auth/google", passport.authenticate("google"));
+	app.get("/auth/google/return", function(req, res, next) {
+		handleAuthentification("google", req, res, next);
+	});
+
+	app.get("/auth/twitter", passport.authenticate("twitter"));
+	app.get("/auth/twitter/return", function(req, res, next) {
+		handleAuthentification("twitter", req, res, next);
+	});
+
+	app.get("/auth/logout", function(req, res, next) {
+		req.logout();
+		res.send(204);
+	});
+
+	app.get("/auth/status", function(req, res, next) {
+		if (req.isAuthenticated()) {
+			res.send({
+				user: req.user.displayName,
+				policy: req.user.policy,
+				rights: req.user.rights
 			});
+		} else {
+			res.send({});
+		}
+	});
 
-			if (restricted) {
-				res.send(401, "Forbidden");
-			} else {
-				next();
+
+	/* Setup rights checking middleware */
+
+	app.use("/rest", function(req, res, next) {
+		var restricted = !req.isAuthenticated() || knownRights.some(function(right) {
+			if ((!right.methods || right.methods.indexOf(req.method) !== -1) && req.path.match(right.regexp)) {
+				if (!req.user.hasRight(right.name)) {
+					logger.debug("Denied access to %s /rest%s to user %s who's missing right %s",
+						req.method, req.path, req.user.identifier, right.name);
+					return true;
+				}
 			}
+
+			return false;
 		});
-	}
+
+		if (restricted) {
+			res.send(401, "Forbidden");
+		} else {
+			next();
+		}
+	});
 };

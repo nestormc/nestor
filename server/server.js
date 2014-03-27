@@ -16,6 +16,7 @@ var http = require("http"),
 
 	intents = require("./intents"),
 	auth = require("./auth"),
+	streaming = require("./streaming"),
 	io = require("./io"),
 
 	app = express();
@@ -158,8 +159,7 @@ app.use(express.session({
 	},
 	store: new MongoStore({ url: config.database })
 }));
-app.use("/auth", express.json());
-auth.init(app, webHost);
+auth.listen(app, webHost);
 
 
 
@@ -263,6 +263,13 @@ yarm.resource("plugins")
 		cb(null, ary);
 	});
 
+
+/*!
+ * Streaming endpoints
+ */
+
+
+streaming.listen(app);
 
 
 /*!
