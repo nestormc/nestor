@@ -158,12 +158,12 @@ function applyPreset(type, name, command) {
 		bitrate = Number(parts[1]);
 
 		if (isNaN(bitrate)) {
-			throw new Error("Invalid audio bitrate: ", parts[1]);
+			throw new Error("Invalid audio bitrate: " + parts[1]);
 		}
 	}
 
 	if (!(format in presets[type])) {
-		throw new Error("Unknown " + type + " format: ", format);
+		throw new Error("Unknown " + type + " format: " + format);
 	}
 
 	var preset = presets[type][format];
@@ -200,18 +200,43 @@ function applyPreset(type, name, command) {
 
 
 exports.listen = function(app) {
-	/* REST endpoints to query available formats */
-	yarm.resource("stream-formats/:type")
+	/* REST endpoint to query streamable resource information */
+	yarm.resource("stream/:provider/:id")
 		.get(function(req, cb) {
-			if (req.params.type in presets) {
-				cb(null, presets[req.params.type]);
-			} else {
-				cb.notFound();
+			var name = req.param("provider");
+
+			if (!(name in providers)) {
+				logger.warn("Unknown provider requested: %s", name);
+				return cb.badRequest();
 			}
+
+			var id = req.param("id");
+			providers[name](id, function(err, data) {
+				if (err) {
+					logger.warn("Error requesting %s/%s: %s", name, id, err.message);
+					return cb(err);
+				}
+
+				if (!data) {
+					return cb.notFound();
+				}
+
+				if (["audio", "video"].indexOf(data.type) === -1) {
+					logger.warn("Invalid stream type for %s/%s: %s", name, id, err.message);
+					return cb(new Error("Invalid stream type"));
+				}
+
+				cb(null, {
+					type: data.type,
+					mimetype: data.mimetype,
+					length: data.length,
+					formats: presets[data.type]
+				});
+			});
 		});
 
 
-	/* Streaming endpoints */
+	/* Streaming endpoint */
 	app.get("/stream/:provider/:id/:format/:seek", function(req, res) {
 		var name = req.param("provider");
 
@@ -241,7 +266,7 @@ exports.listen = function(app) {
 			try {
 				applyPreset(data.type, req.param("format"), command);
 			} catch(e) {
-				logger.warn("Preset error for %s/%s: %s", name, id, err.message);
+				logger.warn("Preset error for %s/%s: %s", name, id, e.message);
 				return res.send(400);
 			}
 
@@ -249,11 +274,15 @@ exports.listen = function(app) {
 				command.addOptions(data.options);
 			}
 
+			res.setHeader("X-Nestor-Stream", "TODO-Stream-ID");
+
+			if (data.mimetype) {
+				res.setHeader("Content-Type", data.mimetype);
+			}
+
 			if (data.length) {
 				res.setHeader("X-Content-Duration", data.length);
 			}
-
-			res.setHeader("X-Nestor-Stream", "TODO-Stream-ID");
 
 			command
 				.setStartTime(parseFloat(req.param("seek")))
