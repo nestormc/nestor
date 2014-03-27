@@ -2,15 +2,15 @@
 /*global define*/
 
 define(
-["ist!tmpl/player", "ist!tmpl/playlist", "components/index", "dom", "router", "player/state", "player/providers", "player/fullscreen"],
-function(playerTemplate, playlistTemplate, components, dom, router, state, providers, fullscreen) {
+["ist!tmpl/player", "ist!tmpl/playlist", "components/index", "dom", "router", "player/state", "player/providers", "player/fullscreen", "player/track"],
+function(playerTemplate, playlistTemplate, components, dom, router, state, providers, fullscreen, StreamingTrack) {
 	"use strict";
 
 	function humanTime(duration) {
 		var hours = Math.floor(duration / 3600),
 			minutes = Math.floor(duration % 3600 / 60),
 			seconds = Math.floor(duration) % 60;
-		
+
 		return hours === 0 ? minutes + ":" + (seconds > 9 ? seconds : "0" + seconds)
 						   : hours + "h" + (minutes > 9 ? minutes : "0" + minutes) + "m" + (seconds > 9 ? seconds : "0" + seconds) + "s";
 	}
@@ -63,7 +63,7 @@ function(playerTemplate, playlistTemplate, components, dom, router, state, provi
 
 			if (track) {
 				var trackElement = playlistView.$(".track[data-position=\"" + track._position + "\"");
-				
+
 				if (trackElement) {
 					trackElement.classList.add("playing");
 				}
@@ -111,7 +111,7 @@ function(playerTemplate, playlistTemplate, components, dom, router, state, provi
 	});
 
 	var playerBehaviour = {
-		".display": {
+		"*": {
 			"mousemove": function() {
 				dom.$("#player").classList.remove("fade");
 				dom.$("#player .slider").classList.remove("one-pixel");
@@ -121,8 +121,10 @@ function(playerTemplate, playlistTemplate, components, dom, router, state, provi
 				}
 
 				prepareFade();
-			},
+			}
+		},
 
+		".display": {
 			"click": function() {
 				state.togglePlay();
 			},
@@ -135,7 +137,7 @@ function(playerTemplate, playlistTemplate, components, dom, router, state, provi
 				} else {
 					fullscreen.exit();
 				}
-			}
+			},
 		}
 	};
 
@@ -249,7 +251,9 @@ function(playerTemplate, playlistTemplate, components, dom, router, state, provi
 			 */
 			play: function(position) {
 				state.play(position);
-			}
+			},
+
+			Track: StreamingTrack
 		}
 	};
 
