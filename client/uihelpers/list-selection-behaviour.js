@@ -66,8 +66,14 @@ define(["dom"], function(dom) {
 				if (items.length === 1) {
 					// Put whole list in playlist
 					var selectedItem = items[0];
+					var selectionParent = $P(selectedItem, listSelector, true);
 
-					items = $$($P(selectedItem, listSelector), itemSelector);
+					if (selectionParent === selectedItem) {
+						items = [selectedItem];
+					} else {
+						items = $$(selectionParent, itemSelector);
+					}
+
 					index = items.indexOf(selectedItem);
 				}
 
