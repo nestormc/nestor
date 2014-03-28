@@ -211,7 +211,11 @@ define(["when", "storage", "player/providers"], function(when, storage, provider
 			repeat = loaded.repeat || false;
 			random = loaded.random || false;
 
-			var playIndex = loaded.playIndex || -1;
+			var playIndex = loaded.playIndex;
+
+			if (typeof playIndex === "undefined") {
+				playIndex = -1;
+			}
 
 			this.repeatChanged.dispatch(repeat);
 			this.randomChanged.dispatch(random);
