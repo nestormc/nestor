@@ -233,6 +233,7 @@ exports.listen = function(app) {
 					type: data.type,
 					mimetype: data.mimetype,
 					length: data.length,
+					cover: data.cover,
 					title: data.title,
 					subtitle: data.subtitle,
 					formats: presets[data.type]
