@@ -209,7 +209,7 @@ define(["when", "ui", "rest"], function(when, ui, rest) {
 					self._media.src = [
 						"stream",
 						self._provider,
-						self._id,
+						encodeURIComponent(self._id),
 						self._format + ":" + self._quality,
 						self._requestedSeek
 					].join("/");
