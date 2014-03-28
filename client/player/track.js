@@ -171,8 +171,8 @@ define(["when", "ui", "rest"], function(when, ui, rest) {
 
 		this.metadata = this._mediaPromise.then(function(info) {
 			return {
-				title: "TODO",
-				subtitle: "TODO",
+				title: info.title || "",
+				subtitle: info.subtitle || "",
 				length: info.length
 			};
 		});

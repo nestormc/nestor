@@ -23,9 +23,12 @@ intents.on("nestor:streaming", function(name, provider) {
 				{
 					source:			mandatory, source file path or readable stream
 					type:			mandatory, "audio" or "video"
-					length:			optional, media length in seconds
 					mimetype:		optional, media mime type
 					options:		optional, array of custom ffmpeg options
+					length:			optional, media length in seconds
+					cover:			optional, cover url for "audio" tracks
+					title:			optional, media title
+					subtitle:		optional, media subtitle
 				}
 			);
 		}
@@ -230,6 +233,8 @@ exports.listen = function(app) {
 					type: data.type,
 					mimetype: data.mimetype,
 					length: data.length,
+					title: data.title,
+					subtitle: data.subtitle,
 					formats: presets[data.type]
 				});
 			});
