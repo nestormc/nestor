@@ -289,18 +289,22 @@ exports.listen = function(app) {
 
 			res.setHeader("X-Nestor-Stream", "TODO-Stream-ID");
 
-			if (data.mimetype) {
-				res.setHeader("Content-Type", data.mimetype);
-			}
-
 			if (data.length) {
 				res.setHeader("X-Content-Duration", data.length);
 			}
 
 			command
 				.setStartTime(parseFloat(req.param("seek")))
-				.on("error", function() {
-					// Just catch error events to prevent nestor from stopping
+				.on("start", function(cmdline) {
+					logger.debug("Started transcoding: %s", cmdline);
+				})
+				.on("error", function(err, stdout, stderr) {
+					if (err.message !== "Output stream closed") {
+						logger.error(
+							"Streaming error for %s/%s: %s\n---ffmpeg stdout--\n%s\n---ffmpeg stderr---\n%s",
+							name, id, err.message, stdout, stderr
+						);
+					}
 				})
 				.writeToStream(res);
 		});
