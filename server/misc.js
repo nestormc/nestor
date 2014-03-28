@@ -60,3 +60,11 @@ exports.mimetype = function(path, callback) {
 		callback: callback
 	});
 };
+
+
+exports.regexpEscape = function(str) {
+	return str.replace(
+		/([[\\\].*?+()^$])/g,
+		"\\$1"
+	);
+};
