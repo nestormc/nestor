@@ -1,7 +1,7 @@
 /*jshint browser:true*/
 /*global define*/
 
-define(function() {
+define(["player/track"], function(StreamingTrack) {
 	"use strict";
 
 	var providers = {};
@@ -10,12 +10,20 @@ define(function() {
 		register: function(name, provider) {
 			providers[name] = provider;
 		},
-		
-		getTrack: function(trackdef, index) {
-			var track = trackdef.track || providers[trackdef.provider](trackdef.id);
 
-			track._provider = trackdef.provider;
-			track._id = trackdef.id;
+		getTrack: function(trackdef, index) {
+			var track;
+
+			if (trackdef.track) {
+				track = trackdef.track;
+			} else if (trackdef.builtin) {
+				track = new StreamingTrack(trackdef.provider, trackdef.id);
+			} else {
+				track = providers[trackdef.provider](trackdef.id);
+				track._provider = trackdef.provider;
+				track._id = trackdef.id;
+			}
+
 			track._position = index;
 
 			track.playable.memorize = true;

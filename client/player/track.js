@@ -182,6 +182,8 @@ define(["when", "ui", "rest"], function(when, ui, rest) {
 
 
 	StreamingTrack.prototype = {
+		_isBuiltinStreamingTrack: true,
+
 		_createMedia: function(info) {
 			var self = this;
 			var media = this._media = info.type === "audio" ? new Audio() : document.createElement("video");
@@ -204,7 +206,14 @@ define(["when", "ui", "rest"], function(when, ui, rest) {
 
 			this.metadata.then(function() {
 				if (self._requestedLoad) {
-					self._media.src = "/stream/" + self._id + "/" + self._format + ":" + self._quality + "/" + self._requestedSeek;
+					self._media.src = [
+						"stream",
+						self._provider,
+						self._id,
+						self._format + ":" + self._quality,
+						self._requestedSeek
+					].join("/");
+
 					self._media.preload = "auto";
 
 					if (self._playing) {
@@ -222,8 +231,10 @@ define(["when", "ui", "rest"], function(when, ui, rest) {
 		stopLoading: function() {
 			this._requestedLoad = false;
 
+			this._mediaPromise.then(function() {
 			this._media.src = "";
 			this._media.preload = "none";
+			});
 		},
 
 		play: function() {

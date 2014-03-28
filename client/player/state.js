@@ -36,7 +36,7 @@ define(["when", "storage", "player/providers"], function(when, storage, provider
 	/* Save state in local storage */
 	function saveState() {
 		storage.set("player/state", JSON.stringify({
-			playlist: playlist.map(function(t) { return { provider: t._provider, id: t._id }; }),
+			playlist: playlist.map(function(t) { return { provider: t._provider, id: t._id, builtin: t._isBuiltinStreamingTrack }; }),
 			playOrder: playOrder,
 			playIndex: playIndex,
 			currentTime: currentTime,
