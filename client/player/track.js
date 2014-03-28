@@ -232,19 +232,25 @@ define(["when", "ui", "rest"], function(when, ui, rest) {
 			this._requestedLoad = false;
 
 			this._mediaPromise.then(function() {
-			this._media.src = "";
-			this._media.preload = "none";
+				this._media.src = "";
+				this._media.preload = "none";
 			});
 		},
 
 		play: function() {
 			this._playing = true;
-			this._media.play();
+
+			if (this._media) {
+				this._media.play();
+			}
 		},
 
 		pause: function() {
 			this._playing = false;
-			this._media.pause();
+
+			if (this._media) {
+				this._media.pause();
+			}
 		},
 
 		seek: function(time) {
