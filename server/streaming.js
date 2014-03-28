@@ -24,6 +24,7 @@ intents.on("nestor:streaming", function(name, provider) {
 					source:			mandatory, source file path or readable stream
 					type:			mandatory, "audio" or "video"
 					mimetype:		optional, media mime type
+					filters:		optional, array of ffmpeg video filters
 					options:		optional, array of custom ffmpeg options
 					length:			optional, media length in seconds
 					cover:			optional, cover url for "audio" tracks
@@ -278,6 +279,12 @@ exports.listen = function(app) {
 
 			if (data.options && data.options.length) {
 				command.addOptions(data.options);
+			}
+
+			if (data.filters) {
+				data.filters.forEach(function(filter) {
+					command.withVideoFilter(filter);
+				});
 			}
 
 			res.setHeader("X-Nestor-Stream", "TODO-Stream-ID");
