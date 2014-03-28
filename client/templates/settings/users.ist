@@ -3,7 +3,11 @@ ul.content-list
 		"No users"
 	@each users
 		li[class=list-item user{{ showRights ? " show-rights" : "" }}][data-id={{ identifier }}]
-			.list-item-status "Last logged in {{ lastLogin }}"
+			.list-item-status
+				@if lastLogin === "never"
+					"Never logged in"
+				@else
+					"Last logged in {{ lastLogin }}"
 
 			.list-item-description
 				.list-item-title "{{ displayName }}"

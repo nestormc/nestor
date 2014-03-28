@@ -26,7 +26,7 @@ define([
 			return rightsPromise.then(function(rights) {
 				return resources.users.get().then(function(users) {
 					users._items.forEach(function(user) {
-						user.lastLogin = moment(user.lastLogin).fromNow();
+						user.lastLogin = user.lastLogin ? moment(user.lastLogin).fromNow() : "never";
 						user.showRights = showRights.indexOf(user.identifier) !== -1;
 					});
 
