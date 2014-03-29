@@ -80,7 +80,7 @@ define(["ist", "ajax", "dom", "login"], function(ist, ajax, dom, login) {
 			} else {
 				rendered = tmpl.render(context.value);
 			}
-		
+
 			dom.behave(rendered, value);
 			return rendered;
 		});
@@ -91,7 +91,7 @@ define(["ist", "ajax", "dom", "login"], function(ist, ajax, dom, login) {
 		var hours = Math.floor(duration / 3600),
 			minutes = Math.floor(duration % 3600 / 60),
 			seconds = Math.floor(duration) % 60;
-		
+
 		return hours === 0 ? minutes + ":" + (seconds > 9 ? seconds : "0" + seconds)
 						   : hours + "h" + (minutes > 9 ? minutes : "0" + minutes) + "m" + (seconds > 9 ? seconds : "0" + seconds) + "s";
 	});
@@ -112,7 +112,7 @@ define(["ist", "ajax", "dom", "login"], function(ist, ajax, dom, login) {
 			suffixes.shift();
 		}
 
-		return (Math.floor(size * precision) / precision) + " " + suffixes[0] + suffix;
+		return (Math.floor(size * precision) / precision) + " " + suffixes[0] + (suffix || "");
 	});
 
 	ist.global("uri", function() {
