@@ -1,5 +1,37 @@
+#popup .form .form-field {
+	width: 30em;
+}
+
 #viewport, #popup {
 	.form {
+		.title {
+			font-size: 1.2em;
+			font-weight: bold;
+			color: @darkGray;
+			margin-bottom: @contentBoxMargin;
+		}
+
+		.form-field {
+			label {
+				display: inline-block;
+				width: 33%;
+			}
+
+			input, select {
+				display: inline-block;
+				width: 66%;
+			}
+		}
+
+		.form-buttons {
+			padding-top: @contentBoxMargin;
+			text-align: center;
+
+			input {
+				margin: 0 @contentBoxMargin;
+			}
+		}
+
 		input, select {
 			margin-bottom: .25em;
 			border-radius: 0;
@@ -62,31 +94,6 @@
 					color: @error;
 				}
 			}
-		}
-	}
-}
-
-#popup .form {
-	.form-field {
-		width: 30em;
-
-		label {
-			display: inline-block;
-			width: 33%;
-		}
-
-		input, select {
-			display: inline-block;
-			width: 66%;
-		}
-	}
-
-	.form-buttons {
-		padding-top: @contentBoxMargin;
-		text-align: center;
-
-		input {
-			margin: 0 @contentBoxMargin;
 		}
 	}
 }
