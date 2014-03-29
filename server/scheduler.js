@@ -47,6 +47,56 @@ var processors = {
 		});
 
 		return d.promise;
+	},
+
+	"ffprobe": function(data) {
+		var path = data.path;
+		var callback = data.callback;
+		var output = "";
+		var child;
+
+		try {
+			child = spawn("ffprobe", [
+				"-of", "json",
+				"-show_streams",
+				"-show_format",
+				path
+			]);
+		} catch(e) {
+			callback(e);
+			return when.resolve();
+		}
+
+		var d = when.defer();
+
+		child.stdout.on("data", function(data) {
+			output += data.toString();
+		});
+
+		child.stdout.on("error", function(err) {
+			callback(err);
+			d.resolve();
+		});
+
+		child.stdout.on("end", function() {
+			var json;
+
+			try {
+				json = JSON.parse(output);
+			} catch(e) {
+				callback(e);
+				return d.resolve();
+			}
+
+			json.streams = json.streams || [];
+			json.format = json.format || {};
+			json.tags = json.format.tags || {};
+
+			callback(null, path, json);
+			d.resolve();
+		});
+
+		return d.promise;
 	}
 };
 

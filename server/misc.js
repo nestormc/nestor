@@ -62,6 +62,14 @@ exports.mimetype = function(path, callback) {
 };
 
 
+exports.ffprobe = function(path, callback) {
+	intents.emit("nestor:scheduler:enqueue", "ffprobe", {
+		path: path,
+		callback: callback
+	});
+};
+
+
 exports.regexpEscape = function(str) {
 	return str.replace(
 		/([[\\\].*?+()^$])/g,
