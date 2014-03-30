@@ -1,0 +1,20 @@
+.background {
+	background-color: #353535;
+}
+
+.logo {
+	background-image: url(cast-logo.png);
+}
+
+.progressBar {
+	background-color: #ffd200;
+}
+
+.splash {
+	background-image: url(cast-splash.png);
+}
+
+.watermark {
+	background-image: url(cast-watermark.png);
+	background-size: 64px 64px;
+}
