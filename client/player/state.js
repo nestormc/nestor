@@ -8,7 +8,7 @@
  * Dispatches signals for use by the UI, and provides a public interface  to handle UI actions.
  */
 
-define(["when", "storage", "player/providers"], function(when, storage, providers) {
+define(["when", "storage", "player/providers", "player/cast"], function(when, storage, providers, cast) {
 	"use strict";
 
 	/* State variables */
@@ -198,6 +198,32 @@ define(["when", "storage", "player/providers"], function(when, storage, provider
 			this.repeatChanged = ui.signal();
 			this.randomChanged = ui.signal();
 			this.playlistChanged = ui.signal();
+
+			this.castAvailabilityChanged = ui.signal();
+			this.castStarted = ui.signal();
+			this.castStopped = ui.signal();
+
+			cast.availabilityChanged.add(function(available) {
+				state.castAvailabilityChanged.dispatch(available);
+			});
+
+			cast.sessionStarted.add(function(session) {
+				state.castStarted.dispatch(session.receiver.friendlyName);
+			});
+
+			cast.sessionStopped.add(function() {
+				state.castStopped.dispatch();
+			});
+
+			cast.init();
+		},
+
+		startCasting: function() {
+			cast.startSession();
+		},
+
+		stopCasting: function() {
+			cast.stopSession();
 		},
 
 		/* Restore saved state */
@@ -236,11 +262,11 @@ define(["when", "storage", "player/providers"], function(when, storage, provider
 
 		/* Force dispatching playlistChanged */
 		updatePlaylist: function() {
-			when.all(playlist.map(function(t, i) {
-				return t.metadata.then(function(m) {
-					m.position = t._position;
-					m.subtitle = m.subtitle || "";
-					return m;
+			when.all(playlist.map(function(track) {
+				return track.metadata.then(function(metadata) {
+					metadata.position = track._position;
+					metadata.subtitle = metadata.subtitle || "";
+					return metadata;
 				});
 			})).then(function(playlist) {
 				state.playlistChanged.dispatch(playlist);

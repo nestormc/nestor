@@ -84,6 +84,7 @@ function rjsBuilder(name, next) {
 
 				tmpl: "templates",
 
+				chromecast: "empty:",
 				socketio: "empty:"
 			},
 

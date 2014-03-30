@@ -2,8 +2,16 @@
 /*global define*/
 
 define(
-["ist!tmpl/player", "ist!tmpl/playlist", "components/index", "dom", "router", "player/state", "player/providers", "player/fullscreen", "player/track"],
-function(playerTemplate, playlistTemplate, components, dom, router, state, providers, fullscreen, StreamingTrack) {
+[
+	"ist!tmpl/player", "ist!tmpl/playlist",
+	"components/index", "dom", "router",
+	"player/state", "player/providers", "player/fullscreen", "player/track"
+],
+function(
+	playerTemplate, playlistTemplate,
+	components, dom, router,
+	state, providers, fullscreen, StreamingTrack
+) {
 	"use strict";
 
 	function humanTime(duration) {
@@ -18,6 +26,32 @@ function(playerTemplate, playlistTemplate, components, dom, router, state, provi
 	/* Connect to player state */
 	function initPlayerState(ui) {
 		state.init(ui);
+
+		state.castAvailabilityChanged.add(function(available) {
+			var castIcon = dom.$("#player .cast");
+
+			if (available) {
+				castIcon.classList.remove("unavailable");
+			} else {
+				castIcon.classList.add("unavailable");
+				castIcon.classList.remove("casting");
+				castIcon.title = "";
+			}
+		});
+
+		state.castStarted.add(function(receiver) {
+			var castIcon = dom.$("#player .cast");
+
+			castIcon.classList.add("casting");
+			castIcon.title = "Casting on " + receiver;
+		});
+
+		state.castStopped.add(function() {
+			var castIcon = dom.$("#player .cast");
+
+			castIcon.classList.remove("casting");
+			castIcon.title = "";
+		});
 
 		state.repeatChanged.add(function(repeat) {
 			dom.$("#player .repeat").classList[repeat ? "add" : "remove"]("active");
@@ -198,6 +232,16 @@ function(playerTemplate, playlistTemplate, components, dom, router, state, provi
 
 			router.on("!player/repeat", function(err, req, next) {
 				state.toggleRepeat();
+				next();
+			});
+
+			router.on("!player/cast-on", function(err, req, next) {
+				state.startCasting();
+				next();
+			});
+
+			router.on("!player/cast-off", function(err, req, next) {
+				state.stopCasting();
 				next();
 			});
 

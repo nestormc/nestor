@@ -12,12 +12,20 @@
 
 	require.config({
 		shim: {
+			"chromecast": {
+				exports: "chrome",
+				init: function() {
+					return this.chrome.cast;
+				}
+			},
+
 			"socketio": {
 				exports: "io"
 			},
 		},
 
 		paths: {
+			"chromecast": "https://www.gstatic.com/cv/js/sender/v1/cast_sender",
 			"socketio": "/socket.io/socket.io"
 		}
 	});

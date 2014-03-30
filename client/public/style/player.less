@@ -9,7 +9,7 @@
 	bottom: @margins;
 	left: @margins;
 	right: @margins;
-	
+
 	background-color: @darkGray;
 	color: @mlGray;
 
@@ -120,6 +120,30 @@
 			height: @controlHeight;
 			width: @controlHeight;
 		}
+
+		.cast {
+			&.unavailable {
+				display: none;
+			}
+
+			.cast-on {
+				display: none;
+			}
+
+			.cast-off {
+				display: inline-block;;
+			}
+
+			&.casting {
+				.cast-off {
+					display: none;
+				}
+
+				.cast-on {
+					display: inline-block;;
+				}
+			}
+		}
 	}
 }
 
@@ -209,7 +233,7 @@
 			}
 
 			.available {
-				background-color: transparent;	
+				background-color: transparent;
 			}
 		}
 	}

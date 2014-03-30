@@ -38,5 +38,12 @@
 					@svg "images/random.svg"
 
 				span.right-controls
+					span.cast.unavailable
+						a.active-icon.cast-off[href=#!player/cast-on]
+							@svg "images/cast-off.svg"
+
+						a.active.icon.cast-on[href=#!player/cast-off]
+							@svg "images/cast-on.svg"
+
 					a.active-icon.playlist[href=#/playlist]
 						@svg "images/playlist.svg"
