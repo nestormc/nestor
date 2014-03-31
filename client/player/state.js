@@ -19,6 +19,7 @@ define(["when", "storage", "player/providers", "player/cast"], function(when, st
 	var playing = false;
 	var repeat = false;
 	var random = false;
+	var casting = false;
 
 
 	/* arraySplice(arr, i, n, [a, b, c, ...]) === arr.splice(i, n, a, b, c, ...) */
@@ -106,9 +107,8 @@ define(["when", "storage", "player/providers", "player/cast"], function(when, st
 			var current = playlist[playOrder[playIndex]];
 
 			current.pause();
+			current.preload(false);
 
-			current.loaded.removeAll();
-			current.playable.removeAll();
 			current.ended.removeAll();
 			current.timeChanged.removeAll();
 			current.lengthChanged.removeAll();
@@ -143,15 +143,18 @@ define(["when", "storage", "player/providers", "player/cast"], function(when, st
 			});
 		}
 
-		// Ensure track started loading
-		track.load();
+		// Pass controller if casting
+		track.cast(casting ? new cast.CastController() : "display");
 
-		// Start loading next track when this one is done
-		track.loaded.addOnce(function() {
-			if (playIndex + 1 < playOrder.length) {
-				playlist[playOrder[playIndex + 1]].load();
-			}
-		});
+		// Ensure track started loading
+		track.preload(true);
+
+		// Start loading next track
+		if (playIndex + 1 < playOrder.length) {
+			var next = playlist[playOrder[playIndex + 1]];
+			next.cast(casting ? new cast.CastController() : "display");
+			next.preload(true);
+		}
 
 		if (fromStart) {
 			track.seek(0);
@@ -168,9 +171,7 @@ define(["when", "storage", "player/providers", "player/cast"], function(when, st
 		}
 
 		// Start playback as soon as possible
-		track.playable.addOnce(function() {
-			track.play();
-		});
+		track.play();
 
 		// Play next track when this one is done playing
 		track.ended.addOnce(function() {
@@ -209,10 +210,20 @@ define(["when", "storage", "player/providers", "player/cast"], function(when, st
 
 			cast.sessionStarted.add(function(session) {
 				state.castStarted.dispatch(session.receiver.friendlyName);
+				casting = true;
+
+				if (playIndex !== -1) {
+					playlist[playOrder[playIndex]].cast(new cast.CastController());
+				}
 			});
 
 			cast.sessionStopped.add(function() {
 				state.castStopped.dispatch();
+				casting = false;
+
+				if (playIndex !== -1) {
+					playlist[playOrder[playIndex]].cast("display");
+				}
 			});
 
 			cast.init();

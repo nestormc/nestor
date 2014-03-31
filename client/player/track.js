@@ -86,33 +86,24 @@ define(["when", "ui", "rest"], function(when, ui, rest) {
 	 */
 
 	var mediaEvents = {
-		"canplay": function trackPlayable(track) {
-			track.playable.dispatch();
-		},
-
 		"ended": function trackEnded(track) {
-			track.ended.dispatch();
+			if (track._media) {
+				track.ended.dispatch();
+			}
 		},
 
 		"timeupdate": function trackTimeUpdate(track) {
-			track.timeChanged.dispatch(track._media.currentTime + (track._requestedSeek || 0));
+			if (track._media) {
+				track._currentTime = track._media.currentTime + (track._requestedSeek || 0);
+				track.timeChanged.dispatch(track._currentTime);
+			}
 		},
 
 		"durationchange": function trackDurationChange(track) {
 			var media = track._media;
 
-			if (media.duration !== Infinity) {
+			if (media && media.duration !== Infinity) {
 				track.lengthChanged.dispatch(media.duration + (track._requestedSeek || 0));
-			}
-		},
-
-		"progress": function trackLoadProgress(track) {
-			var media = track._media;
-
-			if (media.buffered.length) {
-				if (Math.abs(media.buffered.end(media.buffered.length - 1) - media.duration) < 0.1) {
-					track.loaded.dispatch();
-				}
 			}
 		}
 	};
@@ -132,27 +123,20 @@ define(["when", "ui", "rest"], function(when, ui, rest) {
 		this._id = id;
 		this._quality = 0;
 		this._requestedLoad = false;
-		this._requestedSeek = 0;
+		this._requestedSeek = this._currentTime = 0;
 		this._playing = false;
+		this._cast = null;
 
-		this._mediaPromise = rest.get("stream/%s/%s", provider, id)
+		this._info = rest.get("stream/%s/%s", provider, id)
 			.then(function(info) {
-				self._createMedia(info);
-				self._format = preferredFormat(self._media, info.formats);
-
 				if (info.type === "video") {
 					self._quality = 288;
 
-					var display = document.createElement("div");
-					display.className = "full-display";
-					display.style.backgroundColor = "black";
+					self._display = document.createElement("div");
+					self._display.className = "full-display";
+					self._display.style.backgroundColor = "black";
 
-					var video = self._media;
-					video.style.display = "block";
-					video.style.width = video.style.height = "100%";
-					display.appendChild(video);
-
-					displayDeferred.resolve(display);
+					displayDeferred.resolve(self._display);
 				} else {
 					self._quality = 128;
 
@@ -162,14 +146,11 @@ define(["when", "ui", "rest"], function(when, ui, rest) {
 				return info;
 			});
 
-
-		this.playable = ui.signal();
-		this.loaded = ui.signal();
 		this.ended = ui.signal();
 		this.timeChanged = ui.signal();
 		this.lengthChanged = ui.signal();
 
-		this.metadata = this._mediaPromise.then(function(info) {
+		this.metadata = this._info.then(function(info) {
 			return {
 				title: info.title || "",
 				subtitle: info.subtitle || "",
@@ -192,13 +173,43 @@ define(["when", "ui", "rest"], function(when, ui, rest) {
 			media.preload = "none";
 			media.autoplay = false;
 
-			var handlers = this._handlers = {};
+			var loadDeferred = when.defer();
+			media.loadPromise = loadDeferred.promise;
+
+			media.addEventListener("canplay", function() {
+				loadDeferred.resolve();
+			});
 
 			Object.keys(mediaEvents).forEach(function(event) {
 				var handler = mediaEvents[event].bind(null, self);
-				handlers[event] = handler;
 				media.addEventListener(event, handler);
 			});
+
+			if (info.type === "video") {
+				self._display.innerHTML = "";
+				media.style.display = "block";
+				media.style.width = media.style.height = "100%";
+				self._display.appendChild(media);
+			}
+
+			self._format = preferredFormat(media, info.formats);
+
+			this.display.then(function(display) {
+				display.innerHTML = "";
+				display.appendChild(media);
+			});
+		},
+
+		_getStreamURL: function(format, seek) {
+			return [
+				window.location.protocol + "/",
+				window.location.host,
+				"stream",
+				this._provider,
+				encodeURIComponent(this._id),
+				format + ":" + this._quality,
+				seek
+			].join("/");
 		},
 
 		_setSource: function() {
@@ -206,15 +217,12 @@ define(["when", "ui", "rest"], function(when, ui, rest) {
 
 			this.metadata.then(function() {
 				if (self._requestedLoad) {
-					self._media.src = [
-						"stream",
-						self._provider,
-						encodeURIComponent(self._id),
-						self._format + ":" + self._quality,
-						self._requestedSeek
-					].join("/");
-
-					self._media.preload = "auto";
+					if (self._cast) {
+						self._cast.load(self._getStreamURL(self.type === "video" ? "webm" : "ogg", self._requestedSeek));
+					} else {
+						self._media.src = self._getStreamURL(self._format, self._requestedSeek);
+						self._media.preload = "auto";
+					}
 
 					if (self._playing) {
 						self.play();
@@ -223,32 +231,94 @@ define(["when", "ui", "rest"], function(when, ui, rest) {
 			});
 		},
 
-		load: function() {
-			this._requestedLoad = true;
-			this._setSource();
+		cast: function(controller) {
+			var self = this;
+
+			if (controller === "display") {
+				if (this._cast) {
+					// Switching back from cast
+					this._cast.pause();
+					this._cast.timeChanged.dispose();
+					this._cast.loaded.dispose();
+
+					this._requestedSeek = this._currentTime;
+				}
+
+				this._cast = null;
+				this._info.then(function(info) {
+					self._createMedia(info);
+				});
+			} else {
+				if (this._media) {
+					// Switching to cast
+					this._media.pause();
+
+					if (this._media.parentNode) {
+						this._media.parentNode.removeChild(this._media);
+					}
+
+					this._requestedSeek = this._currentTime;
+				}
+
+				this._media = null;
+				this._cast = controller;
+
+				this._cast.timeChanged.add(function(time) {
+					self._currentTime = time + (self._requestedSeek || 0);
+					self.timeChanged.dispatch(self._currentTime);
+				});
+
+				var loadDeferred = when.defer();
+
+				this._cast.loadPromise = loadDeferred.promise;
+				this._cast.loaded.add(function() {
+					loadDeferred.resolve();
+				});
+			}
+
+			if (this._requestedLoad) {
+				this._setSource();
+			}
 		},
 
-		stopLoading: function() {
-			this._requestedLoad = false;
+		preload: function(canPreload) {
+			if (canPreload) {
+				this._requestedLoad = true;
 
-			this._mediaPromise.then(function() {
-				this._media.src = "";
-				this._media.preload = "none";
-			});
+				if (this._media) {
+					this._setSource();
+				}
+			} else {
+				this._requestedLoad = false;
+
+				if (this._media) {
+					this._media.src = "";
+					this._media.preload = "none";
+				}
+			}
 		},
 
 		play: function() {
+			var self = this;
 			this._playing = true;
 
-			if (this._media) {
-				this._media.play();
+			if (this._cast) {
+				this._cast.loadPromise.then(function() {
+					self._cast.play();
+				});
+			} else if (this._media) {
+				this._media.loadPromise.then(function() {
+					self._media.play();
+				});
 			}
 		},
 
 		pause: function() {
 			this._playing = false;
 
-			if (this._media) {
+			if (this._cast) {
+				this._cast.pause();
+			} else if (this._media) {
 				this._media.pause();
 			}
 		},
@@ -259,25 +329,21 @@ define(["when", "ui", "rest"], function(when, ui, rest) {
 		},
 
 		dispose: function() {
-			var self = this;
+			if (this._cast) {
+				this._cast.pause();
+				this._cast.timeChanged.dispose();
+				this._cast.loaded.dispose();
+				this._cast = null;
+			} else if (this._media) {
+				this._media.pause();
 
-			this._mediaPromise.then(function() {
-				var handlers = self._handlers;
-				var media = self._media;
+				if (this._media.parentNode) {
+					this._media.parentNode.removeChild(this._media);
+				}
 
-				Object.keys(handlers).forEach(function(event) {
-					media.removeEventListener(event, handlers[event]);
-				});
+				this._media = null;
+			}
 
-				self._handlers = null;
-
-				media.pause();
-				media.preload = "none";
-				media.src = "";
-			});
-
-			this.playable.dispose();
-			this.loaded.dispose();
 			this.ended.dispose();
 			this.timeChanged.dispose();
 			this.lengthChanged.dispose();

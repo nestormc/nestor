@@ -25,9 +25,6 @@ define(["player/track"], function(StreamingTrack) {
 			}
 
 			track._position = index;
-
-			track.playable.memorize = true;
-			track.loaded.memorize = true;
 			track.lengthChanged.memorize = true;
 
 			return track;

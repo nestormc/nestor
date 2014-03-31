@@ -4,6 +4,13 @@
 define(["chromecast", "signals", "when"], function(chromecast, signals, when) {
 	"use strict";
 
+
+
+	/*!
+	 * Initialization helpers
+	 */
+
+
 	function checkAvailability() {
 		if (chromecast.isAvailable) {
 			initialize();
@@ -11,6 +18,7 @@ define(["chromecast", "signals", "when"], function(chromecast, signals, when) {
 			setTimeout(checkAvailability, 1000);
 		}
 	}
+
 
 	function initialize() {
 		var appID = "E2538DF7";
@@ -41,6 +49,7 @@ define(["chromecast", "signals", "when"], function(chromecast, signals, when) {
 		);
 	}
 
+
 	function sessionListener(session) {
 		console.log("CAST: session listener");
 		console.dir(session);
@@ -55,6 +64,89 @@ define(["chromecast", "signals", "when"], function(chromecast, signals, when) {
 		cast._session = session;
 		cast.sessionStarted.dispatch(session);
 	}
+
+
+
+	/*!
+	 * Cast media controller
+	 */
+
+
+	function CastController(media) {
+		if (media) {
+			this._bindMedia(media);
+			this._loadPromise = when.resolve(media);
+		} else {
+			this._media = this._loadPromise = null;
+		}
+	}
+
+	CastController.prototype = {
+		timeChanged: new signals.Signal(),
+		loaded: new signals.Signal(),
+
+		_bindMedia: function(media) {
+			var self = this;
+
+			this._media = media;
+			media.addUpdateListener(function mediaUpdated() {
+				self.timeChanged.dispatch(media.currentTime);
+			});
+		},
+
+		load: function(url) {
+			var self = this;
+			var deferred = when.defer();
+
+			if (cast._session) {
+				var info = new chromecast.media.MediaInfo(url);
+				var request = new chromecast.media.LoadRequest(info);
+
+				cast._session.loadMedia(
+					request,
+					function mediaDiscovered(media) {
+						console.log("CAST: media discovered");
+						console.dir(media);
+
+						self._media = media;
+						self._bindMedia(media);
+						self.loaded.dispatch();
+						deferred.resolve(media);
+					},
+					function mediaError(e) {
+						console.log("CAST: media error");
+						console.dir(e);
+
+						deferred.reject(e);
+					}
+				);
+			} else {
+				deferred.reject("no cast session");
+			}
+
+			this._loadPromise = deferred.promise;
+			return deferred.promise;
+		},
+
+		play: function() {
+			this._loadPromise.then(function(media) {
+				media.play(null, function() {}, function() {});
+			});
+		},
+
+		pause: function() {
+			this._loadPromise.then(function(media) {
+				media.pause(null, function() {}, function() {});
+			});
+		}
+	};
+
+
+
+	/*!
+	 * Public interface
+	 */
+
 
 	var cast = {
 		availabilityChanged: new signals.Signal(),
@@ -93,34 +185,7 @@ define(["chromecast", "signals", "when"], function(chromecast, signals, when) {
 			}
 		},
 
-		play: function(streamURL) {
-			var deferred = when.defer();
-
-			if (cast._session) {
-				var info = new chromecast.media.MediaInfo(streamURL);
-				var request = new chromecast.media.LoadRequest(info);
-
-				cast._session.loadMedia(
-					request,
-					function mediaDiscovered(media) {
-						console.log("CAST: media discovered");
-						console.dir(media);
-
-						deferred.resolve(media);
-					},
-					function mediaError(e) {
-						console.log("CAST: media error");
-						console.dir(e);
-
-						deferred.reject(e);
-					}
-				);
-			} else {
-				deferred.reject("no active cast session");
-			}
-
-			return deferred.promise;
-		}
+		CastController: CastController
 	};
 
 	return cast;

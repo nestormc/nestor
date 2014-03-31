@@ -1,7 +1,7 @@
 /* Interface for player tracks
 
-   General notes: 
-   
+   General notes:
+
    - implementations should not rely on interface signals internally, as their
      behaviour can be altered by the player (eg. memorize, forget, removeAll);
      use private signals instead.
@@ -10,29 +10,18 @@
      track anymore.  Implementations should dispose interface signals, and
      prevent any further network activity, memory usage or promise updates.
 
-   - the load() method may be called multiple times.  Even then, implementations
-     should not dispatch playable/loaded signals more than once.
-
  */
 
 {
 	/* Preload */
 
-	// Dispatched when playback is possible
-	playable: instanceof Signal,
-
-	// Dispatched when fully loaded
-	loaded: instanceof Signal,
-
-	// Called to start loading track, indicating that the player intends to
-	// play the track soon.
-	load: function() {},
-
-	// Called to stop loading track, indicating that the player does not
-	// intend to play the track soon.  If possible, network activity should
-	// be suspended or throttled down, as an other track is likely to need
-	// loading.
-	stopLoading: function() {},
+	// Called with true to start loading track, indicating that the player
+	// intends to play the track soon.
+	// Called with false to stop loading track, indicating that the player
+	// does not intend to play the track soon.  If possible, network activity
+	// should be suspended or throttled down, as an other track is likely
+	// to need loading.
+	preload: function(canPreload) {},
 
 
 
@@ -50,7 +39,24 @@
 
 	// Should resolve to DOM element
 	display: instanceof Promise,
-	
+
+
+
+	/* Lifecycle */
+
+	// Called to tell the track where to play.  The 'controller' argument is
+	// either "display" when the track is expected to play inside its display
+	// DOM element, or a CastController object when a ChromeCast session is
+	// active.
+	// The track should not actually play or preload any media before cast() has
+	// been called.  It will be called once before any preload() or play() call,
+	// and can be called later when the user wants to switch playback between
+	// the local player and a ChromeCast session.
+	cast: function(controller) {},
+
+	// Called when track will not be used by player anymore.
+	dispose: function() {},
+
 
 
 	/* Playback */
@@ -70,12 +76,5 @@
 	seek: function(timestamp) {},
 
 	// Dispatched when playback reached end of track
-	ended: instanceof Signal,
-
-
-
-	/* Lifecycle */
-
-	// Called when track will not be used by player anymore.
-	dispose: function() {}
+	ended: instanceof Signal
 }
