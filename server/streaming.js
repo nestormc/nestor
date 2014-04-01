@@ -23,7 +23,9 @@ intents.on("nestor:streaming", function(name, provider) {
 				{
 					source:			mandatory, source file path or readable stream
 					type:			mandatory, "audio" or "video"
-					mimetype:		optional, media mime type
+					format:			mandatory, format name (as returned by ffmpeg)
+					streams:		mandatory, stream list (containing 'number', 'type' and 'codec' as returned by ffmpeg)
+
 					filters:		optional, array of ffmpeg video filters
 					options:		optional, array of custom ffmpeg options
 					length:			optional, media length in seconds
@@ -193,7 +195,9 @@ function applyPreset(type, name, command) {
 		}
 	}
 
-	return command.toFormat(format);
+	command.toFormat(format);
+
+	return preset.mimetype;
 }
 
 
@@ -232,7 +236,9 @@ exports.listen = function(app) {
 
 				cb(null, {
 					type: data.type,
-					mimetype: data.mimetype,
+					format: data.format,
+					streams: data.streams,
+
 					length: data.length,
 					cover: data.cover,
 					title: data.title,
@@ -243,8 +249,14 @@ exports.listen = function(app) {
 		});
 
 
-	/* Streaming endpoint */
-	app.get("/stream/:provider/:id/:format/:seek", function(req, res) {
+	/* Streaming endpoint
+		provider: stream provider name
+		id: stream ID
+		format: "name:quality" (quality is height for video, bitrate for audio)
+		streams: stream selection, eg. "audio:1,video:3"
+		seek: start position in seconds
+	*/
+	app.get("/stream/:provider/:id/:format/:streams/:seek", function(req, res) {
 		var name = req.param("provider");
 
 		if (!(name in providers)) {
@@ -254,6 +266,8 @@ exports.listen = function(app) {
 
 		var id = req.param("id");
 		providers[name](id, function(err, data) {
+			// Check for stream validity
+
 			if (err) {
 				logger.warn("Error requesting %s/%s: %s", name, id, err.message);
 				return res.send(500);
@@ -268,14 +282,60 @@ exports.listen = function(app) {
 				return res.send(500);
 			}
 
+			// Initiate ffmpeg command
+
 			var command = new Ffmpeg({ source: data.source, timeout: 0 });
 
+			// Check streams
+
+			if (req.param("streams") !== "auto") {
+				var streams = req.param("streams").split(",");
+				var error = false;
+
+				streams.forEach(function(stream) {
+					if (error) return;
+
+					var parts = stream.split(":");
+					var type = parts[0];
+					var index = Number(parts[1]);
+
+					var streamspec = data.streams.filter(function(s) { return s.index === index; })[0];
+					if (!streamspec) {
+						logger.warn("Unknown stream index requested: %s", index);
+						error = true;
+						return res.send(400);
+					}
+
+					if (streamspec.type !== type) {
+						logger.warn("Requested using %s stream %s as %s stream", streamspec.type, index, type);
+						error = true;
+						return res.send(400);
+					}
+
+					command.addOptions([
+						"-map:" + (type === "audio" ? "a" : "v") + " " + index
+					]);
+				});
+
+				if (error) {
+					return;
+				}
+			}
+
+			// Apply preset
+
+			var mimetype;
+
 			try {
-				applyPreset(data.type, req.param("format"), command);
+				mimetype = applyPreset(data.type, req.param("format"), command);
 			} catch(e) {
 				logger.warn("Preset error for %s/%s: %s", name, id, e.message);
 				return res.send(400);
 			}
+
+			res.contentType(mimetype);
+
+			// Apply provider options
 
 			if (data.options && data.options.length) {
 				command.addOptions(data.options);
@@ -286,6 +346,8 @@ exports.listen = function(app) {
 					command.withVideoFilter(filter);
 				});
 			}
+
+			// Send response
 
 			res.setHeader("X-Nestor-Stream", "TODO-Stream-ID");
 
