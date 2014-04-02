@@ -4,7 +4,7 @@
 define(["ajax", "when", "signals"], function(ajax, when, signals) {
 	"use strict";
 
-	
+
 	var restAvailable = false,
 		pendingRequests = [];
 
@@ -40,8 +40,8 @@ define(["ajax", "when", "signals"], function(ajax, when, signals) {
 
 		return d.promise;
 	}
-	
-	
+
+
 	/**
 	 * JSON ajax request method-specific helpers:
 	 *   request.get
@@ -100,6 +100,8 @@ define(["ajax", "when", "signals"], function(ajax, when, signals) {
 
 
 	var rest = {
+		connectionStatusChanged: ajax.connectionStatusChanged,
+
 		list: function(/* uri[, uri params][, options] */) {
 			var args = getArguments(arguments, ["options"]);
 
@@ -143,7 +145,7 @@ define(["ajax", "when", "signals"], function(ajax, when, signals) {
 		 *   .whenData(fn) is a shortcut to .then(undefined, undefined, fn)
 		 *   .fetchMore() triggers fetching a new batch of items
 		 *   .cancel() prevents any further progress updates and resolves the promise immediately
-		 * 
+		 *
 		 * fetchMore is called once before returning, so you should wait for the first
 		 * progress update before calling it again.  Calling it either when items are pending
 		 * or after the promise has been fulfilled or rejected has no effect.

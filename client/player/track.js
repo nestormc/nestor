@@ -1,7 +1,7 @@
 /*jshint browser: true*/
 /*global define, console*/
 
-define(["when", "ui", "rest"], function(when, ui, rest) {
+define(["when", "ui", "rest", "player/capabilities"], function(when, ui, rest, capabilities) {
 	"use strict";
 
 	/*!
@@ -45,43 +45,6 @@ define(["when", "ui", "rest"], function(when, ui, rest) {
 
 
 	/*!
-	 * Media format selection helper
-	 */
-
-
-	function preferredFormat(media, formats) {
-		var maybes = [];
-		var probably = null;
-
-		Object.keys(formats).forEach(function(name) {
-			if (probably) {
-				return;
-			}
-
-			var format = formats[name];
-			var mime = format.mimetype + "; codecs=\"" + format.codecs + "\"";
-
-			switch (media.canPlayType(mime)) {
-				case "probably":
-					probably = name;
-					break;
-
-				case "maybe":
-					maybes.push(name);
-					break;
-			}
-		});
-
-		if (probably) {
-			return probably;
-		} else {
-			return maybes[0];
-		}
-	}
-
-
-
-	/*!
 	 * Media element event handlers
 	 */
 
@@ -96,14 +59,6 @@ define(["when", "ui", "rest"], function(when, ui, rest) {
 			if (track._media) {
 				track._currentTime = track._media.currentTime + (track._requestedSeek || 0);
 				track.timeChanged.dispatch(track._currentTime);
-			}
-		},
-
-		"durationchange": function trackDurationChange(track) {
-			var media = track._media;
-
-			if (media && media.duration !== Infinity) {
-				track.lengthChanged.dispatch(media.duration + (track._requestedSeek || 0));
 			}
 		}
 	};
@@ -130,7 +85,7 @@ define(["when", "ui", "rest"], function(when, ui, rest) {
 		this._info = rest.get("stream/%s/%s", provider, id)
 			.then(function(info) {
 				if (info.type === "video") {
-					self._quality = 288;
+					self._quality = info.height;
 
 					self._display = document.createElement("div");
 					self._display.className = "full-display";
@@ -138,7 +93,7 @@ define(["when", "ui", "rest"], function(when, ui, rest) {
 
 					displayDeferred.resolve(self._display);
 				} else {
-					self._quality = 128;
+					self._quality = info.bitrate;
 
 					displayDeferred.resolve(getTrackDisplay(info.cover));
 				}
@@ -192,22 +147,22 @@ define(["when", "ui", "rest"], function(when, ui, rest) {
 				self._display.appendChild(media);
 			}
 
-			self._format = preferredFormat(media, info.formats);
-
 			this.display.then(function(display) {
 				display.innerHTML = "";
 				display.appendChild(media);
 			});
 		},
 
-		_getStreamURL: function(format, seek) {
+		_getStreamURL: function(client, seek) {
 			return [
 				window.location.protocol + "/",
 				window.location.host,
 				"stream",
 				this._provider,
 				encodeURIComponent(this._id),
-				format + ":" + this._quality,
+				client,
+				"auto",
+				this._quality,
 				seek
 			].join("/");
 		},
@@ -218,9 +173,9 @@ define(["when", "ui", "rest"], function(when, ui, rest) {
 			this.metadata.then(function() {
 				if (self._requestedLoad) {
 					if (self._cast) {
-						self._cast.load(self._getStreamURL(self.type === "video" ? "webm" : "ogg", self._requestedSeek));
+						self._cast.load(self._getStreamURL("cast", self._requestedSeek));
 					} else {
-						self._media.src = self._getStreamURL(self._format, self._requestedSeek);
+						self._media.src = self._getStreamURL("web", self._requestedSeek);
 						self._media.preload = "auto";
 					}
 

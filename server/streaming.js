@@ -26,6 +26,10 @@ intents.on("nestor:streaming", function(name, provider) {
 					format:			mandatory, format name (as returned by ffmpeg)
 					streams:		mandatory, stream list (containing 'number', 'type' and 'codec' as returned by ffmpeg)
 
+					bitrate:		mandatory for "audio" tracks, bitrate in kbps,
+					width:			|
+					height:			| mandatory for "video" tracks, source size in pixels
+
 					filters:		optional, array of ffmpeg video filters
 					options:		optional, array of custom ffmpeg options
 					length:			optional, media length in seconds
@@ -43,163 +47,382 @@ intents.on("nestor:streaming", function(name, provider) {
 
 
 /*!
- * Transcoding presets
+ * Transcoding capabilities
  */
 
-
-var presets = {
-	video: {
-		webm: {
-			mimetype: "video/webm",
-			codecs: "vp8.0, vorbis",
-
-			acodec: "libvorbis",
-			abitrates: {
-				"144": "64k",
-				"288": "128k",
-				"*": "160k"
-			},
-
-			vcodec: "libvpx",
-			voptions: {
-				"*": ["-crf 15", "-preset ultrafast"]
+var capabilities = {
+	aformats: {
+		"audio/mpeg": {
+			format: "mp3",
+			compat: /mp3/,
+			acodecs: {
+				"libmp3lame": /mp3/
 			}
 		},
 
-		mp4: {
-			mimetype: "video/mp4",
-			codecs: "h264, aac",
-
-			acodec: "libvo_aacenc",
-			abitrates: {
-				"144": "64k",
-				"*": "128k"
-			},
-
-			vcodec: "libx264",
-			voptions: {
-				"*": ["-crf 30", "-preset ultrafast"]
-			}
-		},
-
-		ogg: {
-			mimetype: "video/ogg",
-			codecs: "theora, vorbis",
-
-			acodec: "libvorbis",
-			abitrates: {
-				"144": "64k",
-				"288": "128k",
-				"*": "160k"
-			},
-
-			vcodec: "libtheora",
-			voptions: {
-				"*": ["-qscale:v 6"]
+		"audio/ogg": {
+			format: "ogg",
+			compat: /ogg/,
+			acodecs: {
+				"libvorbis": /vorbis/,
+				"opus": /opus/
 			}
 		}
 	},
 
-	audio: {
-		mp3: {
-			mimetype: "audio/mpeg",
-			codecs: "mp3",
-
-			acodec: "libmp3lame"
+	vformats: {
+		"video/webm": {
+			format: "webm",
+			compat: /webm|matroska/,
+			acodecs: {
+				"libvorbis": /vorbis/,
+				"opus": /opus/
+			},
+			vcodecs: {
+				"libvpx": /vp8/,
+				"libvpx-vp9": /vp9/
+			}
 		},
 
-		mp4: {
-			mimetype: "audio/mp4",
-			codecs: "aac",
-
-			acodec: "libvo_aacenc",
+		"video/mp4": {
+			format: "mp4",
+			compat: /mp4/,
+			acodecs: {
+				"libvo_aacenc": /aac/,
+				"libmp3lame": /mp3/
+			},
+			vcodecs: {
+				"libx264": function(stream) {
+					return stream.codec.match(/[xh]264/) &&
+						["High", "Main"].indexOf(stream.profile) !== -1 &&
+						[31, 4, 40, 41, 42, 5, 50, 51].indexOf(stream.level) !== -1;
+				}
+			}
 		},
 
-		ogg: {
-			mimetype: "audio/ogg",
-			codecs: "vorbis",
+		"video/ogg": {
+			format: "ogg",
+			compat: /ogg/,
+			acodecs: {
+				"libvorbis": /vorbis/
+			},
+			vcodecs: {
+				"libtheora": /theora/
+			}
+		}
+	},
 
-			acodec: "libvorbis"
+	acodecs: {
+		"libvorbis": "vorbis",
+		"opus": "opus",
+		"libmp3lame": "mp3",
+		"libvo_aacenc": "aac"
+	},
+
+	vcodecs: {
+		"libvpx": {
+			name: "vp8.0",
+			options: ["-crf 15", "-preset ultrafast"]
 		},
-
-		webm: {
-			mimetype: "audio/webm",
-			codecs: "vorbis",
-
-			acodec: "libvorbis"
+		"libvpx-vp9": "vp9.0",
+		"libx264": {
+			name: "h264",
+			options: ["-crf 30", "-preset ultrafast"]
+		},
+		"libtheora": {
+			name: "theora",
+			options: ["-qscale:v 6"]
 		}
 	}
 };
 
 
-function findQualityValue(lines, obj) {
-	var lowest = Infinity;
-	var current;
+// Map capabilities object to send to clients as JSON
+var clientFormats = (function() {
+	var vformats = {};
+	var aformats = {};
 
-	Object.keys(obj).forEach(function(key) {
-		var value = key === "*" ? Infinity : Number(key);
+	var caformats = capabilities.aformats;
+	Object.keys(caformats).forEach(function(mime) {
+		var caformat = caformats[mime];
 
-		if (value > lines && value <= lowest) {
-			current = obj[key];
-		}
+		aformats[mime] = {
+			acodecs: {}
+		};
+
+		Object.keys(caformat.acodecs).forEach(function(codec) {
+			var codecDef = capabilities.acodecs[codec];
+			aformats[mime].acodecs[codec] = typeof codecDef === "string" ? codecDef : codecDef.name;
+		});
 	});
 
-	return current;
-}
+	var cvformats = capabilities.vformats;
+	Object.keys(cvformats).forEach(function(mime) {
+		var cvformat = cvformats[mime];
+
+		vformats[mime] = {
+			acodecs: {},
+			vcodecs: {}
+		};
+
+		Object.keys(cvformat.acodecs).forEach(function(codec) {
+			var codecDef = capabilities.acodecs[codec];
+			vformats[mime].acodecs[codec] = typeof codecDef === "string" ? codecDef : codecDef.name;
+		});
+
+		Object.keys(cvformat.vcodecs).forEach(function(codec) {
+			var codecDef = capabilities.vcodecs[codec];
+			vformats[mime].vcodecs[codec] = typeof codecDef === "string" ? codecDef : codecDef.name;
+		});
+	});
+
+	return { "audio": aformats, "video": vformats };
+}());
 
 
-function applyPreset(type, name, command) {
-	var parts = name.split(":");
-	var format, lines, bitrate;
+// Chromecast capabilities
+var castCapabilities = {
+	"audio": [
+		"audio/ogg;libvorbis",
+		"audio/mpeg;libmp3lame"
+	],
 
-	if (type === "video") {
-		format = parts[0];
-		lines = Number(parts[1]);
+	"video": [
+		"video/webm;libvpx;libvorbis",
+		"video/mp4;libx264;libvo_aacenc"
+	]
+};
 
-		if (isNaN(lines)) {
-			throw new Error("Invalid vertical resolution: " + parts[1]);
+
+
+/*!
+ * FfmpegCommand instanciation and codec matching logic
+ */
+
+function addStreamOptions(command, data, streams) {
+	var ret = {};
+
+	if (streams === "auto") {
+		// Select first streams of the expected types
+		streams = [];
+
+		if (data.type == "video") {
+			streams.push("video:" + data.streams.filter(function(s) { return s.type === "video"; })[0].index);
 		}
+
+		streams.push("audio:" + data.streams.filter(function(s) { return s.type === "audio"; })[0].index);
 	} else {
-		format = parts[0];
-		bitrate = Number(parts[1]);
-
-		if (isNaN(bitrate)) {
-			throw new Error("Invalid audio bitrate: " + parts[1]);
-		}
+		streams = streams.split(",");
 	}
 
-	if (!(format in presets[type])) {
-		throw new Error("Unknown " + type + " format: " + format);
-	}
+	streams.forEach(function(stream) {
+		var parts = stream.split(":");
+		var type = parts[0];
+		var index = Number(parts[1]);
 
-	var preset = presets[type][format];
-
-	command
-		.withAudioCodec(preset.acodec)
-		.withAudioChannels(2);
-
-	if (type === "audio") {
-		command.withAudioBitrate(bitrate);
-	} else  {
-		command
-			.withAudioBitrate(findQualityValue(lines, preset.abitrates))
-			.withVideoCodec(preset.vcodec)
-			.withSize("?x" + lines);
-
-		if (preset.vbitrates) {
-			command.withVideoBitrate(findQualityValue(lines, preset.vbitrates));
+		var streamspec = data.streams.filter(function(s) { return s.index === index; })[0];
+		if (!streamspec) {
+			throw new Error("Unknown stream index requested: " + index);
 		}
 
-		if (preset.voptions) {
-			command.addOptions(findQualityValue(lines, preset.voptions));
+		if (streamspec.type !== type) {
+			throw new Error("Requested using " + streamspec.type + " stream " + index + " as " + type + " stream");
 		}
-	}
 
-	command.toFormat(format);
+		ret[type] = streamspec;
+		command.addOptions([
+			"-map:" + (type === "audio" ? "a" : "v") + " 0:" + index
+		]);
+	});
 
-	return preset.mimetype;
+	return ret;
 }
 
+
+function mapCandidates(candidates) {
+	return candidates.map(function(candidate) {
+		var split = candidate.split(";");
+
+		if (split.length === 2) {
+			return { format: split[0], acodec: split[1] };
+		} else {
+			return { format: split[0], vcodec: split[1], acodec: split[2] };
+		}
+	});
+}
+
+
+function matchAudio(candidates, audioStream) {
+	var isOnlyAudio = !candidates.some(function(c) { return "vcodec" in c; });
+
+	return candidates.filter(function(candidate) {
+		try {
+			var caps = isOnlyAudio ? capabilities.aformats : capabilities.vformats;
+			var matcher = caps[candidate.format].acodecs[candidate.acodec];
+
+			if (matcher instanceof RegExp) {
+				return audioStream.codec.match(matcher);
+			} else if (typeof matcher === "function") {
+				return matcher(audioStream);
+			} else {
+				return audioStream.codec === matcher;
+			}
+		} catch(e) {
+			logger.warn("Error while matching: %s (stream: %j, candidate: %j)", e.message, audioStream, candidate);
+			return false;
+		}
+	});
+}
+
+
+function matchVideo(candidates, videoStream) {
+	return candidates.filter(function(candidate) {
+		try {
+			var matcher = capabilities.vformats[candidate.format].vcodecs[candidate.vcodec];
+
+			if (matcher instanceof RegExp) {
+				return videoStream.codec.match(matcher);
+			} else if (typeof matcher === "function") {
+				return matcher(videoStream);
+			} else {
+				return videoStream.codec === matcher;
+			}
+		} catch(e) {
+			logger.warn("Error while matching: %s (stream: %j, candidate: %j)", e.message, videoStream, candidate);
+			return false;
+		}
+	});
+}
+
+
+function createAudioCommand(data, streamspec, bitrate, candidates) {
+	var command = new Ffmpeg({ source: data.source, timeout: 0 }).withNoVideo();
+
+	// Select streams
+	var selectedStreams = addStreamOptions(command, data, streamspec);
+	logger.debug("Selected streams: %j", selectedStreams);
+	logger.debug("Candidates: %j", candidates);
+
+	var audioStream = selectedStreams.audio;
+	var audioCopy = false;
+
+	if (bitrate === data.bitrate) {
+		// Attempt to copy audio stream if requested bitrate matches source bitrate
+		var audioCopyCandidates = matchAudio(candidates, audioStream);
+
+		if (audioCopyCandidates.length) {
+			candidates = audioCopyCandidates;
+			audioCopy = true;
+		}
+	}
+
+	// Use first remaining candidate
+	var chosen = candidates[0];
+	logger.debug("Chose candidate: %j", chosen);
+
+	if (audioCopy) {
+		logger.debug("Can copy audio");
+		command.withAudioCodec("copy");
+	} else {
+		command.withAudioCodec(chosen.acodec);
+
+		var acodecDef = capabilities.acodecs[chosen.acodec];
+		if (typeof acodecDef === "object" && "options" in acodecDef) {
+			command.addOptions(acodecDef.options);
+		}
+	}
+
+	// Apply provider options
+	if (data.options && data.options.length) {
+		command.addOptions(data.options);
+	}
+
+	// Apply format and save mimetype
+	command.toFormat(capabilities.aformats[chosen.format].format);
+	command._nestorMimetype = chosen.format;
+
+	return command;
+}
+
+
+function createVideoCommand(data, streamspec, height, candidates) {
+	var command = new Ffmpeg({ source: data.source, timeout: 0 });
+
+	// Select streams
+	var selectedStreams = addStreamOptions(command, data, streamspec);
+	logger.debug("Selected streams: %j", selectedStreams);
+	logger.debug("Candidates: %j", candidates);
+
+	var audioStream = selectedStreams.audio;
+	var audioCopy = false;
+
+	var videoStream = selectedStreams.video;
+	var videoCopy = false;
+
+	if (data.height === height) {
+		// Attempt to copy video stream
+		var videoCopyCandidates = matchVideo(candidates, videoStream);
+
+		if (videoCopyCandidates.length) {
+			candidates = videoCopyCandidates;
+			videoCopy = true;
+		}
+	}
+
+	// Try to copy audio stream
+	var audioCopyCandidates = matchAudio(candidates, audioStream);
+
+	if (audioCopyCandidates.length) {
+		candidates = audioCopyCandidates;
+		audioCopy = true;
+	}
+
+	// Use first remaining candidate
+	var chosen = candidates[0];
+	logger.debug("Chose candidate: %j", chosen);
+
+	if (audioCopy) {
+		logger.debug("Can copy audio");
+		command.withAudioCodec("copy");
+	} else {
+		command.withAudioCodec(chosen.acodec);
+
+		var acodecDef = capabilities.acodecs[chosen.acodec];
+		if (typeof acodecDef === "object" && "options" in acodecDef) {
+			command.addOptions(acodecDef.options);
+		}
+	}
+
+	if (videoCopy) {
+		logger.debug("Can copy video");
+		command.withVideoCodec("copy");
+	} else {
+		command.withVideoCodec(chosen.vcodec);
+
+		var vcodecDef = capabilities.vcodecs[chosen.vcodec];
+		if (typeof vcodecDef === "object" && "options" in vcodecDef) {
+			command.addOptions(vcodecDef.options);
+		}
+	}
+
+	// Apply provider options
+	if (data.options && data.options.length) {
+		command.addOptions(data.options);
+	}
+
+	// Apply provider filters
+	if (data.filters) {
+		data.filters.forEach(function(filter) {
+			command.withVideoFilter(filter);
+		});
+	}
+
+	// Apply format and save mimetype
+	command.toFormat(capabilities.vformats[chosen.format].format);
+	command._nestorMimetype = chosen.format;
+
+	return command;
+}
 
 
 /*!
@@ -208,6 +431,17 @@ function applyPreset(type, name, command) {
 
 
 exports.listen = function(app) {
+	/* REST endpoint to query available formats and codecs */
+	yarm.resource("stream/formats")
+		.get(function(req, cb) {
+			cb(null, clientFormats);
+		})
+		.post(function(req, cb) {
+			req.session.streamingCapabilities = req.body;
+			cb.noContent();
+		});
+
+
 	/* REST endpoint to query streamable resource information */
 	yarm.resource("stream/:provider/:id")
 		.get(function(req, cb) {
@@ -236,14 +470,14 @@ exports.listen = function(app) {
 
 				cb(null, {
 					type: data.type,
-					format: data.format,
-					streams: data.streams,
+					bitrate: data.bitrate,
+					width: data.width,
+					height: data.height,
 
 					length: data.length,
 					cover: data.cover,
 					title: data.title,
-					subtitle: data.subtitle,
-					formats: presets[data.type]
+					subtitle: data.subtitle
 				});
 			});
 		});
@@ -252,25 +486,32 @@ exports.listen = function(app) {
 	/* Streaming endpoint
 		provider: stream provider name
 		id: stream ID
-		format: "name:quality" (quality is height for video, bitrate for audio)
-		streams: stream selection, eg. "audio:1,video:3"
+		client: "cast" for chromecast, anything else for normal client
+		streams: stream selection, eg. "audio:1,video:3", or "auto"
+		quality: height for video streams, bitrate for audio streams
 		seek: start position in seconds
 	*/
-	app.get("/stream/:provider/:id/:format/:streams/:seek", function(req, res) {
+	app.get("/stream/:provider/:id/:client/:streams/:quality/:seek", function(req, res) {
 		var name = req.param("provider");
+		var id = req.param("id");
 
 		if (!(name in providers)) {
 			logger.warn("Unknown provider requested: %s", name);
 			return res.send(400);
 		}
 
-		var id = req.param("id");
+		var clientCapabilities = req.param("client") === "cast" ? castCapabilities : req.session.streamingCapabilities;
+		if (!clientCapabilities) {
+			logger.warn("Stream %s/%s requested but client capabilities are unknown", name, id);
+			return res.send(412);
+		}
+
 		providers[name](id, function(err, data) {
 			// Check for stream validity
 
 			if (err) {
 				logger.warn("Error requesting %s/%s: %s", name, id, err.message);
-				return res.send(500);
+				return res.send(404);
 			}
 
 			if (!data) {
@@ -282,74 +523,24 @@ exports.listen = function(app) {
 				return res.send(500);
 			}
 
-			// Initiate ffmpeg command
+			// Instanciate ffmpeg command
 
-			var command = new Ffmpeg({ source: data.source, timeout: 0 });
-
-			// Check streams
-
-			if (req.param("streams") !== "auto") {
-				var streams = req.param("streams").split(",");
-				var error = false;
-
-				streams.forEach(function(stream) {
-					if (error) return;
-
-					var parts = stream.split(":");
-					var type = parts[0];
-					var index = Number(parts[1]);
-
-					var streamspec = data.streams.filter(function(s) { return s.index === index; })[0];
-					if (!streamspec) {
-						logger.warn("Unknown stream index requested: %s", index);
-						error = true;
-						return res.send(400);
-					}
-
-					if (streamspec.type !== type) {
-						logger.warn("Requested using %s stream %s as %s stream", streamspec.type, index, type);
-						error = true;
-						return res.send(400);
-					}
-
-					command.addOptions([
-						"-map:" + (type === "audio" ? "a" : "v") + " " + index
-					]);
-				});
-
-				if (error) {
-					return;
-				}
-			}
-
-			// Apply preset
-
-			var mimetype;
+			var command;
 
 			try {
-				mimetype = applyPreset(data.type, req.param("format"), command);
+				if (data.type === "audio") {
+					command = createAudioCommand(data, req.param("streams"), Number(req.param("quality")), mapCandidates(clientCapabilities.audio));
+				} else {
+					command = createVideoCommand(data, req.param("streams"), Number(req.param("quality")), mapCandidates(clientCapabilities.video));
+				}
 			} catch(e) {
-				logger.warn("Preset error for %s/%s: %s", name, id, e.message);
+				logger.warn("Command error for %s/%s: %s", name, id, e.stack);
 				return res.send(400);
-			}
-
-			res.contentType(mimetype);
-
-			// Apply provider options
-
-			if (data.options && data.options.length) {
-				command.addOptions(data.options);
-			}
-
-			if (data.filters) {
-				data.filters.forEach(function(filter) {
-					command.withVideoFilter(filter);
-				});
 			}
 
 			// Send response
 
-			res.setHeader("X-Nestor-Stream", "TODO-Stream-ID");
+			res.contentType(command._nestorMimetype);
 
 			if (data.length) {
 				res.setHeader("X-Content-Duration", data.length);
