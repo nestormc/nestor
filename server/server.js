@@ -331,7 +331,7 @@ intents.on("nestor:startup", function() {
 		server = https.createServer(sslOptions, app);
 		server.listen(serverConfig.port, serverConfig.host);
 	} else {
-		logger.info("Starting wbe server on %s", webHost);
+		logger.info("Starting web server on %s", webHost);
 		server = http.createServer(app);
 		server.listen(serverConfig.port, serverConfig.host);
 	}
