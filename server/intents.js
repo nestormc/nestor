@@ -7,10 +7,13 @@ var EventEmitter = require("events").EventEmitter,
 var intentEmitter = new EventEmitter();
 var startupEmitted = false;
 
+// Raise limit to avoid warnings
+intentEmitter.setMaxListeners(50);
+
 var intents = {
 	on: function(intent, handler) {
 		logger.debug("Registering handler for intent %s", intent);
-		
+
 		if (startupEmitted) {
 			logger.warn("Intent handler for %s registered after nestor:startup, intents may have been missed", intent);
 		}
