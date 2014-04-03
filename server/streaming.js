@@ -88,7 +88,7 @@ var capabilities = {
 			format: "mp4",
 			compat: /mp4/,
 			acodecs: {
-				"libvo_aacenc": /aac/,
+				"aac": /aac/,
 				"libmp3lame": /mp3/
 			},
 			vcodecs: {
@@ -116,7 +116,10 @@ var capabilities = {
 		"libvorbis": "vorbis",
 		"opus": "opus",
 		"libmp3lame": "mp3",
-		"libvo_aacenc": "aac"
+		"aac": {
+			name: "aac",
+			options: ["-strict -2", "-q:a 100"]
+		}
 	},
 
 	vcodecs: {
@@ -127,7 +130,7 @@ var capabilities = {
 		"libvpx-vp9": "vp9.0",
 		"libx264": {
 			name: "h264",
-			options: ["-crf 30", "-preset ultrafast"]
+			options: ["-profile:v high", "-level 5.0"]
 		},
 		"libtheora": {
 			name: "theora",
@@ -189,7 +192,7 @@ var castCapabilities = {
 
 	"video": [
 		"video/webm;libvpx;libvorbis",
-		"video/mp4;libx264;libvo_aacenc"
+		"video/mp4;libx264;aac"
 	]
 };
 
@@ -326,6 +329,10 @@ function createAudioCommand(data, streamspec, bitrate, candidates) {
 	} else {
 		command.withAudioCodec(chosen.acodec);
 
+		if (bitrate !== data.bitrate) {
+			command.withAudioBitrate(bitrate);
+		}
+
 		var acodecDef = capabilities.acodecs[chosen.acodec];
 		if (typeof acodecDef === "object" && "options" in acodecDef) {
 			command.addOptions(acodecDef.options);
@@ -398,6 +405,10 @@ function createVideoCommand(data, streamspec, height, candidates) {
 		command.withVideoCodec("copy");
 	} else {
 		command.withVideoCodec(chosen.vcodec);
+
+		if (height !== data.height) {
+			command.withSize("?x" + height);
+		}
 
 		var vcodecDef = capabilities.vcodecs[chosen.vcodec];
 		if (typeof vcodecDef === "object" && "options" in vcodecDef) {
