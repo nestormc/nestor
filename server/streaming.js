@@ -4,9 +4,11 @@
 var Ffmpeg = require("fluent-ffmpeg");
 var yarm = require("yarm");
 var logger = require("log4js").getLogger("streaming");
+var Writable = require("stream").Writable;
+var util = require("util");
 
 var intents = require("./intents");
-
+var FASTSEEK_THRESHOLD = 30;
 
 
 /*!
@@ -44,6 +46,158 @@ intents.on("nestor:streaming", function(name, provider) {
 	providers[name] = provider;
 });
 
+
+
+/*!
+ * Transfer speed measurement
+ */
+
+
+function measureSpeed(interval) {
+	interval = interval || 1000;
+
+	var startTime = null;
+	var totalSize = 0;
+	var chunks = [];
+
+	function pruneChunks(now) {
+		while (chunks.length && (now - chunks[0].date) > interval) {
+			chunks.shift();
+		}
+	}
+
+	return {
+		update: function(chunk) {
+			var now = Date.now();
+			pruneChunks(now);
+
+			if (!startTime) {
+				// First update
+				startTime = now;
+			}
+
+			totalSize += chunk.length;
+			chunks.push({ date: now, size: chunk.length });
+		},
+
+		get current() {
+			pruneChunks(Date.now());
+			return 1000 * chunks.reduce(function(sum, chunk) {
+				return sum + chunk.size;
+			}, 0) / interval;
+		},
+
+		get average() {
+			return startTime ? 1000 * totalSize / (Date.now() - startTime) : 0;
+		}
+	};
+}
+
+
+function MeasureStream(output, interval, options) {
+	Writable.call(this, options);
+	var self = this;
+
+	interval = interval || 1000;
+
+	this._output = output;
+	this._full = false;
+	this._finished = false;
+	this._pending = [];
+
+	function outputDrained() {
+		self._full = false;
+		self._flush();
+	}
+
+	function outputClosed() {
+		logger.debug("MeasureStream output closed");
+		self.emit("close");
+		cleanup();
+	}
+
+	function outputErrored(err) {
+		logger.debug("MeasureStream output err: %s", err.message);
+		self.emit("error", err);
+		cleanup();
+	}
+
+	function thisFinished() {
+		logger.debug("MeasureStream finished");
+		self._finished = true;
+
+		if (!self._pending.length) {
+			self._flush();
+		}
+	}
+
+	function thisFinishFlushed() {
+		logger.debug("MeasureStream final flush done");
+		cleanup();
+	}
+
+	output.on("drain", outputDrained);
+	output.on("close", outputClosed);
+	output.on("error", outputErrored);
+	this.on("finish", thisFinished);
+	this.on("finish-flushed", thisFinishFlushed);
+
+	this._inputMeasure = measureSpeed(interval);
+	this._inputSpeed = 0;
+	this._outputMeasure = measureSpeed(interval);
+	this._outputSpeed = 0;
+
+	this._interval = setInterval(function() {
+		var inputSpeed = self._inputMeasure.current;
+
+		if (inputSpeed !== self._inputSpeed) {
+			self._inputSpeed = inputSpeed;
+			self.emit("input-speed", inputSpeed);
+		}
+
+		var outputSpeed = self._outputMeasure.current;
+
+		if (outputSpeed !== self._outputSpeed) {
+			self._outputSpeed = outputSpeed;
+			self.emit("output-speed", outputSpeed);
+		}
+	}, interval);
+
+	function cleanup() {
+		clearInterval(self._interval);
+
+		output.removeListener("drain", outputDrained);
+		output.removeListener("close", outputClosed);
+		output.removeListener("error", outputErrored);
+
+		self.removeListener("finish", thisFinished);
+		self.removeListener("finish-flushed", thisFinishFlushed);
+	}
+}
+util.inherits(MeasureStream, Writable);
+
+
+MeasureStream.prototype._write = function(chunk, encoding, done) {
+	this._inputMeasure.update(chunk);
+	this._pending.push(chunk);
+	this._flush();
+	done();
+};
+
+
+MeasureStream.prototype._flush = function() {
+	while (!this._full && this._pending.length) {
+		var chunk = this._pending.shift();
+
+		this._full = !this._output.write(chunk);
+		this._outputMeasure.update(chunk);
+	}
+
+	if (this._finished && !this._pending.length) {
+		this._output.end();
+		this.emit("finish-flushed");
+	}
+};
 
 
 /*!
@@ -199,8 +353,47 @@ var castCapabilities = {
 
 
 /*!
+ * Ffmpeg capability detection
+ */
+
+
+
+var ffmpegAvailable = false;
+intents.on("nestor:startup", function getFfmpegCapabilities() {
+	var command = new Ffmpeg({ source: "" });
+	var availableCodecs;
+	var availableFormats;
+	var availableFilters;
+
+	command.getAvailableFormats(function(err, formats) {
+		if (err) {
+			logger.warn("Ffmpeg is not available");
+			return;
+		}
+
+		availableFormats = formats;
+		command.getAvailableCodecs(function(err, codecs) {
+			availableCodecs = codecs;
+
+			// Try to find codec for AAC
+
+			command.getAvailableFilters(function(err, filters) {
+				availableFilters = filters;
+
+				logger.info("Fffmpeg capabilities retrieved, ready to stream");
+				ffmpegAvailable = true;
+			});
+		});
+	});
+});
+
+
+
+
+/*!
  * FfmpegCommand instanciation and codec matching logic
  */
+
 
 function addStreamOptions(command, data, streams) {
 	var ret = {};
@@ -298,8 +491,12 @@ function matchVideo(candidates, videoStream) {
 }
 
 
-function createAudioCommand(data, streamspec, bitrate, candidates) {
+function createAudioCommand(data, streamspec, bitrate, candidates, seekTime) {
 	var command = new Ffmpeg({ source: data.source, timeout: 0 }).withNoVideo();
+
+	if (isNaN(bitrate)) {
+		bitrate = data.bitrate;
+	}
 
 	// Select streams
 	var selectedStreams = addStreamOptions(command, data, streamspec);
@@ -309,8 +506,8 @@ function createAudioCommand(data, streamspec, bitrate, candidates) {
 	var audioStream = selectedStreams.audio;
 	var audioCopy = false;
 
-	if (bitrate === data.bitrate) {
-		// Attempt to copy audio stream if requested bitrate matches source bitrate
+	if (bitrate === data.bitrate && seekTime === 0) {
+		// Attempt to copy audio stream if requested bitrate matches source bitrate and no seek requested
 		var audioCopyCandidates = matchAudio(candidates, audioStream);
 
 		if (audioCopyCandidates.length) {
@@ -352,8 +549,12 @@ function createAudioCommand(data, streamspec, bitrate, candidates) {
 }
 
 
-function createVideoCommand(data, streamspec, height, candidates) {
+function createVideoCommand(data, streamspec, height, candidates, seekTime) {
 	var command = new Ffmpeg({ source: data.source, timeout: 0 });
+
+	if (isNaN(height)) {
+		height = data.height;
+	}
 
 	// Select streams
 	var selectedStreams = addStreamOptions(command, data, streamspec);
@@ -366,7 +567,7 @@ function createVideoCommand(data, streamspec, height, candidates) {
 	var videoStream = selectedStreams.video;
 	var videoCopy = false;
 
-	if (data.height === height) {
+	if (data.height === height && seekTime === 0) {
 		// Attempt to copy video stream
 		var videoCopyCandidates = matchVideo(candidates, videoStream);
 
@@ -376,12 +577,14 @@ function createVideoCommand(data, streamspec, height, candidates) {
 		}
 	}
 
-	// Try to copy audio stream
-	var audioCopyCandidates = matchAudio(candidates, audioStream);
+	if (seekTime === 0) {
+		// Try to copy audio stream
+		var audioCopyCandidates = matchAudio(candidates, audioStream);
 
-	if (audioCopyCandidates.length) {
-		candidates = audioCopyCandidates;
-		audioCopy = true;
+		if (audioCopyCandidates.length) {
+			candidates = audioCopyCandidates;
+			audioCopy = true;
+		}
 	}
 
 	// Use first remaining candidate
@@ -498,23 +701,32 @@ exports.listen = function(app) {
 		provider: stream provider name
 		id: stream ID
 		client: "cast" for chromecast, anything else for normal client
-		streams: stream selection, eg. "audio:1,video:3", or "auto"
-		quality: height for video streams, bitrate for audio streams
-		seek: start position in seconds
+
+	   Querystring optional parameters:
+	    client: "cast" for chromecast, anything else for web client (default)
+	    streams: stream selection, eg. "audio:1,video:3", or "auto" (default)
+	    seek: start position in seconds (defaults to 0)
+		quality: height for video streams, bitrate for audio streams, or "original" (default)
 	*/
-	app.get("/stream/:provider/:id/:client/:streams/:quality/:seek", function(req, res) {
+	app.get("/stream/:provider/:id", function(req, res) {
 		var name = req.param("provider");
 		var id = req.param("id");
+
+		if (!ffmpegAvailable) {
+			logger.warn("Stream %s/%s requested but ffmpeg is not available", name, id);
+			return res.send(503);
+		}
 
 		if (!(name in providers)) {
 			logger.warn("Unknown provider requested: %s", name);
 			return res.send(400);
 		}
 
-		var clientCapabilities = req.param("client") === "cast" ? castCapabilities : req.session.streamingCapabilities;
+		var client = req.param("client") || "web";
+		var clientCapabilities = client === "cast" ? castCapabilities : req.session.streamingCapabilities;
 		if (!clientCapabilities) {
 			logger.warn("Stream %s/%s requested but client capabilities are unknown", name, id);
-			return res.send(412);
+			return res.send(503);
 		}
 
 		providers[name](id, function(err, data) {
@@ -537,16 +749,41 @@ exports.listen = function(app) {
 			// Instanciate ffmpeg command
 
 			var command;
+			var seekTime = Number(req.param("seek") || 0);
 
 			try {
 				if (data.type === "audio") {
-					command = createAudioCommand(data, req.param("streams"), Number(req.param("quality")), mapCandidates(clientCapabilities.audio));
+					command = createAudioCommand(
+						data,
+						req.param("streams") || "auto",
+						Number(req.param("quality") || data.bitrate),
+						mapCandidates(clientCapabilities.audio),
+						seekTime
+					);
 				} else {
-					command = createVideoCommand(data, req.param("streams"), Number(req.param("quality")), mapCandidates(clientCapabilities.video));
+					command = createVideoCommand(
+						data, req.param("streams") || "auto",
+						Number(req.param("quality") || data.height),
+						mapCandidates(clientCapabilities.video),
+						seekTime
+					);
 				}
 			} catch(e) {
 				logger.warn("Command error for %s/%s: %s", name, id, e.stack);
 				return res.send(400);
+			}
+
+			// Apply seek
+
+			if (seekTime > 0 && seekTime < FASTSEEK_THRESHOLD) {
+				// Use slow seek for seek times < 30s
+				command.addOptions(["-ss " + seekTime]);
+			} else {
+				command
+					// Use fast seek for seek - 30s
+					.setStartTime(seekTime - FASTSEEK_THRESHOLD)
+					// Then slow seek the remaining 30s
+					.addOptions(["-ss " + FASTSEEK_THRESHOLD]);
 			}
 
 			// Send response
@@ -554,11 +791,25 @@ exports.listen = function(app) {
 			res.contentType(command._nestorMimetype);
 
 			if (data.length) {
-				res.setHeader("X-Content-Duration", data.length);
+				res.setHeader("X-Content-Duration", data.length - seekTime);
 			}
 
+			// Setup speed measurement
+
+			/*
+			var measure = new MeasureStream(res);
+			measure.on("input-speed", function(speed) {
+				logger.debug("Input speed = %s kB/s", Math.round(speed/1024));
+			});
+			measure.on("output-speed", function(speed) {
+				logger.debug("Output speed = %s kB/s", Math.round(speed/1024));
+			});
+			*/
+
 			command
-				.setStartTime(parseFloat(req.param("seek")))
+				.on("codecData", function(data) {
+					logger.debug("Codec data: %j", data);
+				})
 				.on("start", function(cmdline) {
 					logger.debug("Started transcoding: %s", cmdline);
 				})
@@ -569,6 +820,9 @@ exports.listen = function(app) {
 							name, id, err.message, stdout, stderr
 						);
 					}
+				})
+				.on("end", function() {
+					logger.debug("Transcoding finished");
 				})
 				.writeToStream(res);
 		});
