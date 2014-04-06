@@ -5,9 +5,13 @@ define([], function() {
 	"use strict";
 
 	var dom = {
+		body: function() {
+			return document.body;
+		},
+
 		/**
 		 * querySelector helper
-		 * 
+		 *
 		 * @param [element] root element to start searching in, defaults to document
 		 * @param selector CSS selector to look for
 		 * @return matching element or null
@@ -17,10 +21,10 @@ define([], function() {
 				selector = element;
 				element = document;
 			}
-			
+
 			return element.querySelector(selector);
 		},
-		
+
 		/**
 		 * querySelectorAll helper
 		 *
@@ -33,7 +37,7 @@ define([], function() {
 				selector = element;
 				element = document;
 			}
-			
+
 			return [].slice.call(element.querySelectorAll(selector));
 		},
 
@@ -118,7 +122,7 @@ define([], function() {
 
 		absoluteLeft: function(node) {
 			var left = 0;
-			
+
 			while (node) {
 				left += node.offsetLeft;
 				node = node.offsetParent;
@@ -130,7 +134,7 @@ define([], function() {
 
 		absoluteTop: function(node) {
 			var top = 0;
-			
+
 			while (node) {
 				top += node.offsetTop;
 				node = node.offsetParent;

@@ -3,13 +3,11 @@
  ** Navigation bar
  **/
 
-
 #bar {
+	bottom: @playerHeight + @margins;
 	width: @barWidth;
-
 	position: absolute;
 	top: @margins;
-	bottom: @playerHeight + @margins;
 	left: @margins;
 
 	color: @mlGray;
@@ -37,8 +35,8 @@
 		img {
 			margin: .375em 1em 0 0;
 
-			width: 2.5em;
-			height: 2.5em;
+			width: @logoWidth;
+			height: @logoWidth;
 		}
 
 		.user {
@@ -106,5 +104,36 @@
 				}
 			}
 		}
+	}
+}
+
+.player-hidden #bar {
+	bottom: @margins;
+}
+
+.bar-folded #bar {
+	width: @barFoldedWidth;
+
+	#nestor {
+		margin-bottom: @margins;
+
+		img {
+			margin: @margins/2;
+
+			width: @logoFoldedWidth;
+			height: @logoFoldedWidth;
+		}
+	}
+
+	#user-container {
+		display: none !important;
+	}
+
+	.applets {
+		display: none;
+	}
+
+	.plugin ul.pages .label {
+		display: none;
 	}
 }

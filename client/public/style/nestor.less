@@ -13,6 +13,8 @@
 	/* reset UA margins */
 	margin: 0;
 	padding: 0;
+
+	font-size: 12pt;
 }
 
 ::selection, input::selection, select::selection {
@@ -39,8 +41,11 @@ body {
 }
 
 @barWidth: 12em;
+@logoWidth: 2.5em;
+@logoFoldedWidth: 1.2em;
 @playerHeight: 3em;
 @margins: .5em;
+@barFoldedWidth: @logoFoldedWidth + @margins;
 
 @import "heartbeat.less";
 @import "login.less";

@@ -1,8 +1,8 @@
 #viewport {
-	position: absolute;
-	top: @margins;
 	bottom: @playerHeight + @margins;
 	left: @barWidth + 2*@margins;
+	position: absolute;
+	top: @margins;
 	right: @margins;
 	overflow: auto;
 
@@ -160,4 +160,12 @@
 			background-color: @lightGray;
 		}
 	}
+}
+
+.player-hidden #viewport {
+	bottom: @margins;
+}
+
+.bar-folded #viewport {
+	left: @barFoldedWidth + 2*@margins;
 }

@@ -2,7 +2,8 @@
 	/* Logo and user controls */
 	#nestor
 		#logo-container
-			img[src=images/nestor.svg]
+			a[href=#!fold-bar]
+				img[src=images/nestor.svg]
 
 		#user-container
 			.user "{{ user }}"
@@ -24,7 +25,7 @@
 							a[href=#{{ route }}]
 								.icon
 									@svg "images/" + (icon || 'list') + ".svg"
-								"{{ label }}"
+								span.label "{{ label }}"
 
 #viewport
 	@each plugins

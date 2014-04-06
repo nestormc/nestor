@@ -235,6 +235,12 @@ function(ist, mainTemplate, components, signals, dom, when, login, uihelpers) {
 				next();
 			});
 
+			// Fold/unfold bar
+			router.on("!fold-bar", function(err, req, next) {
+				dom.body().classList.toggle("bar-folded");
+				next();
+			});
+
 			// Initialize rendering context
 			istContext = {
 				user: user,
