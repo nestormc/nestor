@@ -65,16 +65,6 @@
 	}
 
 	.plugin {
-		.title {
-			color: @midGray;
-			text-transform: capitalize;
-			font-family: NestorTitleFont;
-		}
-
-		&:hover .title {
-			color: @lightGray;
-		}
-
 		.applets {
 			padding: @margins/2;
 
@@ -98,14 +88,21 @@
 				}
 
 				a:hover {
-					background-color: @darkerGray;
+					background-color: @mdGray;
 				}
 
-				img {
-					vertical-align: text-bottom;
-					width: 1.2em;
-					height: 1.2em;
+				a.current {
+					svg * {
+						fill: @mlGray !important;
+					}
+				}
+
+				.icon {
 					margin-right: @margins;
+
+					svg * {
+						fill: @midGray !important;
+					}
 				}
 			}
 		}

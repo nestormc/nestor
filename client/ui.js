@@ -218,6 +218,23 @@ function(ist, mainTemplate, components, signals, dom, when, login, uihelpers) {
 			playerApp = apps.filter(function(a) { return a.name === "player"; })[0];
 			ui.player = playerApp.public;
 
+			// Show current route on navbar
+			router.on("*", function(err, req, next) {
+				var current = $("#bar .pages .current");
+
+				if (current) {
+					current.classList.remove("current");
+				}
+
+				current = $("#bar .pages a[href=\"#" + req.path + "\"]");
+
+				if (current) {
+					current.classList.add("current");
+				}
+
+				next();
+			});
+
 			// Initialize rendering context
 			istContext = {
 				user: user,

@@ -3,7 +3,7 @@
 
 define(["dom"], function(dom) {
 	"use strict";
-	
+
 	var click, popstate, router, currentRoute,
 		rxInitialBang = /^!/,
 		rxInitialSlash = /^\//,
@@ -32,15 +32,15 @@ define(["dom"], function(dom) {
 		};
 	}());
 
-	
+
 	/**
 	 * Try to match a hash to a route
 	 *
 	 * Return an object with route parameter values when the route matches
-	 * 
+	 *
 	 * @param {Object} route route definition
 	 * @param {String} hash location hash
-	 * @return {Object|undefined} 
+	 * @return {Object|undefined}
 	 * @private
 	 */
 	function matchRoute(route, hash) {
@@ -48,22 +48,22 @@ define(["dom"], function(dom) {
 			vars = route.vars,
 			ret = re.exec(hash),
 			params = {};
-		
+
 		if (ret) {
 			// Remove first element (full regexp match)
 			ret.shift();
-			
+
 			ret.forEach(function(value, index) {
 				if (typeof vars[index] !== "undefined") {
 					params[vars[index]] = decodeURIComponent(value);
 				}
 			});
-			
+
 			return params;
 		}
 	}
-	
-	
+
+
 	/* Public interface */
 	var subRouters = {};
 
@@ -123,13 +123,13 @@ define(["dom"], function(dom) {
 			}
 
 			var route = getRouteParameter();
-			
+
 			if (route && route.length > 0) {
 				this.navigateTo(route);
 			}
 		},
-		
-		
+
+
 		/**
 		 * Stop listening to hashchange events and reset router configuration
 		 */
@@ -147,12 +147,12 @@ define(["dom"], function(dom) {
 				removeEventListener("popstate", popstate, false);
 				popstate = null;
 			}
-			
+
 			history.replaceState(null, null, "?");
 		},
 
-		
-		
+
+
 		/**
 		 * Navigate to a specific hash
 		 *
@@ -178,12 +178,12 @@ define(["dom"], function(dom) {
 				currentRoute = path;
 			}
 
-			
+
 			function nextRoute(err) {
 				do {
 					routeIndex++;
 					route = store[routeStrings[routeIndex]];
-				
+
 					if (route) {
 						req.match = matchRoute(route, path);
 						if (req.match) {
@@ -193,13 +193,13 @@ define(["dom"], function(dom) {
 					}
 				} while (route && !req.match);
 			}
-			
+
 			function nextHandler(err) {
 				var handler;
 				currentHandler++;
-				
+
 				handler = route.handlers[currentHandler];
-				
+
 				if (handler) {
 					try {
 						handler.call(null, err, req, nextHandler);
@@ -210,11 +210,11 @@ define(["dom"], function(dom) {
 					nextRoute(err);
 				}
 			}
-			
+
 			nextRoute();
 		},
 
-		
+
 		/**
 		 * Register a route handler
 		 *
@@ -231,7 +231,7 @@ define(["dom"], function(dom) {
 
 			if (!store[route]) {
 				var vmatch = route.match(rxAllColonVariables);
-				
+
 				store[route] = {
 					vars: vmatch ? vmatch.map(function(v) { return v.substr(1); }) : [],
 					regexp: new RegExp("^" + route.replace(rxAllColonVariables, "([^\\/]+)").replace(rxFinalStar, ".*") + "$"),
@@ -241,8 +241,8 @@ define(["dom"], function(dom) {
 
 			store[route].handlers.push(handler);
 		},
-		
-		
+
+
 		/**
 		 * Create a router that can only manipulate routes starting with "/prefix/"
 		 *
@@ -252,10 +252,10 @@ define(["dom"], function(dom) {
 		subRouter: function(prefix) {
 			if (!(prefix in subRouters)) {
 				var sub = Object.create(router);
-				
+
 				// Remove leading/trailing slashes
 				prefix = prefix.replace(rxInitialSlash, "").replace(rxFinalSlash, "");
-				
+
 				sub.on = function(route, handler) {
 					var prefixedRoute;
 
@@ -274,6 +274,6 @@ define(["dom"], function(dom) {
 			return subRouters[prefix];
 		}
 	};
-	
+
 	return router;
 });

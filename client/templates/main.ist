@@ -22,7 +22,8 @@
 					@each links
 						li
 							a[href=#{{ route }}]
-								img[src=images/{{ icon || "list" }}.svg]
+								.icon
+									@svg "images/" + (icon || 'list') + ".svg"
 								"{{ label }}"
 
 #viewport
