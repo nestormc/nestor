@@ -4,6 +4,19 @@
 define(["when", "ui", "rest", "player/capabilities"], function(when, ui, rest, capabilities) {
 	"use strict";
 
+
+	/*!
+	 * Available qualities
+	 */
+
+
+	var availableQualities = {
+		video: [1080, 720, 576, 480, 360, 240, 144],
+		audio: [320, 240, 196, 160, 128, 96, 64]
+	};
+
+
+
 	/*!
 	 * Audio cover display helper
 	 */
@@ -76,25 +89,24 @@ define(["when", "ui", "rest", "player/capabilities"], function(when, ui, rest, c
 
 		this._provider = provider;
 		this._id = id;
-		this._quality = 0;
+		this._quality = "original";
 		this._requestedLoad = false;
 		this._requestedSeek = this._currentTime = 0;
 		this._playing = false;
+
+		this._media = null;
 		this._cast = null;
+		this._castMedia = null;
 
 		this._info = rest.get("stream/%s/%s", provider, id)
 			.then(function(info) {
 				if (info.type === "video") {
-					self._quality = info.height;
-
 					self._display = document.createElement("div");
 					self._display.className = "full-display";
 					self._display.style.backgroundColor = "black";
 
 					displayDeferred.resolve(self._display);
 				} else {
-					self._quality = info.bitrate;
-
 					displayDeferred.resolve(getTrackDisplay(info.cover));
 				}
 
@@ -106,10 +118,22 @@ define(["when", "ui", "rest", "player/capabilities"], function(when, ui, rest, c
 		this.lengthChanged = ui.signal();
 
 		this.metadata = this._info.then(function(info) {
+			var qualities = {};
+			var unit = info.type === "video" ? "p" : " kbps";
+			var max = info.type === "video" ? info.height : info.bitrate;
+
+			qualities.original = "Original (" + max + unit + ")";
+			availableQualities[info.type].forEach(function(q) {
+				if (q < max * 0.9) {
+					qualities[q] = q + unit;
+				}
+			});
+
 			return {
 				title: info.title || "",
 				subtitle: info.subtitle || "",
-				length: info.length
+				length: info.length,
+				qualities: qualities
 			};
 		});
 
@@ -128,12 +152,46 @@ define(["when", "ui", "rest", "player/capabilities"], function(when, ui, rest, c
 			media.preload = "none";
 			media.autoplay = false;
 
-			var loadDeferred = when.defer();
-			media.loadPromise = loadDeferred.promise;
+			var playRequested = false;
+			var pauseRequested = false;
+			var disposed = false;
+
+			media._origPause = media.pause;
+			media._origPlay = media.play;
 
 			media.addEventListener("canplay", function() {
-				loadDeferred.resolve();
+				if (disposed) {
+					return;
+				}
+
+				media.pause = media._origPause;
+				media.play = media._origPlay;
+
+				if (playRequested) {
+					media.play();
+				} else if (pauseRequested) {
+					media.pause();
+				}
 			});
+
+			media.play = function() {
+				playRequested = true;
+				pauseRequested = false;
+			};
+
+			media.pause = function() {
+				playRequested = false;
+				pauseRequested = true;
+			};
+
+			media.dispose = function() {
+				disposed = true;
+				media.pause();
+
+				if (media.parentNode) {
+					media.parentNode.removeChild(media);
+				}
+			};
 
 			Object.keys(mediaEvents).forEach(function(event) {
 				var handler = mediaEvents[event].bind(null, self);
@@ -141,16 +199,18 @@ define(["when", "ui", "rest", "player/capabilities"], function(when, ui, rest, c
 			});
 
 			if (info.type === "video") {
-				self._display.innerHTML = "";
 				media.style.display = "block";
 				media.style.width = media.style.height = "100%";
-				self._display.appendChild(media);
-			}
 
-			this.display.then(function(display) {
-				display.innerHTML = "";
-				display.appendChild(media);
-			});
+				this.display.then(function(display) {
+					if (disposed) {
+						return;
+					}
+
+					display.innerHTML = "";
+					display.appendChild(media);
+				});
+			}
 		},
 
 		_getStreamURL: function(client, seek) {
@@ -159,12 +219,12 @@ define(["when", "ui", "rest", "player/capabilities"], function(when, ui, rest, c
 				window.location.host,
 				"stream",
 				this._provider,
-				encodeURIComponent(this._id),
-				client,
-				"auto",
-				this._quality,
-				seek
-			].join("/");
+				encodeURIComponent(this._id)
+			].join("/") + "?" + [
+				"client=" + client,
+				"quality=" + this._quality,
+				"seek=" + seek
+			].join("&");
 		},
 
 		_setSource: function() {
@@ -173,7 +233,16 @@ define(["when", "ui", "rest", "player/capabilities"], function(when, ui, rest, c
 			this.metadata.then(function() {
 				if (self._requestedLoad) {
 					if (self._cast) {
-						self._cast.load(self._getStreamURL("cast", self._requestedSeek));
+						if (self._castMedia) {
+							self._castMedia.dispose();
+						}
+
+						self._castMedia = self._cast.load(self._getStreamURL("cast", self._requestedSeek), "video/webm");
+
+						self._castMedia.timeChanged.add(function(time) {
+							self._currentTime = time + (self._requestedSeek || 0);
+							self.timeChanged.dispatch(self._currentTime);
+						});
 					} else {
 						self._media.src = self._getStreamURL("web", self._requestedSeek);
 						self._media.preload = "auto";
@@ -190,45 +259,27 @@ define(["when", "ui", "rest", "player/capabilities"], function(when, ui, rest, c
 			var self = this;
 
 			if (controller === "display") {
-				if (this._cast) {
+				if (this._castMedia) {
 					// Switching back from cast
-					this._cast.pause();
-					this._cast.timeChanged.dispose();
-					this._cast.loaded.dispose();
-
+					this._castMedia.dispose();
 					this._requestedSeek = this._currentTime;
 				}
 
 				this._cast = null;
+				this._castMedia = null;
+
 				this._info.then(function(info) {
 					self._createMedia(info);
 				});
 			} else {
 				if (this._media) {
 					// Switching to cast
-					this._media.pause();
-
-					if (this._media.parentNode) {
-						this._media.parentNode.removeChild(this._media);
-					}
-
+					this._media.dispose();
 					this._requestedSeek = this._currentTime;
 				}
 
 				this._media = null;
 				this._cast = controller;
-
-				this._cast.timeChanged.add(function(time) {
-					self._currentTime = time + (self._requestedSeek || 0);
-					self.timeChanged.dispatch(self._currentTime);
-				});
-
-				var loadDeferred = when.defer();
-
-				this._cast.loadPromise = loadDeferred.promise;
-				this._cast.loaded.add(function() {
-					loadDeferred.resolve();
-				});
 			}
 
 			if (this._requestedLoad) {
@@ -254,48 +305,43 @@ define(["when", "ui", "rest", "player/capabilities"], function(when, ui, rest, c
 		},
 
 		play: function() {
-			var self = this;
 			this._playing = true;
 
-			if (this._cast) {
-				this._cast.loadPromise.then(function() {
-					self._cast.play();
-				});
+			if (this._castMedia) {
+				this._castMedia.play();
 			} else if (this._media) {
-				this._media.loadPromise.then(function() {
-					self._media.play();
-				});
+				this._media.play();
 			}
 		},
 
 		pause: function() {
 			this._playing = false;
 
-			if (this._cast) {
-				this._cast.pause();
+			if (this._castMedia) {
+				this._castMedia.pause();
 			} else if (this._media) {
 				this._media.pause();
 			}
 		},
 
 		seek: function(time) {
-			this._requestedSeek = time;
+			this._requestedSeek = Math.floor(time * 1000) / 1000;
+			this._setSource();
+		},
+
+		setQuality: function(quality) {
+			this._quality = quality;
+			this._requestedSeek = this._currentTime;
 			this._setSource();
 		},
 
 		dispose: function() {
-			if (this._cast) {
-				this._cast.pause();
-				this._cast.timeChanged.dispose();
-				this._cast.loaded.dispose();
+			if (this._castMedia) {
+				this._castMedia.dispose();
 				this._cast = null;
+				this._castMedia = null;
 			} else if (this._media) {
-				this._media.pause();
-
-				if (this._media.parentNode) {
-					this._media.parentNode.removeChild(this._media);
-				}
-
+				this._media.dispose();
 				this._media = null;
 			}
 

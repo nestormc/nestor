@@ -1,9 +1,15 @@
 /*jshint browser:true*/
 /*global define, console*/
 
-define(["chromecast", "signals", "when"], function(chromecast, signals, when) {
+define(["chromecast", "signals"], function(chromecast, signals) {
 	"use strict";
 
+
+	// App ID to use, "E2538DF7" is the nestor-styled receiver
+	var appID = "E2538DF7";
+
+	// Media time update interval in milliseconds
+	var updateInterval = 1000;
 
 
 	/*!
@@ -21,7 +27,7 @@ define(["chromecast", "signals", "when"], function(chromecast, signals, when) {
 
 
 	function initialize() {
-		var appID = "E2538DF7";
+		// Nestor-styled receiver id
 		var sessionRequest = new chromecast.SessionRequest(appID);
 
 		var apiConfig = new chromecast.ApiConfig(
@@ -55,7 +61,7 @@ define(["chromecast", "signals", "when"], function(chromecast, signals, when) {
 		console.dir(session);
 
 		session.addUpdateListener(function sessionUpdateListener(isAlive) {
-			if (!isAlive) {
+			if (!isAlive && cast._session) {
 				cast._session = null;
 				cast.sessionStopped.dispatch();
 			}
@@ -72,75 +78,110 @@ define(["chromecast", "signals", "when"], function(chromecast, signals, when) {
 	 */
 
 
-	function CastController(media) {
+	function CastMedia(media) {
+		this.stateChanged = new signals.Signal();
+		this.timeChanged = new signals.Signal();
+
+		this._media = null;
+		this._state = "loading";
+		this._interval = null;
+
+		this._requestedPause = false;
+		this._requestedPlay = false;
+		this._requestedVolume = -1;
+
 		if (media) {
-			this._bindMedia(media);
-			this._loadPromise = when.resolve(media);
-		} else {
-			this._media = this._loadPromise = null;
+			this.setMedia(media);
 		}
 	}
 
-	CastController.prototype = {
-		timeChanged: new signals.Signal(),
-		loaded: new signals.Signal(),
 
-		_bindMedia: function(media) {
+	var castMediaToken = {};
+	CastMedia.prototype = {
+		_setMedia: function(media) {
 			var self = this;
+
+			media.addUpdateListener(function(isAlive) {
+				// Does not seem to be called
+				// self.timeChanged.dispatch(media.currentTime);
+
+				if (!isAlive) {
+					self.dispose(castMediaToken);
+				}
+			});
+
+			this._interval = setInterval(function() {
+				if (self._state !== "killed") {
+					self.timeChanged.dispatch(media.getEstimatedTime());
+				}
+			}, updateInterval);
 
 			this._media = media;
-			media.addUpdateListener(function mediaUpdated() {
-				self.timeChanged.dispatch(media.currentTime);
-			});
-		},
 
-		load: function(url) {
-			var self = this;
-			var deferred = when.defer();
-
-			if (cast._session) {
-				var info = new chromecast.media.MediaInfo(url);
-				var request = new chromecast.media.LoadRequest(info);
-
-				cast._session.loadMedia(
-					request,
-					function mediaDiscovered(media) {
-						console.log("CAST: media discovered");
-						console.dir(media);
-
-						self._media = media;
-						self._bindMedia(media);
-						self.loaded.dispatch();
-						deferred.resolve(media);
-					},
-					function mediaError(e) {
-						console.log("CAST: media error");
-						console.dir(e);
-
-						deferred.reject(e);
-					}
-				);
-			} else {
-				deferred.reject("no cast session");
+			if (this._requestedPlay) {
+				this.play();
 			}
 
-			this._loadPromise = deferred.promise;
-			return deferred.promise;
+			if (this._requestedPause) {
+				this.pause();
+			}
+
+			if (this._requestedVolume !== -1) {
+				this.volume(this._requestedVolume);
+			}
 		},
 
-		play: function() {
-			this._loadPromise.then(function(media) {
-				media.play(null, function() {}, function() {});
-			});
+		_setState: function(state) {
+			if (this._state !== "killed") {
+				this.stateChanged.dispatch(state);
+			}
+
+			this._state = state;
 		},
 
 		pause: function() {
-			this._loadPromise.then(function(media) {
-				media.pause(null, function() {}, function() {});
-			});
+			if (this._media) {
+				this._media.pause(null, function() {}, function() {});
+			} else {
+				this._requestedPause = true;
+				this._requestedPlay = false;
+			}
+		},
+
+		play: function() {
+			if (this._media) {
+				this._media.play(null, function() {}, function() {});
+			} else {
+				this._requestedPause = false;
+				this._requestedPlay = true;
+			}
+		},
+
+		volume: function(vol) {
+			if (this._media) {
+				var volume = new chromecast.Volume(vol, false);
+				var request = new chromecast.media.VolumeRequest(volume);
+
+				this._media.setVolume(request, function() {}, function() {});
+			} else {
+				this._requestedVolume = vol;
+			}
+		},
+
+		dispose: function(token) {
+			clearInterval(this._interval);
+			this._setState("killed");
+			this.stateChanged.dispose();
+			this.timeChanged.dispose();
+
+			if (token !== castMediaToken) {
+				this.pause();
+			}
+
+			this._media = null;
+			this._interval = null;
 		}
 	};
-
 
 
 	/*!
@@ -174,8 +215,10 @@ define(["chromecast", "signals", "when"], function(chromecast, signals, when) {
 			if (cast._session) {
 				cast._session.stop(
 					function stopSuccess() {
-						cast._session = null;
-						cast.sessionStopped.dispatch();
+						if (cast._session) {
+							cast._session = null;
+							cast.sessionStopped.dispatch();
+						}
 					},
 					function stopError(e) {
 						console.log("CAST: stop error");
@@ -185,7 +228,33 @@ define(["chromecast", "signals", "when"], function(chromecast, signals, when) {
 			}
 		},
 
-		CastController: CastController
+		load: function(url, mimetype) {
+			if (!cast._session) {
+				throw new Error("No active cast session");
+			}
+
+			var info = new chromecast.media.MediaInfo(url, mimetype);
+			var request = new chromecast.media.LoadRequest(info);
+			var castmedia = new CastMedia();
+
+			cast._session.loadMedia(
+				request,
+				function mediaDiscovered(media) {
+					console.log("CAST: media discovered");
+					console.dir(media);
+
+					castmedia._setMedia(media);
+				},
+				function mediaError(e) {
+					console.log("CAST: media error");
+					console.dir(e);
+
+					castmedia._setState("error");
+				}
+			);
+
+			return castmedia;
+		}
 	};
 
 	return cast;

@@ -21,6 +21,8 @@ define(["when", "storage", "player/providers", "player/cast"], function(when, st
 	var random = false;
 	var casting = false;
 
+	var castLoad = { load: cast.load.bind(cast) };
+
 
 	/* arraySplice(arr, i, n, [a, b, c, ...]) === arr.splice(i, n, a, b, c, ...) */
 	function arraySplice(dest, startIndex, howMany, newItems) {
@@ -144,7 +146,7 @@ define(["when", "storage", "player/providers", "player/cast"], function(when, st
 		}
 
 		// Pass controller if casting
-		track.cast(casting ? new cast.CastController() : "display");
+		track.cast(casting ? castLoad : "display");
 
 		// Ensure track started loading
 		track.preload(true);
@@ -152,7 +154,7 @@ define(["when", "storage", "player/providers", "player/cast"], function(when, st
 		// Start loading next track
 		if (playIndex + 1 < playOrder.length) {
 			var next = playlist[playOrder[playIndex + 1]];
-			next.cast(casting ? new cast.CastController() : "display");
+			next.cast(casting ? castLoad : "display");
 			next.preload(true);
 		}
 
@@ -213,7 +215,7 @@ define(["when", "storage", "player/providers", "player/cast"], function(when, st
 				casting = true;
 
 				if (playIndex !== -1) {
-					playlist[playOrder[playIndex]].cast(new cast.CastController());
+					playlist[playOrder[playIndex]].cast(castLoad);
 				}
 			});
 
