@@ -4,12 +4,12 @@
 define(
 [
 	"ist!tmpl/player", "ist!tmpl/playlist",
-	"components/index", "dom", "router",
+	"components/index", "dom", "router", "signals",
 	"player/state", "player/providers", "player/fullscreen", "player/track"
 ],
 function(
 	playerTemplate, playlistTemplate,
-	components, dom, router,
+	components, dom, router, signals,
 	state, providers, fullscreen, StreamingTrack
 ) {
 	"use strict";
@@ -125,7 +125,7 @@ function(
 			}
 		});
 
-		state.load();
+		manifest.activityChanged.dispatch(state.load());
 	}
 
 
@@ -279,12 +279,14 @@ function(
 
 			/* Clear current playlist */
 			clear: function() {
+				manifest.activityChanged.dispatch(false);
 				state.clear();
 			},
 
 
 			/* Enqueue new track(s) either next to current track (next=true) or at the end of current playlist */
 			enqueue: function(trackdefs, next) {
+				manifest.activityChanged.dispatch(true);
 				state.enqueue(trackdefs, next);
 			},
 
@@ -298,7 +300,9 @@ function(
 			},
 
 			Track: StreamingTrack
-		}
+		},
+
+		activityChanged: new signals.Signal()
 	};
 
 	return manifest;

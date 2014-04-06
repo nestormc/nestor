@@ -218,29 +218,6 @@ function(ist, mainTemplate, components, signals, dom, when, login, uihelpers) {
 			playerApp = apps.filter(function(a) { return a.name === "player"; })[0];
 			ui.player = playerApp.public;
 
-			// Show current route on navbar
-			router.on("*", function(err, req, next) {
-				var current = $("#bar .pages .current");
-
-				if (current) {
-					current.classList.remove("current");
-				}
-
-				current = $("#bar .pages a[href=\"#" + req.path + "\"]");
-
-				if (current) {
-					current.classList.add("current");
-				}
-
-				next();
-			});
-
-			// Fold/unfold bar
-			router.on("!fold-bar", function(err, req, next) {
-				dom.body().classList.toggle("bar-folded");
-				next();
-			});
-
 			// Initialize rendering context
 			istContext = {
 				user: user,
@@ -306,6 +283,16 @@ function(ist, mainTemplate, components, signals, dom, when, login, uihelpers) {
 			var mainContainer = $("#main-container");
 			mainContainer.style.display = "block";
 
+			// Setup player show/hide
+			mainContainer.classList.add("player-hidden");
+			playerApp.activityChanged.add(function(active) {
+				if (active) {
+					mainContainer.classList.remove("player-hidden");
+				} else {
+					mainContainer.classList.add("player-hidden");
+				}
+			});
+
 			istRendered = mainTemplate.render(istContext);
 			mainContainer.innerHTML = "";
 			mainContainer.appendChild(istRendered);
@@ -319,6 +306,29 @@ function(ist, mainTemplate, components, signals, dom, when, login, uihelpers) {
 						}
 					}
 				}
+			});
+
+			// Fold/unfold bar
+			router.on("!fold-bar", function(err, req, next) {
+				mainContainer.classList.toggle("bar-folded");
+				next();
+			});
+
+			// Show current route on navbar
+			router.on("*", function(err, req, next) {
+				var current = $("#bar .pages .current");
+
+				if (current) {
+					current.classList.remove("current");
+				}
+
+				current = $("#bar .pages a[href=\"#" + req.path + "\"]");
+
+				if (current) {
+					current.classList.add("current");
+				}
+
+				next();
 			});
 
 			// Setup error handling route
@@ -340,6 +350,8 @@ function(ist, mainTemplate, components, signals, dom, when, login, uihelpers) {
 
 		stop: function() {
 			var d = when.defer();
+
+			playerApp.activityChanged.removeAll();
 
 			// Add "stopping" binding to ensure the signal has been dispatched
 			// to plugins first

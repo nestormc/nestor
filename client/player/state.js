@@ -271,6 +271,8 @@ define(["when", "storage", "player/providers", "player/cast"], function(when, st
 			}
 
 			this.trackChanged.dispatch(newTrack);
+
+			return playOrder.length > 0;
 		},
 
 		/* Force dispatching playlistChanged */
