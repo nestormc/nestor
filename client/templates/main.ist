@@ -15,8 +15,6 @@
 	@each plugins
 		@if typeof title !== "undefined"
 			.plugin
-				.title
-					"{{ title }}"
 				.applets
 					@each viewTypes.applet
 						@dom this
