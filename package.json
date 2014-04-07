@@ -11,7 +11,7 @@
     "bower": "*",
     "connect-mongo": "*",
     "express": "*",
-    "fluent-ffmpeg": "*",
+    "fluent-ffmpeg": "njoyard/node-fluent-ffmpeg#njo-all",
     "less-middleware": "*",
     "log4js": "*",
     "mongodb": "*",
