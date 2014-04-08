@@ -78,7 +78,7 @@ define(["dom"], function(dom) {
 				/* Setup capture click handler to handle click on any links */
 				click = function(e) {
 					// Find <a> element that was clicked on
-					var link = dom.$P(e.target, "a", true);
+					var link = dom.$P(e.target, "a[href]", true);
 					if (!link) {
 						return;
 					}
