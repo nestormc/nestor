@@ -37,7 +37,7 @@ intents.on("nestor:streaming", function(name, provider) {
 					length:			optional, media length in seconds
 					cover:			optional, cover url for "audio" tracks
 					title:			optional, media title
-					subtitle:		optional, media subtitle
+					subtitles:		optional, subtitles file path for "video" tracks
 				}
 			);
 		}
@@ -778,13 +778,17 @@ exports.listen = function(app) {
 			if (seekTime > 0 && seekTime < FASTSEEK_THRESHOLD) {
 				// Use slow seek for seek times < 30s
 				command.addOptions(["-ss " + seekTime]);
-			} else {
+			} else if (seekTime > 0) {
 				command
 					// Use fast seek for seek - 30s
 					.setStartTime(seekTime - FASTSEEK_THRESHOLD)
 					// Then slow seek the remaining 30s
 					.addOptions(["-ss " + FASTSEEK_THRESHOLD]);
 			}
+
+			/* if (subtitle) {
+				data.filters = ["subtitles=" + subtitle.path.replace(/([\[\],;'])/g, "\\$1")];
+			} */
 
 			// Send response
 
