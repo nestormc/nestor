@@ -6,13 +6,12 @@ var intents = require("./intents");
 var misc = require("./misc");
 var logger = require("log4js").getLogger("io");
 
-var FLUSH_THROTTLE = 1000;
+var FLUSH_THROTTLE = 100;
 var VERBOSE_DEBUG = false;
 
 
 /* A "nestor:watchable"(name, Model, options) intent enables watching
    changes in a collection from the client using socket.io.
-
 
    Clients can use the following messages to watch a named watchable
    (all with <name> as an argument):
