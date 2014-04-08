@@ -5,6 +5,7 @@ var http = require("http"),
 	https = require("https"),
 	fs = require("fs"),
 	path = require("path"),
+	os = require("os"),
 	express = require("express"),
 	lessMiddleware = require("less-middleware"),
 	requirejs = require("requirejs"),
@@ -27,7 +28,7 @@ var serverConfig = config.server;
 serverConfig.host = serverConfig.host || "localhost";
 serverConfig.port = serverConfig.port || (serverConfig.ssl ? 443 : 80);
 
-var webHost = (serverConfig.ssl ? "https" : "http") + "://" + serverConfig.host + ":" + serverConfig.port;
+var webHost = (serverConfig.ssl ? "https" : "http") + "://" + (serverConfig.host || "*") + ":" + serverConfig.port;
 
 
 /*!
@@ -295,6 +296,51 @@ app.use(function errorHandler(err, req, res, next) {
 });
 
 
+/*!
+ * Address helpers
+ */
+
+var serverAddress;
+app.address = function() {
+	// TODO handle IPv6
+	if (serverAddress) {
+		if (serverAddress.address !== "0.0.0.0") {
+			// Bound on specific address
+			return serverAddress.address;
+		}
+
+		// Bound on all addresses, find first external address
+		var ifaces = os.networkInterfaces();
+		var external = [];
+
+		Object.keys(ifaces).forEach(function(iface) {
+			external.concat(ifaces[iface].filter(function(address) {
+				return address.family === "IPv4" && address.internal === false;
+			}));
+		});
+
+		if (external.length) {
+			return external[0].address;
+		} else {
+			// No external addresses :(
+			return "127.0.0.1";
+		}
+	}
+};
+
+
+yarm.resource("external-ip")
+	.get(function(req, cb) {
+		var ip = app.address();
+
+		if (ip) {
+			cb(null, { address: ip });
+		} else {
+			cb.noContent();
+		}
+	});
+
+
 
 /*!
  * Intent handlers
@@ -337,8 +383,11 @@ intents.on("nestor:startup", function() {
 	}
 
 	io.listen(server);
-});
 
+	server.on("listening", function() {
+		serverAddress = server.address();
+	});
+});
 
 module.exports = {
 	registerPlugin: registerPlugin

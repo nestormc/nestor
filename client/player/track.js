@@ -214,17 +214,28 @@ define(["when", "ui", "rest", "player/capabilities"], function(when, ui, rest, c
 		},
 
 		_getStreamURL: function(client, seek) {
-			return [
-				window.location.protocol + "/",
-				window.location.host,
-				"stream",
-				this._provider,
-				encodeURIComponent(this._id)
-			].join("/") + "?" + [
-				"client=" + client,
-				"quality=" + this._quality,
-				"seek=" + seek
-			].join("&");
+			if (client === "cast") {
+				return [
+					"stream",
+					this._provider,
+					encodeURIComponent(this._id)
+				].join("/") + "?" + [
+					"client=cast",
+					"quality=" + this._quality,
+					"seek=" + seek
+				].join("&");
+			} else {
+				return [
+					window.location.protocol + "/",
+					window.location.host,
+					"stream",
+					this._provider,
+					encodeURIComponent(this._id)
+				].join("/") + "?" + [
+					"quality=" + this._quality,
+					"seek=" + seek
+				].join("&");
+			}
 		},
 
 		_setSource: function() {

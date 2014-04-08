@@ -1,7 +1,7 @@
 /*jshint browser:true*/
 /*global define, console*/
 
-define(["chromecast", "signals"], function(chromecast, signals) {
+define(["chromecast", "signals", "rest", "when"], function(chromecast, signals, rest, when) {
 	"use strict";
 
 
@@ -10,6 +10,19 @@ define(["chromecast", "signals"], function(chromecast, signals) {
 
 	// Media time update interval in milliseconds
 	var updateInterval = 1000;
+
+
+	var externalIP;
+	function getExternalIP() {
+		if (externalIP) {
+			return when.resolve(externalIP);
+		} else {
+			return rest.get("external-ip").then(function(ret) {
+				externalIP = ret.address;
+				return externalIP;
+			});
+		}
+	}
 
 
 	/*!
@@ -228,30 +241,40 @@ define(["chromecast", "signals"], function(chromecast, signals) {
 			}
 		},
 
-		load: function(url, mimetype) {
+		load: function(path, mimetype) {
 			if (!cast._session) {
 				throw new Error("No active cast session");
 			}
 
-			var info = new chromecast.media.MediaInfo(url, mimetype);
-			var request = new chromecast.media.LoadRequest(info);
 			var castmedia = new CastMedia();
 
-			cast._session.loadMedia(
-				request,
-				function mediaDiscovered(media) {
-					console.log("CAST: media discovered");
-					console.dir(media);
+			getExternalIP().then(function(ip) {
+				var url = [
+						location.protocol + "/",
+						ip,
+						location.port,
+						path
+					].join("/");
 
-					castmedia._setMedia(media);
-				},
-				function mediaError(e) {
-					console.log("CAST: media error");
-					console.dir(e);
+				var info = new chromecast.media.MediaInfo(url, mimetype);
+				var request = new chromecast.media.LoadRequest(info);
 
-					castmedia._setState("error");
-				}
-			);
+				cast._session.loadMedia(
+					request,
+					function mediaDiscovered(media) {
+						console.log("CAST: media discovered");
+						console.dir(media);
+
+						castmedia._setMedia(media);
+					},
+					function mediaError(e) {
+						console.log("CAST: media error");
+						console.dir(e);
+
+						castmedia._setState("error");
+					}
+				);
+			});
 
 			return castmedia;
 		}
