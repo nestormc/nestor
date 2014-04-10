@@ -2,7 +2,8 @@
 
 "use strict";
 
-var express = require("express"),
+var bodyParser = require("body-parser"),
+	express = require("express"),
 	crypto = require("crypto"),
 	mongoose = require("mongoose"),
 	passport = require("passport"),
@@ -369,7 +370,7 @@ exports.listen = function(app, host) {
 
 	/* Setup login routes */
 
-	app.use("/auth", express.json());
+	app.use("/auth", bodyParser.json());
 
 	app.post("/auth/login", function(req, res, next) {
 		handleAuthentification("local", req, res, next);

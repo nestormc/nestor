@@ -8,10 +8,13 @@
     "url": "git://github.com/njoyard/nestor.git"
   },
   "dependencies": {
+    "body-parser": "*",
     "bower": "*",
-    "connect-mongo": "*",
+    "connect-mongo": "kcbanner/connect-mongo",
+    "cookie-parser": "*",
     "express": "*",
-    "fluent-ffmpeg": "njoyard/node-fluent-ffmpeg#njo-all",
+    "express-session": "*",
+    "fluent-ffmpeg": "njoyard/node-fluent-ffmpeg#ffprobe",
     "less-middleware": "*",
     "log4js": "*",
     "mongodb": "*",

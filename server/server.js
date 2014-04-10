@@ -7,11 +7,14 @@ var http = require("http"),
 	path = require("path"),
 	os = require("os"),
 	express = require("express"),
+	bodyParser = require("body-parser"),
+	cookieParser = require("cookie-parser"),
+	expressSession = require("express-session"),
 	lessMiddleware = require("less-middleware"),
 	requirejs = require("requirejs"),
 	yarm = require("yarm"),
 	logger = require("log4js").getLogger("server"),
-	MongoStore = require("connect-mongo")(express),
+	MongoStore = require("connect-mongo")(expressSession),
 
 	config = require("./config"),
 
@@ -153,8 +156,8 @@ function rjsBuilder(name, next) {
 
 
 
-app.use(express.cookieParser());
-app.use(express.session({
+app.use(cookieParser());
+app.use(expressSession({
 	secret: serverConfig.cookieSecret,
 	cookie: {
 		maxAge: 1000 * 60 * 60 * 24 * (serverConfig.sessionDays || 2)
@@ -229,7 +232,7 @@ function registerPlugin(name, clientPlugin) {
 
 
 /* Log REST requests */
-app.use("/rest", express.json());
+app.use("/rest", bodyParser.json());
 app.use("/rest", function(req, res, next) {
 	if (req.body && Object.keys(req.body).length > 0) {
 		logger.debug("REST-%s %s %j", req.method, req.url, req.body);
