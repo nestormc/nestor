@@ -5,6 +5,7 @@ var when = require("when");
 var mongoose = require("mongoose");
 var yarm = require("yarm");
 var log4js = require("log4js");
+var FfmpegCommand = require("fluent-ffmpeg");
 
 var config = require("./config");
 var intents = require("./intents");
@@ -18,7 +19,8 @@ var services = {
 		intents: intents,
 		mongoose: mongoose,
 		rest: yarm,
-		misc: misc
+		misc: misc,
+		FfmpegCommand: FfmpegCommand
 	};
 
 var loadPromises = {};
