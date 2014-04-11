@@ -478,6 +478,15 @@ function(ist, mainTemplate, components, signals, dom, when, login, uihelpers) {
 				view.behave = dom.behave.bind(null, view);
 				view.autoUpdate = autoUpdateView.bind(null, view);
 				view.loadCSS = loadCSS.bind(null, plugin, "#" + viewId);
+				view.isEndVisible = function() {
+					var viewport = $("#viewport");
+
+					if (view === activeMainView && viewport.scrollHeight - (viewport.scrollTop + viewport.offsetHeight) < SCROLL_THRESHOLD) {
+						return true;
+					} else {
+						return false;
+					}
+				}
 
 				// Add signals
 				view.displayed = ui.signal();

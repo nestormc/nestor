@@ -133,6 +133,10 @@ define(["router", "ui", "dom"], function(router, ui, dom) {
 						renderDocs(docs);
 						fetching = false;
 						view.loading.dispatch(false);
+
+						if (view.isEndVisible() && docs.length > 0) {
+							fetch();
+						}
 					})
 					.otherwise(function(err) {
 						console.log((fetcher ? "Fetcher" : "Watch fetch") + " error: " + err);
