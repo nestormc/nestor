@@ -6,7 +6,7 @@ define(["router", "ui", "dom"], function(router, ui, dom) {
 	function setupContentList(router, ui, view, config) {
 		var resource = config.resource;
 		var fetcher = config.fetcher;
-		var fetchCount = typeof config.fetchCount === "undefined" ? 10 : config.fetchCount;
+		var fetchCount = typeof config.fetchCount === "undefined" ? 1 : config.fetchCount;
 		var dataMapper = config.dataMapper;
 		var behaviour = config.behaviour || {};
 		var routes = config.routes || {};
