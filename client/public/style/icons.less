@@ -26,9 +26,7 @@
 	.nestor-icon-size;
 
 	svg {
-		* {
 			fill: @color !important;
-		}
 	}
 }
 
@@ -39,11 +37,11 @@
 		.nestor-icon(@activeColor);
 	}
 
-	svg * {
+	svg {
 		transition: 150ms;
 	}
 
-	&:hover svg * {
+	&:hover svg {
 		transition: 150ms;
 		fill: @hoverColor !important;
 	}

@@ -10,19 +10,12 @@
 			"secret": "cl226nDDbbS8flvNBr8yB4AoZoXudWQJYhBKLbow0k"
 		}
 	},
-	
-	"database": "mongodb://localhost/nestor",
-	
-	"server": {
-		"host": "localhost",
-		"port": 8357,
 
-		"ssl": {
-			"mandatory": false,
-			"port": 443,
-			"keyFile": "server.key",
-			"certFile": "server.crt"
-		},
+	"database": "mongodb://localhost/nestor",
+
+	"server": {
+		"host": "zenbook",
+		"port": 4430,
 
 		"sessionDays": 14,
 		"cookieSecret": "nestor",
@@ -30,6 +23,11 @@
 		"rest": {
 			"defaultLimit": 10
 		}
+	},
+
+	"scheduler": {
+		"maxJobs": 10,
+		"jobTimeout": 10000
 	},
 
 	"log4js": {
@@ -40,23 +38,37 @@
 		"levels": {
 			"auth": "INFO",
 			"intents": "INFO",
+			"io": "INFO",
 			"nestor": "DEBUG",
-			"server": "DEBUG",
+			"server": "INFO",
 			"scheduler": "INFO",
+			"streaming": "DEBUG",
+			"rest": "DEBUG",
 
-			"cover": "DEBUG",
+			"downloads": "DEBUG",
+			"downloads-transmission": "INFO",
 			"media": "INFO",
-			"music": "INFO"
+			"music": "INFO",
+			"video": "DEBUG"
 		}
 	},
 
 	"plugins": {
-		"nestor-coverart": {},
 		"nestor-share": {},
 		"nestor-music": {},
 		"nestor-downloads": {
-			"incoming": "/home/niko/tmp"
+			"incoming": "/home/niko/tmp",
+			"moveTo": "/home/niko/Musique/test nestor/_incoming"
 		},
-		"nestor-video": {}
+		"nestor-downloads-transmission": {
+			"username": "transmission",
+			"password": "transmission"
+		},
+		"nestor-downloads-tpb": {
+			"baseUrl": "http://thepiratebay.se"
+		},
+		"nestor-video": {
+			"tmdbKey": "5dd49f21d8b7ab66aa0dfdb2b58f9e1d"
+		}
 	}
 }
