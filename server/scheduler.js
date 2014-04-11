@@ -16,7 +16,6 @@ var jobTimeout = (config || {}).jobTimeout || 10000;
 var queue = [];
 var processing = 0;
 
-
 var processors = {
 	"mimetype": function(data) {
 		var path = data.path;
@@ -120,6 +119,11 @@ function runJob(op) {
 		}
 
 		run();
+	}).otherwise(function(err) {
+		logger.error("Job error processing %j:\n%s", jobDesc(op), err.stack);
+		processing--;
+
+		run();
 	});
 }
 
@@ -132,7 +136,12 @@ function run() {
 
 function processOperation(item) {
 	if (item.op in processors) {
-		return processors[item.op](item.data);
+		try {
+			return processors[item.op](item.data);
+		} catch(err) {
+			logger.error("Error processing %s:\n%s", item.op, err.stack);
+			return when.resolve();
+		}
 	} else {
 		logger.warn("No processor for queued operation '%s'", item.op);
 		return when.resolve();
