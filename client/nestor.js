@@ -15,7 +15,7 @@
 			"chromecast": {
 				exports: "chrome",
 				init: function() {
-					return this.chrome.cast;
+					return this.chrome ? this.chrome.cast : undefined;
 				}
 			},
 
@@ -25,7 +25,7 @@
 		},
 
 		paths: {
-			"chromecast": "https://www.gstatic.com/cv/js/sender/v1/cast_sender",
+			"chromecast": "//www.gstatic.com/cv/js/sender/v1/cast_sender",
 			"socketio": "/socket.io/socket.io"
 		}
 	});

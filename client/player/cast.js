@@ -31,6 +31,11 @@ define(["chromecast", "signals", "rest", "when"], function(chromecast, signals, 
 
 
 	function checkAvailability() {
+		if (typeof chromecast === "undefined") {
+			console.log("ChromeCast is not available. At all.");
+			return;
+		}
+
 		if (chromecast.isAvailable) {
 			initialize();
 		} else {
