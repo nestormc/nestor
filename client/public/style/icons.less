@@ -26,7 +26,13 @@
 	.nestor-icon-size;
 
 	svg {
-			fill: @color !important;
+			fill: @color;
+	}
+}
+
+.nestor-colorized {
+	svg {
+		fill: @mlGray;
 	}
 }
 
@@ -43,7 +49,7 @@
 
 	&:hover svg {
 		transition: 150ms;
-		fill: @hoverColor !important;
+		fill: @hoverColor;
 	}
 }
 
@@ -115,7 +121,7 @@
 		color: @mlGray;
 		text-decoration: none;
 
-		.svg-container {
+		.icon {
 			.nestor-icon(@mlGray);
 		}
 
@@ -123,7 +129,7 @@
 			color: @midGray;
 			text-decoration: underline;
 
-			.svg-container {
+			.icon {
 				.nestor-icon(@midGray);
 			}
 		}

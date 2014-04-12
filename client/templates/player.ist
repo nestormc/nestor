@@ -3,11 +3,11 @@
 		.display
 			.status
 				.icon.playing
-					@svg "images/pause.svg"
+					@icon "pause"
 				.icon.paused.visible
-					@svg "images/play.svg"
+					@icon "play"
 				.icon.loading
-					@svg "images/loading.svg"
+					@icon "loading"
 
 		.controls
 			@dom slider
@@ -22,28 +22,28 @@
 
 			.buttons
 				a.active-icon.repeat[href=#!player/repeat]
-					@svg "images/repeat.svg"
+					@icon "repeat"
 
 				span.center-controls
 					a.active-icon.prev[href=#!player/prev]
-						@svg "images/prev.svg"
+						@icon "prev"
 					a.active-icon.play[href=#!player/play]
-						@svg "images/play.svg"
+						@icon "play"
 					a.active-icon.pause[href=#!player/pause][style=display: none;]
-						@svg "images/pause.svg"
+						@icon "pause"
 					a.active-icon.next[href=#!player/next]
-						@svg "images/next.svg"
+						@icon "next"
 
 				a.active-icon.random[href=#!player/random]
-					@svg "images/random.svg"
+					@icon "random"
 
 				span.right-controls
 					span.cast.unavailable
 						a.active-icon.cast-off[href=#!player/cast-on]
-							@svg "images/cast-off.svg"
+							@icon "cast-off"
 
 						a.active.icon.cast-on[href=#!player/cast-off]
-							@svg "images/cast-on.svg"
+							@icon "cast-on"
 
 					a.active-icon.playlist[href=#/playlist]
-						@svg "images/playlist.svg"
+						@icon "playlist"

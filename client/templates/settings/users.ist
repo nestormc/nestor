@@ -16,9 +16,9 @@ ul.content-list
 						@if provider === "google"
 							img[src=images/google/hover.png]
 						@if provider === "twitter"
-							@svg "images/twitter/hover.svg"
+							@icon "twitter/hover"
 						@if provider === "local"
-							@svg "images/nestor-margin.svg"
+							@icon "nestor-margin"
 
 					"{{ userid }}"
 
@@ -27,25 +27,25 @@ ul.content-list
 					li
 						@if loop.outer.rights.indexOf(this.name) === -1
 							a.action-with-icon[href=#!settings/users/{{ loop.outer.identifier }}/addRight/{{ name }}]
-								@svg "images/cancel.svg"
+								@icon "cancel"
 								"{{ description }}"
 						@else
 							a.action-with-icon[href=#!settings/users/{{ loop.outer.identifier }}/delRight/{{ name }}]
-								@svg "images/commit.svg"
+								@icon "commit"
 								"{{ description }}"
 
 			.list-item-actions
 				@if rights.indexOf("nestor:login") === -1
 					a.action-with-icon[title=Enable access for user][href=#!settings/users/enable/{{ identifier }}]
-						@svg "images/commit.svg"
+						@icon "commit"
 						"Enable access"
 				@else
 					a.action-with-icon[title=Change user access rights][href=#!settings/users/toggleRights/{{ identifier }}]
-						@svg "images/more.svg"
+						@icon "more"
 						span.more "More"
 						span.less "Less"
 
 
 				a.action-with-icon[title=Remove user][href=#!settings/users/remove/{{ identifier }}]
-					@svg "images/cancel.svg"
+					@icon "cancel"
 					"Remove user"

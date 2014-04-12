@@ -16,61 +16,81 @@ define(["ist", "ajax", "dom", "login"], function(ist, ajax, dom, login) {
 	});
 
 
-	ist.helper("svg", function(context, value, tmpl, iterate) {
-		iterate(function(key, rendered) {
-			var data = typeof value === "string" ? { src: value } : value;
+	function getSVGHelper(className, getURL) {
+		getURL = getURL || function(v) { return v; };
 
-			if (!rendered) {
-				rendered  = context.createElement("span");
-				rendered.classList.add("svg-container");
-			}
+		return function(context, value, tmpl, iterate) {
+			iterate(function(key, rendered) {
+				var data = typeof value === "string" ? { src: value } : value;
+				data.src = getURL(data.src);
 
-			if (rendered.loading === data.src || rendered.loaded === data.src) {
-				// Already loading or loaded this SVG, do nothing
-				return;
-			}
+				if (!rendered) {
+					rendered  = context.createElement("span");
+					rendered.classList.add(className);
 
-			rendered.loading = data.src;
-			delete rendered.loaded;
+					if (data.colorize) {
+						rendered.classList.add("nestor-colorized");
+					}
+				}
 
-			ajax.cachedXML(data.src).then(function(xml) {
-				var svg = context.importNode(xml.querySelector("svg"), true);
-
-				if (rendered.loading !== data.src) {
-					// Already loading an other URI for this SVG, ignore this one
+				if (rendered.loading === data.src || rendered.loaded === data.src) {
+					// Already loading or loaded this SVG, do nothing
 					return;
 				}
 
-				delete rendered.loading;
-				rendered.loaded = data.src;
+				rendered.loading = data.src;
+				delete rendered.loaded;
 
-				// Allow resize
-				svg.setAttribute("preserveAspectRatio", "xMinYMin meet");
-				svg.setAttribute("viewBox", "0 0 " + svg.getAttribute("width") + " " + svg.getAttribute("height"));
+				ajax.cachedXML(data.src).then(function(xml) {
+					var svg = context.importNode(xml.querySelector("svg"), true);
 
-				// Set misc attributes
-				if (data.title) {
-					svg.setAttribute("title", data.title);
-				}
+					if (rendered.loading !== data.src) {
+						// Already loading an other URI for this SVG, ignore this one
+						return;
+					}
 
-				if (rendered.firstChild) {
-					rendered.replaceChild(svg, rendered.firstChild);
-				} else {
-					rendered.appendChild(svg);
-				}
-			}).otherwise(function(err) {
-				if (rendered.loading !== data.src) {
-					// Already loading an other URI for this SVG, ignore the error
-					return;
-				}
+					delete rendered.loading;
+					rendered.loaded = data.src;
 
-				delete rendered.loading;
-				console.error(err);
+					// Allow resize
+					svg.setAttribute("preserveAspectRatio", "xMinYMin meet");
+					svg.setAttribute("viewBox", "0 0 " + svg.getAttribute("width") + " " + svg.getAttribute("height"));
+
+					// Set misc attributes
+					if (data.title) {
+						svg.setAttribute("title", data.title);
+					}
+
+					if (rendered.firstChild) {
+						rendered.replaceChild(svg, rendered.firstChild);
+					} else {
+						rendered.appendChild(svg);
+					}
+				}).otherwise(function(err) {
+					if (rendered.loading !== data.src) {
+						// Already loading an other URI for this SVG, ignore the error
+						return;
+					}
+
+					delete rendered.loading;
+					console.error(err);
+				});
+
+				return rendered;
 			});
+		};
+	}
 
-			return rendered;
-		});
-	});
+	function uriHelper() {
+		var args = [].slice.call(arguments);
+		return args.shift().replace(/%s/g, function() {
+				return encodeURIComponent(args.shift());
+			});
+	}
+
+
+	ist.helper("svg", getSVGHelper("svg-container"));
+	ist.helper("icon", getSVGHelper("icon", function(name) { return uriHelper("icons/%s.svg", name); }));
 
 
 	ist.helper("behave", function(context, value, tmpl, iterate) {
@@ -115,12 +135,7 @@ define(["ist", "ajax", "dom", "login"], function(ist, ajax, dom, login) {
 		return (Math.floor(size * precision) / precision) + " " + suffixes[0] + (suffix || "");
 	});
 
-	ist.global("uri", function() {
-		var args = [].slice.call(arguments);
-		return args.shift().replace(/%s/g, function() {
-				return encodeURIComponent(args.shift());
-			});
-	});
+	ist.global("uri", uriHelper);
 
 	return ist;
 });

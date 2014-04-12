@@ -3,7 +3,7 @@
 	#nestor
 		#logo-container
 			a[href=#!fold-bar]
-				img[src=images/nestor.svg]
+				@svg "images/nestor.svg"
 
 		#user-container
 			.user "{{ user }}"
@@ -24,7 +24,7 @@
 						li
 							a[href=#{{ route }}]
 								.icon
-									@svg "images/" + (icon || 'list') + ".svg"
+									@icon icon || 'list'
 								span.label "{{ label }}"
 
 #viewport

@@ -10,7 +10,7 @@
 		console.log(err.stack);
 	}
 
-	console.warn("WARNING: using local cast_sender.js for development");
+	//console.warn("WARNING: using local cast_sender.js for development");
 
 	require.config({
 		shim: {
@@ -27,8 +27,8 @@
 		},
 
 		paths: {
-			//"chromecast": "//www.gstatic.com/cv/js/sender/v1/cast_sender",
-			"chromecast": "/__cast_sender",
+			"chromecast": "//www.gstatic.com/cv/js/sender/v1/cast_sender",
+			//"chromecast": "/__cast_sender",
 			"socketio": "/socket.io/socket.io"
 		}
 	});

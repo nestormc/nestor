@@ -1,7 +1,7 @@
 @define "playlist-track"
 	li.track[data-position={{ position }}]
 		span.play-indicator
-			@svg "images/playing.svg"
+			@icon "playing"
 		span.position "{{ position + 1 }}"
 		span.title "{{ title || 'Unknown' }}"
 		span.subtitle "{{ subtitle || '' }}"
