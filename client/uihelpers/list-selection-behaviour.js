@@ -24,7 +24,6 @@ define(["dom"], function(dom) {
 
 				return function(e) {
 					e.preventDefault();
-					e.stopPropagation();
 
 					if (!e.ctrlKey) {
 						$$(parent, ".selected").forEach(function(sel) {
