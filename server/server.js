@@ -207,7 +207,9 @@ app.use("/static", express.static(publicRoot));
 
 var plugins = {};
 function registerPlugin(name, clientPlugin) {
-	plugins[name] = clientPlugin;
+	if (clientPlugin.build) {
+		plugins[name] = clientPlugin;
+	}
 
 	if (clientPlugin.public) {
 		app.use("/static/plugins/" + name, lessMiddleware(
