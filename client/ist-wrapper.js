@@ -90,7 +90,17 @@ define(["ist", "ajax", "dom", "login"], function(ist, ajax, dom, login) {
 
 
 	ist.helper("svg", getSVGHelper("svg-container", function(name) { return "static/" + name; }));
-	ist.helper("icon", getSVGHelper("icon", function(name) { return uriHelper("static/icons/%s.svg", name); }));
+	ist.helper("icon", getSVGHelper("icon", function(name) {
+		if (name.indexOf(":") === -1) {
+			return uriHelper("static/icons/%s.svg", name);
+		} else {
+			var split = name.split(":");
+			var plugin = split[0];
+			var icon = split[1];
+
+			return uriHelper("static/plugins/%s/icons/%s.svg", plugin, icon);
+		}
+	}));
 
 
 	ist.helper("behave", function(context, value, tmpl, iterate) {
