@@ -178,7 +178,7 @@ var nestorRoot = path.normalize(path.join(__dirname, ".."));
 var clientRoot = path.join(nestorRoot, "client");
 var publicRoot = path.join(clientRoot, "public");
 
-app.use(lessMiddleware(
+app.use("/static", lessMiddleware(
 	publicRoot,
 	{
 		force: true,
