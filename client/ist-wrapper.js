@@ -89,8 +89,8 @@ define(["ist", "ajax", "dom", "login"], function(ist, ajax, dom, login) {
 	}
 
 
-	ist.helper("svg", getSVGHelper("svg-container"));
-	ist.helper("icon", getSVGHelper("icon", function(name) { return uriHelper("icons/%s.svg", name); }));
+	ist.helper("svg", getSVGHelper("svg-container", function(name) { return "static/" + name; }));
+	ist.helper("icon", getSVGHelper("icon", function(name) { return uriHelper("static/icons/%s.svg", name); }));
 
 
 	ist.helper("behave", function(context, value, tmpl, iterate) {

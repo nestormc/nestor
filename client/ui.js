@@ -85,7 +85,7 @@ function(ist, mainTemplate, components, signals, dom, when, login, uihelpers) {
 	 */
 
 	function loadCSS(plugin, namespace, filename) {
-		var stylePath = plugin === "nestor" ? "style" : "plugins/" + plugin + "/style";
+		var stylePath = plugin === "nestor" ? "static/style" : "static/plugins/" + plugin + "/style";
 		var href = stylePath + "/" + filename + "-min.css?namespace=" + encodeURIComponent(namespace);
 		var link = $("link[href='" + href + "']");
 

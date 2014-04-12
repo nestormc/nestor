@@ -56,7 +56,7 @@ define(["require", "when", "rest"], function(mainRequire, when, rest) {
 					/* Prepare plugin-specific require */
 					var pluginRequire = require.config({
 						context: plugin,
-						baseUrl: "plugins/" + plugin + "/js",
+						baseUrl: "static/plugins/" + plugin + "/js",
 						paths: {
 							"templates": "../templates"
 						}
@@ -76,7 +76,7 @@ define(["require", "when", "rest"], function(mainRequire, when, rest) {
 					define("plugins", function() { return pluginPublished; });
 
 					/* Load plugin */
-					pluginRequire(["/js/" + plugin + "-min.js"], function() {
+					pluginRequire(["static/js/" + plugin + "-min.js"], function() {
 						pluginRequire([plugin], function(pluginManifest) {
 							loading.done(plugin + " plugin");
 

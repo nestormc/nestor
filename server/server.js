@@ -189,16 +189,20 @@ app.use(lessMiddleware(
 ));
 
 
-app.use("/js/require.js", function(req, res, next) {
+app.use("/static/js/require.js", function(req, res, next) {
 	res.sendfile(path.join(nestorRoot, "node_modules/requirejs/require.js"));
 });
 
 
-app.get(/^\/js\/(\w+)-min\.js$/, function(req, res, next) {
+app.get(/^\/static\/js\/(\w+)-min\.js$/, function(req, res, next) {
 	rjsBuilder(req.params[0], next);
 });
 
-app.use(express.static(publicRoot));
+app.get("/", function(req, res, next) {
+	res.sendfile(path.join(publicRoot, "index.html"));
+});
+
+app.use("/static", express.static(publicRoot));
 
 
 var plugins = {};
@@ -206,7 +210,7 @@ function registerPlugin(name, clientPlugin) {
 	plugins[name] = clientPlugin;
 
 	if (clientPlugin.public) {
-		app.use("/plugins/" + name, lessMiddleware(
+		app.use("/static/plugins/" + name, lessMiddleware(
 			clientPlugin.public,
 			{
 				force: true,
@@ -219,7 +223,7 @@ function registerPlugin(name, clientPlugin) {
 			}
 		));
 
-		app.use("/plugins/" + name, express.static(clientPlugin.public));
+		app.use("/static/plugins/" + name, express.static(clientPlugin.public));
 	}
 }
 
