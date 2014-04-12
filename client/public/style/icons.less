@@ -44,11 +44,11 @@
 	}
 
 	svg {
-		transition: 150ms;
+		transition: fill 150ms;
 	}
 
 	&:hover svg {
-		transition: 150ms;
+		transition: fill 150ms;
 		fill: @hoverColor;
 	}
 }
@@ -120,6 +120,7 @@
 	a.action-with-icon {
 		color: @mlGray;
 		text-decoration: none;
+		white-space: nowrap;
 
 		.icon {
 			.nestor-icon(@mlGray);
@@ -132,10 +133,6 @@
 			.icon {
 				.nestor-icon(@midGray);
 			}
-		}
-
-		& + a.action-with-icon {
-			margin-left: @margins;
 		}
 	}
 }

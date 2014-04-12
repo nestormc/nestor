@@ -1,8 +1,23 @@
 /*jshint browser:true */
 /*global define */
 
-define(["ist", "ajax", "dom", "login"], function(ist, ajax, dom, login) {
+define(["ist", "ist!tmpl/components/menu", "ajax", "dom", "login"], function(ist, menuTemplate, ajax, dom, login) {
 	"use strict";
+
+	var menuBehaviour = {
+		".menuicon": {
+			"click": function() {
+				dom.$P(this, ".menu").classList.toggle("visible");
+			}
+		}
+	};
+
+
+	ist.helper("menu", function(context, value, tmpl, iterate) {
+		iterate(function(key, rendered) {
+			return menuTemplate.render({ items: tmpl.render(context), behaviour: menuBehaviour });
+		});
+	});
 
 
 	ist.helper("if-right", function(context, value, tmpl, iterate) {

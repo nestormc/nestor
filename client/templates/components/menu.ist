@@ -1,0 +1,6 @@
+.menu
+	@behave behaviour
+		a.menuicon.active-icon
+			@icon "menu"
+		.menuitems
+			@dom items

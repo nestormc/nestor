@@ -297,13 +297,23 @@ function(ist, mainTemplate, components, signals, dom, when, login, uihelpers) {
 			mainContainer.innerHTML = "";
 			mainContainer.appendChild(istRendered);
 
-			// Setup viewport behaviour
-			dom.behave($("#viewport"), {
-				"&": {
+			// Setup main behaviour
+			dom.behave($("#main-container"), {
+				"#viewport": {
 					"scroll": function() {
 						if (activeMainView && this.scrollTop + this.offsetHeight > this.scrollHeight - SCROLL_THRESHOLD) {
 							activeMainView.scrolledToEnd.dispatch();
 						}
+					},
+				},
+
+				"&": {
+					"click": function(e) {
+						dom.$$("#viewport .menu.visible").forEach(function(menu) {
+							if (dom.$P(e.target, ".menu, .menuitems", true) !== menu) {
+								menu.classList.remove("visible");
+							}
+						});
 					}
 				}
 			});

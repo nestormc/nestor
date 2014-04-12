@@ -1,0 +1,36 @@
+.menu {
+	position: relative;
+
+	.menuitems {
+		.white-box;
+
+		position: absolute;
+		right: 0;
+		z-index: 1;
+		margin: 0;
+
+		display: none;
+
+		.action-with-icon {
+			display: block;
+			margin: 0;
+		}
+
+		.menu-separator {
+			margin: @margins 0;
+			border-bottom: 1px solid @lightGray;
+		}
+
+		// Hide separators when consecutive or first/last in menu
+		.menu-separator + .menu-separator,
+		.menu-separator:first-child,
+		.menu-separator:last-child {
+			display: none;
+		}
+
+	}
+
+	&.visible .menuitems {
+		display: block;
+	}
+}
