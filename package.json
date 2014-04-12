@@ -29,9 +29,6 @@
     "when": "*",
     "yarm": "*"
   },
-  "devDependencies": {
-    "minidom": "*"
-  },
   "scripts": {
     "postinstall": "node_modules/.bin/bower install"
   },
