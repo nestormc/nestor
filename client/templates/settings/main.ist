@@ -14,7 +14,11 @@
 
 		.content-box-header
 			.pane-icon
-				@svg { src: uri("icons/%s.svg", icon), colorize: true }
+				/* TODO make this cleaner */
+				@if icon.indexOf(':') === -1
+					@svg { src: uri("icons/%s.svg", icon), colorize: true }
+				@else
+					@svg { src: uri("plugins/%s/icons/%s.svg", icon.split(":")[0], icon.split(":")[1]), colorize: true }
 			.title "{{ title }}"
 			.description "{{ description }}"
 
