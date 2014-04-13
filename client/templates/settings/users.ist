@@ -14,11 +14,11 @@ ul.content-list
 				.list-item-subtitle
 					span.icon-color
 						@if provider === "google"
-							img[src=images/google/hover.png]
+							img[src=static/images/google/hover.png]
 						@if provider === "twitter"
-							@icon "twitter/hover"
+							@svg "images/twitter/hover.svg"
 						@if provider === "local"
-							@icon "nestor-margin"
+							@svg "images/nestor-margin.svg"
 
 					"{{ userid }}"
 
