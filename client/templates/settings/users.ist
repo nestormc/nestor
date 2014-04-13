@@ -3,14 +3,16 @@ ul.content-list
 		"No users"
 	@each users
 		li[class=list-item user{{ showRights ? " show-rights" : "" }}][data-id={{ identifier }}]
-			.list-item-status
-				@if lastLogin === "never"
-					"Never logged in"
-				@else
-					"Last logged in {{ lastLogin }}"
-
-			.list-item-description
+			.list-item-head
 				.list-item-title "{{ displayName }}"
+
+				.list-item-status
+					@if lastLogin === "never"
+						"Never logged in"
+					@else
+						"Last logged in {{ lastLogin }}"
+
+			.list-item-body
 				.list-item-subtitle
 					span.icon-color
 						@if provider === "google"
@@ -22,28 +24,28 @@ ul.content-list
 
 					"{{ userid }}"
 
-			ul.rights
-				@each loop.outer.rights
-					li
-						@if loop.outer.rights.indexOf(this.name) === -1
-							a.action-with-icon[href=#!settings/users/{{ loop.outer.identifier }}/addRight/{{ name }}]
-								@icon "cancel"
-								"{{ description }}"
-						@else
-							a.action-with-icon[href=#!settings/users/{{ loop.outer.identifier }}/delRight/{{ name }}]
-								@icon "commit"
-								"{{ description }}"
+				ul.rights.list-item-details
+					@each loop.outer.rights
+						li
+							@if loop.outer.rights.indexOf(this.name) === -1
+								a.action-with-icon[href=#!settings/users/{{ loop.outer.identifier }}/addRight/{{ name }}]
+									@icon "cancel"
+									"{{ description }}"
+							@else
+								a.action-with-icon[href=#!settings/users/{{ loop.outer.identifier }}/delRight/{{ name }}]
+									@icon "commit"
+									"{{ description }}"
 
-			.list-item-actions
-				@if rights.indexOf("nestor:login") === -1
-					a.action-with-icon[title=Enable access for user][href=#!settings/users/enable/{{ identifier }}]
-						@icon "commit"
-						"Enable access"
-				@else
-					a.action-with-icon[title=Change user access rights][href=#!settings/users/toggleRights/{{ identifier }}]
-						@icon "more"
-						span.more "More"
-						span.less "Less"
+				.list-item-actions
+					@if rights.indexOf("nestor:login") === -1
+						a.action-with-icon[title=Enable access for user][href=#!settings/users/enable/{{ identifier }}]
+							@icon "commit"
+							"Enable access"
+					@else
+						a.action-with-icon[title=Change user access rights][href=#!settings/users/toggleRights/{{ identifier }}]
+							@icon "more"
+							span.more "More"
+							span.less "Less"
 
 
 				a.action-with-icon[title=Remove user][href=#!settings/users/remove/{{ identifier }}]
