@@ -128,13 +128,13 @@ define(["router", "ui", "dom"], function(router, ui, dom) {
 					fetching = true;
 					view.loading.dispatch(true);
 
-					(fetcher ? fetcher() : watcher.fetch(fetchCount))
+					(fetcher ? fetcher(fetchCount) : watcher.fetch(fetchCount))
 					.then(function(docs) {
 						renderDocs(docs);
 						fetching = false;
 						view.loading.dispatch(false);
 
-						if (!fetcher && view.isEndVisible() && docs.length > 0) {
+						if (view.isEndVisible() && docs.length > 0) {
 							fetch();
 						}
 					})
@@ -193,7 +193,7 @@ define(["router", "ui", "dom"], function(router, ui, dom) {
 					watcher = null;
 				});
 			} else {
-				if (!fetcher && view.isEndVisible()) {
+				if (view.isEndVisible()) {
 					fetch();
 				}
 			}
