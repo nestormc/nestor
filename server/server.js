@@ -162,7 +162,10 @@ app.use(expressSession({
 	cookie: {
 		maxAge: 1000 * 60 * 60 * 24 * (serverConfig.sessionDays || 2)
 	},
-	store: new MongoStore({ url: config.database })
+	store: new MongoStore({
+		url: config.database,
+		auto_reconnect: true
+	})
 }));
 auth.listen(app, webHost);
 
