@@ -192,6 +192,10 @@ define(["router", "ui", "dom"], function(router, ui, dom) {
 					watcher.dispose();
 					watcher = null;
 				});
+			} else {
+				if (view.isEndVisible()) {
+					fetch();
+				}
 			}
 
 			watcher.resume();
