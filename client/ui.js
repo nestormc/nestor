@@ -1,8 +1,8 @@
 /*jshint browser:true*/
 /*global define*/
 define(
-["ist-wrapper", "ist!tmpl/main", "components/index", "signals", "dom", "when", "login", "uihelpers/index"],
-function(ist, mainTemplate, components, signals, dom, when, login, uihelpers) {
+["ist-wrapper", "ist!tmpl/main", "components/index", "signals", "dom", "when", "login", "storage", "uihelpers/index"],
+function(ist, mainTemplate, components, signals, dom, when, login, storage, uihelpers) {
 	"use strict";
 
 	var $ = dom.$;
@@ -283,6 +283,11 @@ function(ist, mainTemplate, components, signals, dom, when, login, uihelpers) {
 			var mainContainer = $("#main-container");
 			mainContainer.style.display = "block";
 
+			// Restore folded state
+			if (storage.get("ui/bar-folded", "no") === "yes") {
+				mainContainer.classList.add("bar-folded");
+			}
+
 			// Setup player show/hide
 			mainContainer.classList.add("player-hidden");
 			playerApp.activityChanged.add(function(active) {
@@ -320,7 +325,9 @@ function(ist, mainTemplate, components, signals, dom, when, login, uihelpers) {
 
 			// Fold/unfold bar
 			router.on("!fold-bar", function(err, req, next) {
-				mainContainer.classList.toggle("bar-folded");
+				var folded = mainContainer.classList.toggle("bar-folded");
+				storage.set("ui/bar-folded", folded ? "yes" : "no");
+
 				next();
 			});
 
