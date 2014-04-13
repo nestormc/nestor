@@ -47,7 +47,6 @@ ul.content-list
 							span.more "More"
 							span.less "Less"
 
-
-				a.action-with-icon[title=Remove user][href=#!settings/users/remove/{{ identifier }}]
-					@icon "cancel"
-					"Remove user"
+					a.action-with-icon[title=Remove user][href=#!settings/users/remove/{{ identifier }}]
+						@icon "cancel"
+						"Remove user"
