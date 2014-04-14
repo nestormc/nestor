@@ -188,6 +188,8 @@ function(ist, mainTemplate, components, signals, dom, when, login, storage, uihe
 	var SCROLL_THRESHOLD = 100;
 
 	var ui = {
+		isSmall: window.matchMedia("screen and (max-width: 980px)").matches,
+
 		plugin: "nestor",
 		components: components,
 
@@ -283,9 +285,15 @@ function(ist, mainTemplate, components, signals, dom, when, login, storage, uihe
 			var mainContainer = $("#main-container");
 			mainContainer.style.display = "block";
 
-			// Restore folded state
-			if (storage.get("ui/bar-folded", "no") === "yes") {
+			if (ui.isSmall) {
+				// Auto fold bar
 				mainContainer.classList.add("bar-folded");
+
+			} else {
+				// Restore folded state
+				if (storage.get("ui/bar-folded", "no") === "yes") {
+					mainContainer.classList.add("bar-folded");
+				}
 			}
 
 			// Setup player show/hide
@@ -314,6 +322,10 @@ function(ist, mainTemplate, components, signals, dom, when, login, storage, uihe
 
 				"&": {
 					"click": function(e) {
+						if (ui.isSmall && !dom.$P(e.target, "#logo-container", true)) {
+							mainContainer.classList.add("bar-folded");
+						}
+
 						dom.$$("#viewport .menu.visible").forEach(function(menu) {
 							if (dom.$P(e.target, ".menu, .menuitems", true) !== menu) {
 								menu.classList.remove("visible");
@@ -326,7 +338,10 @@ function(ist, mainTemplate, components, signals, dom, when, login, storage, uihe
 			// Fold/unfold bar
 			router.on("!fold-bar", function(err, req, next) {
 				var folded = mainContainer.classList.toggle("bar-folded");
-				storage.set("ui/bar-folded", folded ? "yes" : "no");
+
+				if (!ui.isSmall) {
+					storage.set("ui/bar-folded", folded ? "yes" : "no");
+				}
 
 				next();
 			});

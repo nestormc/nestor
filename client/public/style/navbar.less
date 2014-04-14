@@ -4,11 +4,15 @@
  **/
 
 #bar {
-	bottom: @playerHeight + @margins;
+	background-color: @darkGray;
+	bottom: @playerHeight;
 	width: @barWidth;
 	position: absolute;
-	top: @margins;
+	top: 0;
 	left: @margins;
+
+	padding-top: @margins;
+	padding-bottom: @margins;
 
 	color: @mlGray;
 
@@ -108,7 +112,7 @@
 }
 
 .player-hidden #bar {
-	bottom: @margins;
+	bottom: 0;
 }
 
 .bar-folded #bar {

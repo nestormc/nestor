@@ -1,5 +1,7 @@
 @import "defs.less";
+
 @iconSize: 6em;
+@smallIconSize: 2em;
 
 .pane {
 	min-height: @iconSize + 2*@contentBoxMargin;
@@ -8,6 +10,12 @@
 		.pane-icon {
 			width: @iconSize;
 			height: @iconSize;
+
+			@media @small {
+				width: @smallIconSize;
+				height: @smallIconSize;
+			}
+
 			float: left;
 			margin-right: @contentBoxMargin;
 
@@ -32,6 +40,10 @@
 
 	.settings {
 		margin-left: @iconSize + @contentBoxMargin;
+
+		@media @small {
+			margin-left: @smallIconSize + @contentBoxMargin;
+		}
 
 		.user {
 			.rights {

@@ -14,6 +14,14 @@
 	right: @margins;
 	overflow: auto;
 
+	@media @small {
+		z-index: -1;
+
+		top: 0;
+		left: @barFoldedWidth + 2*@margins;
+		right: 0;
+	}
+
 	background-color: @lightGray;
 
 	#search {
@@ -191,6 +199,10 @@
 
 .player-hidden #viewport {
 	bottom: @margins;
+
+	@media @small {
+		bottom: 0;
+	}
 }
 
 .bar-folded #viewport {
