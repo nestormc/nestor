@@ -8,6 +8,15 @@ function(ist, mainTemplate, components, signals, dom, when, login, storage, uihe
 	var $ = dom.$;
 	var $$ = dom.$$;
 
+	var mediumScreenWidth;
+	var smallScreenWidth;
+	var resizeHooked = false;
+
+	function onResize() {
+		ui.isMedium = window.matchMedia("screen and (max-width: " + mediumScreenWidth + "px)").matches;
+		ui.isSmall = window.matchMedia("screen and (max-width: " + smallScreenWidth + "px)").matches;
+	}
+
 
 	/*!
 	 * View show/hide helpers
@@ -188,7 +197,8 @@ function(ist, mainTemplate, components, signals, dom, when, login, storage, uihe
 	var SCROLL_THRESHOLD = 100;
 
 	var ui = {
-		isSmall: window.matchMedia("screen and (max-width: 980px)").matches,
+		isMedium: false,
+		isSmall: false,
 
 		plugin: "nestor",
 		components: components,
@@ -219,6 +229,16 @@ function(ist, mainTemplate, components, signals, dom, when, login, storage, uihe
 			settingsApp = apps.filter(function(a) { return a.name === "settings"; })[0];
 			playerApp = apps.filter(function(a) { return a.name === "player"; })[0];
 			ui.player = playerApp.public;
+
+			// Get metrics
+			mediumScreenWidth = $("#less-defs #medium-width").offsetWidth;
+			smallScreenWidth = $("#less-defs #small-width").offsetWidth;
+
+			if (!resizeHooked) {
+				resizeHooked = true;
+				window.addEventListener("resize", onResize, true);
+				onResize();
+			}
 
 			// Initialize rendering context
 			istContext = {

@@ -22,7 +22,25 @@
  **/
 
 @contentBoxMargin: .75em;
-@small: ~"screen and (max-width: 980px)";
+
+@mediumScreenWidth: 980px;
+@smallScreenWidth: 480px;
+
+#less-defs {
+	height: 0;
+	overflow: hidden;
+
+	#medium-width {
+		width: @mediumScreenWidth;
+	}
+
+	#small-width {
+		width: @smallScreenWidth;
+	}
+}
+
+@medium: ~"screen and (max-width: @{mediumScreenWidth})";
+@small: ~"screen and (max-width: @{smallScreenWidth})";
 
 /**
  ** Style templates
