@@ -5,21 +5,21 @@
 
 #player {
 	height: @playerHeight;
-	position: absolute;
-	bottom: @margins;
-	left: @margins;
-	right: @margins;
+	position: fixed;
+	bottom: 0;
+	left: 0;
+	right: 0;
 
-	background-color: @darkGray;
-	color: @mlGray;
+	background-color: @lightGray;
+	color: @midGray;
 
 	.display {
 		position: absolute;
 
 		width: @displayWidth;
-		top: 0;
-		bottom: 0;
-		left: 0;
+		top: @margins;
+		bottom: @margins;
+		left: @margins;
 
 		.track-display, .track-display .full-display, .status {
 			position: absolute;
@@ -146,6 +146,7 @@
 }
 
 #player.fullscreen {
+	position: fixed;
 	top: 0;
 	left: 0;
 	height: 100%;
@@ -153,9 +154,15 @@
 	bottom: 0;
 	right: 0;
 
+	background-color: black;
+	color: @mlGray;
+
 	.display {
 		width: 100%;
-
+		top: 0;
+		left: 0;
+		bottom: 0;
+		right: 0;
 
 		.status .icon {
 			width: @statusHeightFullscreen;

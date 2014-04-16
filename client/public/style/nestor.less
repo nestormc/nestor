@@ -36,16 +36,21 @@ textarea {
 	font-family: NestorFont;
 }
 
-body {
-	background-color: @darkGray;
+html, body {
+	height: 100%;
 }
 
-@barWidth: 12em;
-@logoWidth: 2.5em;
-@logoFoldedWidth: 1.2em;
-@playerHeight: 3em;
-@margins: .5em;
-@barFoldedWidth: @logoFoldedWidth + @margins;
+body {
+	background-color: @xlightGray;
+	margin: 0;
+	color: @darkGray;
+}
+
+#main-container {
+	min-height: 100%;
+	display: none;
+}
+
 
 @import "heartbeat.less";
 @import "login.less";

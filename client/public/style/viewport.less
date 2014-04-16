@@ -7,24 +7,14 @@
 }
 
 #viewport {
-	bottom: @playerHeight + @margins;
-	left: @barWidth + 2*@margins;
-	position: absolute;
-	top: @margins;
-	right: @margins;
+	min-height: 100%;
+	margin-bottom: @playerHeight;
 
-	overflow: auto;
-	overflow-scrolling: auto;
+	margin-left: @barWidth;
 
 	@media @small {
-		z-index: -1;
-
-		top: 0;
-		left: @barFoldedWidth + 2*@margins;
-		right: 0;
+		margin-left: @barFoldedWidth;
 	}
-
-	background-color: @lightGray;
 
 	#search {
 		background-color: @darkGray;
@@ -50,8 +40,9 @@
 		}
 
 		.inline-box {
-			.white-box;
+			.box;
 			display: inline-block;
+			margin: @contentBoxMargin;
 
 			&> .menu {
 				float: right;
@@ -59,7 +50,8 @@
 		}
 
 		.content-box {
-			.white-box;
+			.box;
+			margin: @contentBoxMargin;
 
 			& + .content-header {
 				clear: both;
@@ -84,23 +76,19 @@
 				clear: right;
 
 				.selected {
-					background-color: @lyellow;
-
-					&:nth-child(2n+1) {
-						background-color: @myellow;
-					}
+					background-color: @lightGray;
 				}
 			}
 
 			.content-list {
-				&>:nth-child(2n+1) {
-					background-color: @xlightGray;
+				&>:nth-child(n+2) {
+					border-top: 1px solid @lightGray;
 				}
 			}
 
 			.content-list-with-header {
-				&>:nth-child(2n+2) {
-					background-color: @xlightGray;
+				&>:nth-child(n+2) {
+					border-top: 1px solid @lightGray;
 				}
 			}
 
@@ -160,9 +148,9 @@
 			}
 
 			.progress {
-				height: .3em;
+				height: .15em;
 
-				background-color: @midGray;
+				background-color: @mllGray;
 				margin: 0;
 				position: relative;
 
@@ -173,40 +161,18 @@
 
 					height: 100%;
 					width: 0;
-					background-color: @yellow;
+					background-color: @midGray;
 				}
 
 			}
 		}
 	}
-
-	.datagrid {
-		font-size: .75em;
-		padding: @margins;
-		border-spacing: 0;
-		width: 100%;
-
-		th {
-			text-align: left;
-			font-family: NestorTitleFont;
-			background-color: @darkGray;
-			color: @yellow;
-		}
-
-		tr:nth-child(even) {
-			background-color: @lightGray;
-		}
-	}
 }
 
 .player-hidden #viewport {
-	bottom: @margins;
-
-	@media @small {
-		bottom: 0;
-	}
+	margin-bottom: 0;
 }
 
 .bar-folded #viewport {
-	left: @barFoldedWidth + 2*@margins;
+	margin-left: @barFoldedWidth;
 }

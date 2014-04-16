@@ -14,7 +14,7 @@ ul.content-list
 
 			.list-item-body
 				.list-item-subtitle
-					span.icon-color
+					span.icon-raw
 						@if provider === "google"
 							img[src=static/images/google/hover.png]
 						@if provider === "twitter"

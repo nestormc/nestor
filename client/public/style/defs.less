@@ -7,6 +7,7 @@
 @mdGray: hsv(0, 0, 27%);
 @midGray: hsv(0, 0, 32%);
 @mlGray: hsv(0, 0, 67%);
+@mllGray: hsv(0, 0, 82%);
 @lightGray: hsv(0, 0, 90%);
 @xlightGray: hsv(0, 0, 95%);
 
@@ -20,6 +21,13 @@
 /**
  ** Metrics
  **/
+
+@barWidth: 12em;
+@logoWidth: 2.5em;
+@logoFoldedWidth: 1.2em;
+@playerHeight: 3em + 2*@margins;
+@margins: .5em;
+@barFoldedWidth: @logoFoldedWidth + 3*@margins;
 
 @contentBoxMargin: .75em;
 
@@ -46,6 +54,14 @@
  ** Style templates
  **/
 
+.fill-screen (@margin: 0) {
+	position: fixed;
+	top: @margin;
+	left: @margin;
+	right: @margin;
+	bottom: @margin;
+}
+
 .fill-container (@margin: 0) {
 	position: absolute;
 	top: @margin;
@@ -54,11 +70,13 @@
 	bottom: @margin;
 }
 
-.white-box (@margin: @contentBoxMargin) {
-	background-color: white;
-	border: 1px solid @mlGray;
-	margin: @margin;
+.box (@margin: @contentBoxMargin) {
 	padding: @margin;
+}
 
-	box-shadow: 0 0 .25em @mlGray;
+.white-box (@margin: @contentBoxMargin) {
+	.box(@margin);
+	background-color: @xlightGray;
+	border: 1px solid @mllGray;
+	box-shadow: 0 0 .25em @mllGray;
 }

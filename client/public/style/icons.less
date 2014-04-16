@@ -30,12 +30,6 @@
 	}
 }
 
-.nestor-colorized {
-	svg {
-		fill: @mlGray;
-	}
-}
-
 .nestor-active-icon(@color, @hoverColor, @activeColor) {
 	.nestor-icon(@color);
 
@@ -53,86 +47,49 @@
 	}
 }
 
-#bar, #player {
-	.icon {
-		.nestor-icon(@midGray);
+.nestor-colorized {
+	fill: @mlGray;
+}
 
-		& + .icon {
-			margin-left: @margins;
-		}
-	}
+.icon {
+	.nestor-icon(@mlGray);
 
-	.pages .icon {
-		.nestor-icon(@mlGray);
-
-		height: 1.2em;
-		width: 1.2em;
-	}
-
-	.icon.active {
-		.nestor-icon(@yellow);
-	}
-
-	a.active-icon {
-		.nestor-active-icon(@midGray, @yellow, @mlGray);
-
-		& + a.active-icon {
-			margin-left: @margins;
-		}
+	& + .icon {
+		margin-left: @margins;
 	}
 }
 
-#viewport, #popup {
-	.icon-color {
-		.nestor-icon-size;
+.icon-raw {
+	.nestor-icon-size;
+}
+
+.icon.active {
+	.nestor-icon(@yellow);
+}
+
+a.active-icon {
+	.nestor-active-icon(@mlGray, @midGray, @yellow);
+
+	& + a.active-icon {
+		margin-left: @margins;
 	}
+}
+
+a.action-with-icon {
+	color: @mlGray;
+	text-decoration: none;
+	white-space: nowrap;
 
 	.icon {
 		.nestor-icon(@mlGray);
-
-		& + .icon {
-			margin-left: @margins;
-		}
 	}
 
-	.icon.active {
-		.nestor-icon(@midGray);
-	}
-
-	a.active-icon {
-		.nestor-active-icon(@mlGray, @midGray, @midGray);
-
-		& + a.active-icon {
-			margin-left: @margins;
-		}
-	}
-
-	a.action {
-		color: @mlGray;
-		text-decoration: none;
-
-		&:hover {
-			color: @midGray;
-			text-decoration: underline;
-		}
-	}
-
-	a.action-with-icon {
-		color: @mlGray;
-		text-decoration: none;
-		white-space: nowrap;
+	&:hover {
+		color: @midGray;
+		text-decoration: underline;
 
 		.icon {
-			.nestor-icon(@mlGray);
-		}
-
-		&:hover {
-			color: @midGray;
-			text-decoration: underline;
-
-			.icon {
-				.nestor-icon(@midGray);
-			}
+			.nestor-icon(@midGray);
 		}
 	}
 }

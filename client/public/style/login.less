@@ -37,19 +37,23 @@
 	#password,
 	#initial-loading {
 		padding-top: 2em;
-		color: @white;
+		color: @darkGray;
 	}
 
 	#loading {
 		padding-top: 2em;
 
 		.message {
-			color: @mlGray;
+			color: @darkGray;
 			font-size: .75em;
 		}
 
+		.available {
+			background-color: @mllGray;
+		}
+
 		.fill {
-			background-color: @mlGray;
+			background-color: @midGray;
 		}
 	}
 
@@ -80,24 +84,24 @@
 	.label-container label {
 		font-family: NestorTitleFont;
 
-		background: @darkGray;
+		background: @xlightGray;
 		padding: 0 1em;
 
 		position: relative;
 		top: -.75em;
 
-		color: @mlGray;
+		color: @darkGray;
 	}
 
 	.error {
-		color: @yellow;
+		color: @error;
 		font-size: .75em;
 	}
 
 	input {
 		border: 0;
 		background: transparent;
-		color: @white;
+		color: @darkGray;
 		text-align: center;
 		width: 100%;
 	}

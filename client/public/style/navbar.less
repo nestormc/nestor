@@ -4,17 +4,16 @@
  **/
 
 #bar {
-	background-color: @darkGray;
-	bottom: @playerHeight;
+	position: fixed;
 	width: @barWidth;
-	position: absolute;
 	top: 0;
-	left: @margins;
+	bottom: 0;
+	left: 0;
 
-	padding-top: @margins;
-	padding-bottom: @margins;
+	padding: @margins;
 
-	color: @mlGray;
+	background-color: @lightGray;
+	color: @midGray;
 
 	#nestor,
 	.plugin {
@@ -22,7 +21,7 @@
 	}
 
 	a {
-		color: @mlGray;
+		color: @midGray;
 	}
 
 	#nestor {
@@ -44,7 +43,6 @@
 		}
 
 		.user {
-			color: @white;
 			text-transform: capitalize;
 			font-family: NestorTitleFont;
 		}
@@ -63,7 +61,7 @@
 	}
 
 	.plugin + .plugin {
-		border-top: 1px solid @midGray;
+		border-top: 1px solid @mlGray;
 	}
 
 	.plugin {
@@ -90,29 +88,27 @@
 				}
 
 				a:hover {
-					background-color: @mdGray;
+					background-color: @mllGray;
 				}
 
 				a.current {
-					svg * {
-						fill: @mlGray !important;
+					svg {
+						fill: @midGray !important;
 					}
 				}
 
 				.icon {
+					height: 1.2em;
+					width: 1.2em;
 					margin-right: @margins;
 
-					svg * {
-						fill: @midGray !important;
+					svg {
+						fill: @mlGray !important;
 					}
 				}
 			}
 		}
 	}
-}
-
-.player-hidden #bar {
-	bottom: 0;
 }
 
 .bar-folded #bar {
