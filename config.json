@@ -14,7 +14,7 @@
 	"database": "mongodb://localhost/nestor",
 
 	"server": {
-		"host": "zenbook",
+		"host": "0.0.0.0",
 		"port": 4430,
 
 		"sessionDays": 14,
