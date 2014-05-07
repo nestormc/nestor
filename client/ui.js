@@ -538,7 +538,7 @@ function(ist, mainTemplate, components, signals, dom, when, login, storage, uihe
 					} else {
 						return false;
 					}
-				}
+				};
 
 				// Add signals
 				view.displayed = ui.signal();
