@@ -644,7 +644,7 @@ function createVideoCommand(data, streamspec, height, candidates, seekTime) {
  */
 
 
-exports.listen = function(app) {
+exports.listen = function(router) {
 	/* REST endpoint to query available formats and codecs */
 	yarm.resource("stream/formats")
 		.get(function(req, cb) {
@@ -708,7 +708,7 @@ exports.listen = function(app) {
 	    seek: start position in seconds (defaults to 0)
 		quality: height for video streams, bitrate for audio streams, or "original" (default)
 	*/
-	app.get("/stream/:provider/:id", function(req, res) {
+	router.get("/stream/:provider/:id", function(req, res) {
 		var name = req.param("provider");
 		var id = req.param("id");
 

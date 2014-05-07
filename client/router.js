@@ -28,6 +28,11 @@ define(["dom"], function(dom) {
 
 			if (match) {
 				return decode(match[1]);
+			} else {
+				var path = location.pathname;
+				if (path !== "/") {
+					return path;
+				}
 			}
 		};
 	}());
@@ -69,6 +74,16 @@ define(["dom"], function(dom) {
 
 	router = {
 		/**
+		 * Update location to get rid of ?route= parameter if present
+		 */
+		updateLocation: function() {
+			var route = getRouteParameter();
+			if (route) {
+				history.replaceState(null, null, route);
+			}
+		},
+
+		/**
 		 * Start listening to hashchange events
 		 *
 		 * @memberof router
@@ -98,7 +113,7 @@ define(["dom"], function(dom) {
 
 						if (path[0] !== "!") {
 							// Regular (non-action) route path, push history state
-							history.pushState(null, null, "?route=" + path);
+							history.pushState(null, null, path);
 						}
 
 						router.navigateTo(path);
@@ -148,7 +163,7 @@ define(["dom"], function(dom) {
 				popstate = null;
 			}
 
-			history.replaceState(null, null, "?");
+			history.replaceState(null, null, "/");
 		},
 
 

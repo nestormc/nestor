@@ -23,7 +23,8 @@ var http = require("http"),
 	streaming = require("./streaming"),
 	io = require("./io"),
 
-	app = express();
+	app = express(),
+	router = express.Router();
 
 
 
@@ -181,7 +182,22 @@ var nestorRoot = path.normalize(path.join(__dirname, ".."));
 var clientRoot = path.join(nestorRoot, "client");
 var publicRoot = path.join(clientRoot, "public");
 
-app.use("/static", lessMiddleware(
+
+router.get("/", function(req, res, next) {
+	res.sendfile(path.join(publicRoot, "index.html"));
+});
+
+router.get("/static/js/require.js", function(req, res, next) {
+	res.sendfile(path.join(nestorRoot, "node_modules/requirejs/require.js"));
+});
+
+
+router.get(/^\/static\/js\/(\w+)-min\.js$/, function(req, res, next) {
+	rjsBuilder(req.params[0], next);
+});
+
+
+router.use("/static", lessMiddleware(
 	publicRoot,
 	{
 		force: true,
@@ -192,20 +208,7 @@ app.use("/static", lessMiddleware(
 ));
 
 
-app.use("/static/js/require.js", function(req, res, next) {
-	res.sendfile(path.join(nestorRoot, "node_modules/requirejs/require.js"));
-});
-
-
-app.get(/^\/static\/js\/(\w+)-min\.js$/, function(req, res, next) {
-	rjsBuilder(req.params[0], next);
-});
-
-app.get("/", function(req, res, next) {
-	res.sendfile(path.join(publicRoot, "index.html"));
-});
-
-app.use("/static", express.static(publicRoot));
+router.use("/static", express.static(publicRoot));
 
 
 var plugins = {};
@@ -215,7 +218,7 @@ function registerPlugin(name, clientPlugin) {
 	}
 
 	if (clientPlugin.public) {
-		app.use("/static/plugins/" + name, lessMiddleware(
+		router.use("/static/plugins/" + name, lessMiddleware(
 			clientPlugin.public,
 			{
 				force: true,
@@ -228,7 +231,7 @@ function registerPlugin(name, clientPlugin) {
 			}
 		));
 
-		app.use("/static/plugins/" + name, express.static(clientPlugin.public));
+		router.use("/static/plugins/" + name, express.static(clientPlugin.public));
 	}
 }
 
@@ -241,8 +244,8 @@ function registerPlugin(name, clientPlugin) {
 
 
 /* Log REST requests */
-app.use("/rest", bodyParser.json());
-app.use("/rest", function(req, res, next) {
+router.use("/rest", bodyParser.json());
+router.use("/rest", function(req, res, next) {
 	if (req.body && Object.keys(req.body).length > 0) {
 		logger.debug("REST-%s %s %j", req.method, req.url, req.body);
 	} else {
@@ -253,7 +256,7 @@ app.use("/rest", function(req, res, next) {
 });
 
 /* Serve YARM rest resources */
-app.use("/rest", yarm());
+router.use("/rest", yarm());
 
 /* Override Buffer toJSON, just in case yarm sends an object with a huge buffer */
 Buffer.prototype.toJSON = function() {
@@ -283,7 +286,7 @@ yarm.resource("plugins")
  */
 
 
-streaming.listen(app);
+streaming.listen(router);
 
 
 /*!
@@ -292,18 +295,27 @@ streaming.listen(app);
 
 
 /* Heartbeat handler, can be used to check for connectivity with nestor */
-app.use("/heartbeat", function(req, res) {
+router.use("/heartbeat", function(req, res) {
 	res.send(204);
+});
+
+app.use("/", router);
+
+/* Client catchall route handler */
+app.use("/", function clientRouteHandler(req, res, next) {
+	res.redirect("/?route=" + req.path);
 });
 
 /* Catchall error handler */
 app.use(function errorHandler(err, req, res, next) {
-	logger.error("Unhandled exception: %s\n%s", err.message, err.stack);
+	if (err) {
+		logger.error("Unhandled exception: %s\n%s", err.message, err.stack);
 
-	if (app.get("env") === "development") {
-		res.send("<h1>" + err.message + "</h1><pre>" + err.stack + "</pre>");
-	} else {
-		res.send(500, "Internal server error");
+		if (app.get("env") === "development") {
+			res.send("<h1>" + err.message + "</h1><pre>" + err.stack + "</pre>");
+		} else {
+			res.send(500, "Internal server error");
+		}
 	}
 });
 
@@ -364,7 +376,7 @@ yarm.resource("external-ip")
    Plugins SHOULD prefer REST resources with yarm. But this can be used
    to achieve shorter URLs (I'm looking at you, nestor-share plugin) */
 intents.on("nestor:http:get", function(route, handler) {
-	app.get(route, handler);
+	router.get(route, handler);
 });
 
 

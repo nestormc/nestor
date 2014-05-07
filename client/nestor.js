@@ -104,6 +104,7 @@
 			}
 		};
 
+		router.updateLocation();
 		loading.reset();
 		io.connect();
 
