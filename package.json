@@ -14,7 +14,7 @@
     "cookie-parser": "*",
     "express": "*",
     "express-session": "*",
-    "fluent-ffmpeg": "njoyard/node-fluent-ffmpeg#ffprobe",
+    "fluent-ffmpeg": "fluent-ffmpeg/node-fluent-ffmpeg#2.x",
     "less-middleware": "*",
     "log4js": "*",
     "mongodb": "*",
