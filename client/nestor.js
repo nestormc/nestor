@@ -33,6 +33,10 @@
 		}
 	});
 
+	require(["router"], function(router) {
+		router.updateLocation();
+	});
+
 	require(
 	[
 		"ist", "dom", "login", "ui", "router", "storage", "plugins", "ajax", "rest", "io",
@@ -103,8 +107,6 @@
 				this.update();
 			}
 		};
-
-		router.updateLocation();
 		loading.reset();
 		io.connect();
 
